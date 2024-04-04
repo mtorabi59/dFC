@@ -224,11 +224,11 @@ def downsample_events_hrf(events_hrf, TR_mri, TR_task, method="uniform"):
     return events_hrf_ds
 
 
-def extract_task_presence(event_labels, TR_task, TR_array, TR_mri, binary=True):
+def extract_task_presence(event_labels, TR_task, TR_mri, TR_array=None, binary=True):
     """
     event_labels: event labels including 0 and event ids at the time each event happens
     TR_task: TR of task
-    TR_array: the time points of the dFC data
+    TR_array: the time points of the dFC data, optional
     TR_mri: TR of MRI
 
     This function extracts the task presence from the event labels and returns it in the same time points as the dFC data
@@ -262,6 +262,68 @@ def extract_task_presence(event_labels, TR_task, TR_array, TR_mri, binary=True):
     task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
 
     # some dFC measures (window-based) have a different TR than the task data
-    task_presence = task_presence[TR_array]
+    if TR_array is not None:
+        task_presence = task_presence[TR_array]
 
     return task_presence
+
+
+################################# Task Features ####################################
+
+
+def relative_task_on(task_presence):
+    """
+    task_presence: 0, 1 array
+    return: relative_task_on
+    """
+    return np.sum(task_presence) / len(task_presence)
+
+
+def task_duration(task_presence, TR_mri):
+    """
+    task_presence: 0, 1 array
+    return: avg_task_duration, var_task_duration
+    """
+    task_durations = list()
+    for i in range(1, len(task_presence)):
+        if task_presence[i] == 1 and task_presence[i - 1] == 0:
+            start = i
+        if task_presence[i] == 0 and task_presence[i - 1] == 1:
+            end = i
+            task_durations.append((end - start) * TR_mri)
+            start = None
+    task_durations = np.array(task_durations)
+    return np.mean(task_durations), np.var(task_durations)
+
+
+def rest_duration(task_presence, TR_mri):
+    """
+    task_presence: 0, 1 array
+    return: avg_rest_duration, var_rest_duration
+    """
+    rest_durations = list()
+    if task_presence[0] == 0:
+        start = 0
+    for i in range(1, len(task_presence)):
+        if task_presence[i] == 0 and task_presence[i - 1] == 1:
+            start = i
+        if task_presence[i] == 1 and task_presence[i - 1] == 0:
+            end = i
+            rest_durations.append((end - start) * TR_mri)
+            start = None
+    if task_presence[-1] == 0:
+        end = len(task_presence)
+        rest_durations.append((end - start) * TR_mri)
+    rest_durations = np.array(rest_durations)
+    return np.mean(rest_durations), np.var(rest_durations)
+
+
+def transition_freq(task_presence):
+    """
+    task_presence: 0, 1 array
+    return: num_of_transitions, relative_transition_freq
+    """
+    transitions = np.abs(np.diff(task_presence))
+    num_of_transitions = np.sum(transitions)
+    relative_transition_freq = num_of_transitions / len(task_presence)
+    return num_of_transitions, relative_transition_freq
