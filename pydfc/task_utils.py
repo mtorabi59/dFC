@@ -59,11 +59,11 @@ def events_time_to_labels(
 ################################# Visualization Functions ####################################
 
 
-def plot_task_dFC(task_labels, dFC_lst, event_types, Fs_mri, TR_step=12):
+def plot_task_dFC(task_presence, dFC_lst, Fs_mri, TR_step=12):
     """
-    task_labels: numpy array of shape (num_time_task, num_event_types) containing the event or task labels
-    this function assumes that the task data has the same Fs as the dFC data, i.e. MRI data
-    and that the time points of the task data are aligned with the time points of the dFC data
+    task_presence: numpy array containing the task presence in the time points of the dFC data
+    this function assumes that the task presence has the same Fs as the dFC data, i.e. MRI data
+    and that the time points of the task presence are aligned with the time points of the dFC data
     """
     conn_mat_size = 20
     scale_task_plot = 20
@@ -73,12 +73,8 @@ def plot_task_dFC(task_labels, dFC_lst, event_types, Fs_mri, TR_step=12):
 
     ax = plt.gca()
 
-    time = np.arange(0, task_labels.shape[0]) / Fs_mri
-    for i in range(0, task_labels.shape[1]):
-        ax.plot(
-            time, task_labels[:, i] * scale_task_plot, label=event_types[i], linewidth=4
-        )
-    plt.legend()
+    time = np.arange(0, task_presence.shape[0]) / Fs_mri
+    ax.plot(time, task_presence * scale_task_plot, linewidth=4)
     plt.xlabel("Time (s)")
 
     comman_TRs = TR_intersection(dFC_lst)
