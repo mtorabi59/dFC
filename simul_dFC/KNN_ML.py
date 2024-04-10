@@ -147,13 +147,28 @@ for dFC_id in range(0, 7):
             X_new = dFC_vecs
             y_new = task_presence.ravel()
 
-            # concat current TR and two TR before of X_new to predict the current TR of y_new
-            # ignore the edge case of the first two TRs
+            # # concat current TR and two TR before of X_new to predict the current TR of y_new
+            # # ignore the edge case of the first two TRs
+            # X_new = np.concatenate(
+            #     (X_new, np.roll(X_new, 1, axis=0), np.roll(X_new, 2, axis=0)), axis=1
+            # )
+            # X_new = X_new[2:, :]
+            # y_new = y_new[2:]
+
+            # concat current TR and two TR before and after of X_new to predict the current TR of y_new
+            # ignore the edge case of the first and last two TRs
             X_new = np.concatenate(
-                (X_new, np.roll(X_new, 1, axis=0), np.roll(X_new, 2, axis=0)), axis=1
+                (
+                    X_new,
+                    np.roll(X_new, 1, axis=0),
+                    np.roll(X_new, 2, axis=0),
+                    np.roll(X_new, -1, axis=0),
+                    np.roll(X_new, -2, axis=0),
+                ),
+                axis=1,
             )
-            X_new = X_new[2:, :]
-            y_new = y_new[2:]
+            X_new = X_new[2:-2, :]
+            y_new = y_new[2:-2]
 
             if subj in train_subjects:
                 subj_label_train.extend([subj for i in range(X_new.shape[0])])
