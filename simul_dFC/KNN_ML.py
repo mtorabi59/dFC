@@ -201,20 +201,25 @@ for dFC_id in range(0, 7):
 
         print("task presence classification ...")
 
+        # find num_PCs
         pca = PCA(svd_solver="full", whiten=False)
         pca.fit(X_train)
         num_PCs = np.where(np.cumsum(pca.explained_variance_ratio_) > 0.95)[0][0] + 1
 
-        # create new a knn model
-        knn = KNeighborsClassifier()
+        # create a pipeline with a knn model to find the best n_neighbors
+        knn = make_pipeline(
+            StandardScaler(),
+            PCA(n_components=num_PCs),
+            KNeighborsClassifier(),
+        )
         # create a dictionary of all values we want to test for n_neighbors
-        param_grid = {"n_neighbors": np.arange(1, 30)}
+        param_grid = {"kneighborsclassifier__n_neighbors": np.arange(1, 30)}
         # use gridsearch to test all values for n_neighbors
         knn_gscv = GridSearchCV(knn, param_grid, cv=5)
         # fit model to data
         knn_gscv.fit(X_train, y_condition_train)
 
-        n_neighbors = knn_gscv.best_params_["n_neighbors"]
+        n_neighbors = knn_gscv.best_params_["kneighborsclassifier__n_neighbors"]
 
         neigh = make_pipeline(
             StandardScaler(),
