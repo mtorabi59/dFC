@@ -6,6 +6,8 @@ Created on Oct 25 2023
 @author: Mohammad Torabi
 """
 
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 from nilearn import glm
@@ -25,15 +27,21 @@ def events_time_to_labels(
     It assumes that the first time point is TR0 which corresponds to [0 sec, TR sec] interval.
     oversampling: number of samples per TR_mri to improve the time resolution of tasks
     """
+
+    # find which column is the "onset" in the first row
+    onset_idx = np.where(events[0, :] == "onset")[0][0]
+    duration_idx = np.where(events[0, :] == "duration")[0][0]
+    trial_type_idx = np.where(events[0, :] == "trial_type")[0][0]
+
     assert (
-        events[0, 0] == "onset"
-    ), "The first column of the events file should be the onset!"
+        events[0, onset_idx] == "onset"
+    ), "Something went wrong with the events file! The onset column was not found!"
     assert (
-        events[0, 1] == "duration"
-    ), "The second column of the events file should be the duration!"
+        events[0, duration_idx] == "duration"
+    ), "Something went wrong with the events file! The duration column was not found!"
     assert (
-        events[0, 2] == "trial_type"
-    ), "The third column of the events file should be the trial type!"
+        events[0, trial_type_idx] == "trial_type"
+    ), "Something went wrong with the events file! The trial_type column was not found!"
 
     Fs = float(1 / TR_mri) * oversampling
     num_time_task = int(num_time_mri * oversampling)
@@ -43,12 +51,16 @@ def events_time_to_labels(
         if i == 0:
             continue
 
-        if events[i, 2] in event_types:
-            start_time = float(events[i, 0])
-            end_time = float(events[i, 0]) + float(events[i, 1])
+        if events[i, trial_type_idx] in event_types:
+            if events[i, trial_type_idx] == "rest":
+                warnings.warn("trial types should not include 'rest'")
+            start_time = float(events[i, onset_idx])
+            end_time = float(events[i, onset_idx]) + float(events[i, duration_idx])
             start_timepoint = int(np.rint(start_time * Fs))
             end_timepoint = int(np.rint(end_time * Fs))
-            event_labels[start_timepoint:end_timepoint] = event_types.index(events[i, 2])
+            event_labels[start_timepoint:end_timepoint] = event_types.index(
+                events[i, trial_type_idx]
+            )
 
     if return_0_1:
         event_labels = np.multiply(event_labels != 0, 1)
