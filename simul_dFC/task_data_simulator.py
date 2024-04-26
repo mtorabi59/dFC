@@ -143,11 +143,11 @@ for task in all_task_info:
     time_series, task_data = simul_utils.simulate_task(subj_id, all_task_info[task])
 
     # save the time series and task data
-    subj_folder = f"{subj_id}_{task}"
-    if not os.path.exists(f"{output_root}/{subj_folder}/"):
-        os.makedirs(f"{output_root}/{subj_folder}/")
-    np.save(f"{output_root}/{subj_folder}/time_series.npy", time_series)
-    np.save(f"{output_root}/{subj_folder}/task_data.npy", task_data)
+    output_file_prefix = f"{subj_id}_{task}"
+    if not os.path.exists(f"{output_root}/{subj_id}/"):
+        os.makedirs(f"{output_root}/{subj_id}/")
+    np.save(f"{output_root}/{subj_id}/{output_file_prefix}_time-series.npy", time_series)
+    np.save(f"{output_root}/{subj_id}/{output_file_prefix}_task-data.npy", task_data)
 
 print("****************** DONE ******************")
 ####################################################################################
