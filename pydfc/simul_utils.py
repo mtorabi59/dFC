@@ -6,11 +6,7 @@ Created on April 25 2024
 @author: Mohammad Torabi
 """
 
-import re
-from calendar import c
-
 import numpy as np
-from matplotlib.pylab import rand
 from tvb.simulator.lab import *
 
 from pydfc import TIME_SERIES, task_utils
