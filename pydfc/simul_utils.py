@@ -182,7 +182,7 @@ def create_simul_task_info(
         generate more samples per TR than the func data to have a
         better event_labels time resolution
     """
-    ################################# EXTRACT TASK LABELS #########################
+    ####################### EXTRACT TASK LABELS #######################
     events = []
     event_types = ["rest", "task"]
 
@@ -276,7 +276,7 @@ def simulate_task_BOLD_TS(
     return time_series, task_data
 
 
-def simulate_task(subj_id, task_info):
+def simulate_task_data(subj_id, task_info):
     """
     Simulate task-based BOLD signal for a subject.
 
@@ -309,7 +309,7 @@ def simulate_task(subj_id, task_info):
             - dt: float
                 The simulation time step.
     """
-    time_series, task_data = simulate_task(
+    time_series, task_data = simulate_task_BOLD_TS(
         subj_id=subj_id,
         task=task_info["task_name"],
         onset_time=task_info["onset_time"],

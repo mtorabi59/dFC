@@ -140,7 +140,7 @@ all_task_info = {
 
 for task in all_task_info:
 
-    time_series, task_data = simul_utils.simulate_task(subj_id, all_task_info[task])
+    time_series, task_data = simul_utils.simulate_task_data(subj_id, all_task_info[task])
 
     # save the time series and task data
     output_file_prefix = f"{subj_id}_{task}"
