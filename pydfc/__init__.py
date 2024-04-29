@@ -27,4 +27,6 @@ __all__ = [
     "dfc_methods",
     "dfc_utils",
     "comparison",
+    "task_utils",
+    "simul_utils",
 ]
