@@ -14,21 +14,27 @@ os.environ["OMP_NUM_THREADS"] = "16"
 
 ################################# Parameters #################################
 # data paths
-dataset = "ds000001"
+dataset = "ds000002"
 # main_root = f"./DATA/{dataset}" # for local
-main_root = f"../../DATA/task-based/simulated/{dataset}"  # for server
+main_root = f"/data/origami/dFC/DATA/task-based/simulated/{dataset}"  # for server
 roi_root = f"{main_root}/derivatives/ROI_timeseries"
 output_root = f"{main_root}/derivatives/fitted_MEASURES"
 
-# for consistency we use 0 for resting state
-TASKS = ["task-pulse"]
+TASKS = [
+    "task-midFreqMidRest",
+    "task-lowFreqLongRest",
+    "task-lowFreqShortRest",
+    "task-lowFreqShortTask",
+    "task-highFreqLongRest",
+    "task-highFreqShortRest",
+    "task-midFreqMidRestNoisy",
+]
 
-# job_id = int(os.getenv("SGE_TASK_ID"))
-# TASK_id = job_id-1 # SGE_TASK_ID starts from 1 not 0
-# if TASK_id >= len(TASKS):
-#     print("TASK_id out of TASKS")
-#     exit()
-TASK_id = 0
+job_id = int(os.getenv("SGE_TASK_ID"))
+TASK_id = job_id - 1  # SGE_TASK_ID starts from 1 not 0
+if TASK_id >= len(TASKS):
+    print("TASK_id out of TASKS")
+    exit()
 task = TASKS[TASK_id]
 
 ###### MEASUREMENT PARAMETERS ######
