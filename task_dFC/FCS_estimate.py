@@ -14,20 +14,21 @@ os.environ["OMP_NUM_THREADS"] = "16"
 
 ################################# Parameters #################################
 # data paths
-# main_root = '../../DATA/ds002785/' # for local
-main_root = "../../../DATA/task-based/openneuro/ds002785"  # for server
+dataset = "ds003242"
+# main_root = f"../../DATA/{dataset}" # for local
+main_root = f"/data/origami/dFC/DATA/task-based/openneuro/{dataset}"  # for server
 roi_root = f"{main_root}/derivatives/ROI_timeseries"
 output_root = f"{main_root}/derivatives/fitted_MEASURES"
 
 # for consistency we use 0 for resting state
-TASKS = [
-    "task-restingstate",
-    "task-anticipation",
-    "task-emomatching",
-    "task-faces",
-    "task-gstroop",
-    "task-workingmemory",
-]
+TASKS = ["task-CIC", "task-midloc"]
+
+# default RUNS = None
+RUNS = None
+RUNS = {
+    "task-CIC": ["run-001", "run-002", "run-003", "run-004", "run-005", "run-006"],
+    "task-midloc": ["run-001"],
+}
 
 job_id = int(os.getenv("SGE_TASK_ID"))
 TASK_id = job_id - 1  # SGE_TASK_ID starts from 1 not 0
@@ -42,7 +43,7 @@ task = TASKS[TASK_id]
 
 params_methods = {
     # Sliding Parameters
-    "W": 44,
+    "W": 12,
     "n_overlap": 1.0,
     "sw_method": "pear_corr",
     "tapered_window": True,
@@ -54,8 +55,8 @@ params_methods = {
     "hmm_iter": 20,
     "dhmm_obs_state_ratio": 16 / 24,
     # State Parameters
-    "n_states": 12,
-    "n_subj_clstrs": 20,
+    "n_states": 5,
+    "n_subj_clstrs": 10,
     # Parallelization Parameters
     "n_jobs": 2,
     "verbose": 0,
@@ -64,8 +65,8 @@ params_methods = {
     "session": task,
     # Hyper Parameters
     "normalization": True,
-    "num_subj": None,  # None or 216?
-    "num_time_point": None,  # None or set?
+    "num_subj": None,
+    "num_time_point": None,
 }
 
 ###### HYPER PARAMETERS ALTERNATIVE ######
@@ -102,48 +103,57 @@ params_multi_analysis = {
     "backend": "loky",
 }
 
-################################# LOAD DATA #################################
+if RUNS is None:
+    RUNS = {task: [None]}
+for run in RUNS[task]:
+    if run is None:
+        print(f"TASK: {task} started ...")
+        file_suffix = f"{task}"
+        BOLD_file_name = "{subj_id}_{task}_time-series.npy"
+    else:
+        print(f"TASK: {task}, RUN: {run} started ...")
+        file_suffix = f"{task}_{run}"
+        BOLD_file_name = "{subj_id}_{task}_{run}_time-series.npy"
+    ################################# LOAD DATA #################################
+    BOLD = data_loader.load_TS(
+        data_root=roi_root,
+        file_name=BOLD_file_name,
+        SESSIONs=task,
+        subj_id2load=None,
+        task=task,
+        run=run,
+    )
+    ################################ Measures of dFC #################################
 
-BOLD = data_loader.load_TS(
-    data_root=roi_root, file_name="time_series.npy", SESSIONs=task, subj_id2load=None
-)
+    MA = MultiAnalysis(
+        analysis_name=f"task-based-dFC-{dataset}-{file_suffix}", **params_multi_analysis
+    )
 
-################################# Visualize BOLD #################################
+    MEASURES_lst = MA.measures_initializer(
+        MEASURES_name_lst, params_methods, alter_hparams
+    )
 
-# for session in BOLD:
-#     BOLD.visualize(start_time=0, end_time=2000, nodes_lst=list(range(10)),
-#         save_image=False, output_root=None)
+    tic = time.time()
+    print("Measurement Started ...")
 
-################################ Measures of dFC #################################
+    ################################# estimate FCS #################################
 
-MA = MultiAnalysis(
-    analysis_name=f"task-based-dFC-ds002785-{task}", **params_multi_analysis
-)
+    for MEASURE_id, measure in enumerate(MEASURES_lst):
 
-MEASURES_lst = MA.measures_initializer(MEASURES_name_lst, params_methods, alter_hparams)
+        print("MEASURE: " + measure.measure_name)
+        print("FCS estimation started...")
 
-tic = time.time()
-print("Measurement Started ...")
+        if measure.is_state_based:
+            measure.estimate_FCS(time_series=BOLD)
 
-################################# estimate FCS #################################
+        print("FCS estimation done.")
 
-for MEASURE_id, measure in enumerate(MEASURES_lst):
+        # Save
+        if not os.path.exists(f"{output_root}"):
+            os.makedirs(f"{output_root}")
+        np.save(f"{output_root}/MEASURE_{file_suffix}_{MEASURE_id}.npy", measure)
 
-    print("MEASURE: " + measure.measure_name)
-    print("FCS estimation started...")
-
-    if measure.is_state_based:
-        measure.estimate_FCS(time_series=BOLD)
-
-    # dFC_analyzer.estimate_group_FCS(time_series_dict=BOLD)
-    print("FCS estimation done.")
-
-    # Save
-    if not os.path.exists(f"{output_root}/{task}"):
-        os.makedirs(f"{output_root}/{task}")
-    np.save(f"{output_root}/{task}/MEASURE_{str(MEASURE_id)}.npy", measure)
-
-print(f"Measurement required {time.time() - tic:0.3f} seconds.")
-np.save(f"{output_root}/{task}/multi_analysis.npy", MA)
+    print(f"Measurement required {time.time() - tic:0.3f} seconds.")
+    np.save(f"{output_root}/multi-analysis_{file_suffix}.npy", MA)
 
 #################################################################################

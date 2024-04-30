@@ -18,7 +18,12 @@ def run_roi_signal_extraction(
     Extract ROI signals and task labels for a given subject and task
     """
     # find the func file for this subject and task
-    ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/func/")
+    try:
+        ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/func/")
+    except FileNotFoundError:
+        print(f"Subject {subj} not found in {fmriprep_root}")
+        return
+
     ALL_TASK_FILES = [
         file_i
         for file_i in ALL_TASK_FILES
@@ -27,7 +32,7 @@ def run_roi_signal_extraction(
 
     if not len(ALL_TASK_FILES) >= 1:
         # if the func file is not found, exclude the subject
-        print("Func file not found for " + subj + " " + task)
+        print(f"Func file not found for {subj} {task}")
         return
 
     # there might be multiple runs for the same task

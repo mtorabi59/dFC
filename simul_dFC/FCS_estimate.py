@@ -65,8 +65,8 @@ params_methods = {
     "session": task,
     # Hyper Parameters
     "normalization": True,
-    "num_subj": None,  # None or 200?
-    "num_time_point": None,  # None or set?
+    "num_subj": None,
+    "num_time_point": None,
 }
 
 ###### HYPER PARAMETERS ALTERNATIVE ######
@@ -106,15 +106,12 @@ params_multi_analysis = {
 ################################# LOAD DATA #################################
 
 BOLD = data_loader.load_TS(
-    data_root=roi_root, file_name="time_series.npy", SESSIONs=task, subj_id2load=None
+    data_root=roi_root,
+    file_name="{subj_id}_{task}_time-series.npy",
+    SESSIONs=task,
+    subj_id2load=None,
+    task=task,
 )
-
-################################# Visualize BOLD #################################
-
-# for session in BOLD:
-#     BOLD.visualize(start_time=0, end_time=2000, nodes_lst=list(range(10)),
-#         save_image=False, output_root=None)
-
 ################################ Measures of dFC #################################
 
 MA = MultiAnalysis(
@@ -136,15 +133,14 @@ for MEASURE_id, measure in enumerate(MEASURES_lst):
     if measure.is_state_based:
         measure.estimate_FCS(time_series=BOLD)
 
-    # dFC_analyzer.estimate_group_FCS(time_series_dict=BOLD)
     print("FCS estimation done.")
 
     # Save
-    if not os.path.exists(f"{output_root}/{task}"):
-        os.makedirs(f"{output_root}/{task}")
-    np.save(f"{output_root}/{task}/MEASURE_{str(MEASURE_id)}.npy", measure)
+    if not os.path.exists(f"{output_root}"):
+        os.makedirs(f"{output_root}")
+    np.save(f"{output_root}/MEASURE_{task}_{MEASURE_id}.npy", measure)
 
 print(f"Measurement required {time.time() - tic:0.3f} seconds.")
-np.save(f"{output_root}/{task}/multi_analysis.npy", MA)
+np.save(f"{output_root}/multi-analysis_{task}.npy", MA)
 
 #################################################################################
