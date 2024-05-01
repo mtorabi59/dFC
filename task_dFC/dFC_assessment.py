@@ -1,3 +1,5 @@
+import argparse
+import json
 import os
 import time
 import warnings
@@ -12,97 +14,190 @@ os.environ["MKL_NUM_THREADS"] = "16"
 os.environ["NUMEXPR_NUM_THREADS"] = "16"
 os.environ["OMP_NUM_THREADS"] = "16"
 
-################################# Parameters #################################
+################################# Functions #################################
 
-# Data parameters
-# main_root = '../../DATA/ds002785/' # for local
-main_root = "../../../DATA/task-based/openneuro/ds002785/"  # for server
 
-# subjects used for dFC assessment do not need to be the same as those used for FCS_estimate
-# you can set the new roi root and data load parameters here:
-roi_root = f"{main_root}/derivatives/ROI_timeseries"
-fitted_measures_root = f"{main_root}/derivatives/fitted_MEASURES"
-output_root = f"{main_root}/derivatives/dFC_assessed"
+def run_dFC_assess(
+    subj_id,
+    task,
+    roi_root,
+    fitted_measures_root,
+    output_root,
+):
 
-# for consistency we use 0 for resting state
-TASKS = [
-    "task-restingstate",
-    "task-anticipation",
-    "task-emomatching",
-    "task-faces",
-    "task-gstroop",
-    "task-workingmemory",
-]
+    # check if the subject has this task in roi_root
+    if not os.path.exists(f"{roi_root}/{subj_id}"):
+        print(f"Subject {subj_id} not found in {roi_root}")
+        return
 
-# find all subjects across all tasks
-SUBJECTS = data_loader.find_subj_list(data_root=roi_root, sessions=TASKS)
+    ALL_ROI_FILES = os.listdir(f"{roi_root}/{subj_id}/")
+    ALL_ROI_FILES = [
+        roi_file
+        for roi_file in ALL_ROI_FILES
+        if ("_time-series.npy" in roi_file) and (task in roi_file)
+    ]
+    ALL_ROI_FILES.sort()
 
-# job_id selects the subject
-job_id = int(os.getenv("SGE_TASK_ID"))
-if job_id > len(SUBJECTS):
-    print("job_id > len(SUBJECTS)")
-    exit()
-subj_id = SUBJECTS[job_id - 1]  # SGE_TASK_ID starts from 1 not 0
+    # check if "_run" exists in all the task file names
+    if all(["_run" in roi_file for roi_file in ALL_ROI_FILES]):
+        # find all the runs
+        RUNS = [
+            roi_file[
+                roi_file.find("_run")
+                + 1 : roi_file.find("_run")
+                + 1
+                + roi_file[roi_file.find("_run") + 1 :].find("_")
+            ]
+            for roi_file in ALL_ROI_FILES
+        ]
+        # sort
+        RUNS.sort()
+        print(f"Found multiple runs for {subj_id} {task}: {RUNS}")
+    else:
+        RUNS = [None]
 
-for task in TASKS:
+    for run in RUNS:
 
-    MA = np.load(
-        f"{fitted_measures_root}/{task}/multi_analysis.npy", allow_pickle="TRUE"
-    ).item()
+        # check if the subject has this task and run in roi_root
+        if run is None:
+            file_suffix = f"{task}"
+            if not os.path.exists(
+                f"{roi_root}/{subj_id}/{subj_id}_{file_suffix}_time-series.npy"
+            ):
+                print(f"Time series file not found for {subj_id} {task}")
+                continue
+            else:
+                print(
+                    f"subject-level dFC assessment CODE started running ... for task {task} of subject {subj_id} ..."
+                )
+                BOLD_file_name = "{subj_id}_{task}_time-series.npy"
+        else:
+            file_suffix = f"{task}_{run}"
+            if not os.path.exists(
+                f"{roi_root}/{subj_id}/{subj_id}_{file_suffix}_time-series.npy"
+            ):
+                print(f"Time series file not found for {subj_id} {task} {run}")
+                continue
+            else:
+                print(
+                    f"subject-level dFC assessment CODE started running ... for task {task} and {run} of subject {subj_id} ..."
+                )
+                BOLD_file_name = "{subj_id}_{task}_{run}_time-series.npy"
 
-    # check if the subject has this task
-    SUBJECTS_with_this_task = data_loader.find_subj_list(
-        data_root=roi_root, sessions=[task]
-    )
-    if not subj_id in SUBJECTS_with_this_task:
-        print(f"subject {subj_id} not in the list of subjects with task {task}")
-        continue
+        ################################# LOAD FIT MEASURES #################################
 
-    ################################# LOAD FIT MEASURES #################################
-
-    ALL_RECORDS = os.listdir(f"{fitted_measures_root}/{task}/")
-    ALL_RECORDS = [i for i in ALL_RECORDS if "MEASURE" in i]
-    ALL_RECORDS.sort()
-    MEASURES_fit_lst = list()
-    for s in ALL_RECORDS:
-        fit_measure = np.load(
-            f"{fitted_measures_root}/{task}/{s}", allow_pickle="TRUE"
+        MA = np.load(
+            f"{fitted_measures_root}/multi-analysis_{file_suffix}.npy",
+            allow_pickle="TRUE",
         ).item()
-        MEASURES_fit_lst.append(fit_measure)
-    MA.set_MEASURES_fit_lst(MEASURES_fit_lst)
-    print("fitted MEASURES loaded ...")
 
-    ################################# LOAD DATA #################################
+        ALL_RECORDS = os.listdir(f"{fitted_measures_root}/")
+        ALL_RECORDS = [i for i in ALL_RECORDS if ("MEASURE" in i) and (file_suffix in i)]
+        ALL_RECORDS.sort()
+        MEASURES_fit_lst = list()
+        for s in ALL_RECORDS:
+            fit_measure = np.load(
+                f"{fitted_measures_root}/{s}", allow_pickle="TRUE"
+            ).item()
+            MEASURES_fit_lst.append(fit_measure)
+        MA.set_MEASURES_fit_lst(MEASURES_fit_lst)
+        print("fitted MEASURES are loaded ...")
+
+        ################################# LOAD DATA #################################
+
+        BOLD = data_loader.load_TS(
+            data_root=roi_root,
+            file_name=BOLD_file_name,
+            SESSIONs=task,
+            subj_id2load=subj_id,
+            task=task,
+            run=run,
+        )
+
+        ################################# dFC ASSESSMENT #################################
+
+        tic = time.time()
+        print("Measurement Started ...")
+
+        print("dFC estimation started...")
+        dFC_dict = MA.subj_lvl_dFC_assess(time_series_dict=BOLD)
+        print("dFC estimation done.")
+
+        print(f"Measurement required {time.time() - tic:0.3f} seconds.")
+
+        ################################# SAVE DATA #################################
+
+        folder = f"{output_root}/{subj_id}"
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        for dFC_id, dFC in enumerate(dFC_dict["dFC_lst"]):
+            np.save(f"{folder}/dFC_{file_suffix}_{dFC_id}.npy", dFC)
+
+
+#######################################################################################
+
+if __name__ == "__main__":
+    # argparse
+    HELPTEXT = """
+    Script to assess dFC for a given participant.
+    """
+
+    parser = argparse.ArgumentParser(description=HELPTEXT)
+
+    parser.add_argument("--dataset_info", type=str, help="path to dataset info file")
+    parser.add_argument("--participant_id", type=str, help="participant id")
+
+    args = parser.parse_args()
+
+    dataset_info_file = args.dataset_info
+    participant_id = args.participant_id
+
+    # Read global configs
+    with open(dataset_info_file, "r") as f:
+        dataset_info = json.load(f)
 
     print(
-        f"subject-level dFC assessment CODE started running ... for task {task} of subject {subj_id} ..."
+        f"subject-level dFC assessment CODE started running ... for subject: {participant_id} ..."
     )
 
-    BOLD = data_loader.load_TS(
-        data_root=roi_root,
-        file_name="time_series.npy",
-        SESSIONs=[task],
-        subj_id2load=subj_id,
+    TASKS = dataset_info["TASKS"]
+
+    if "{dataset}" in dataset_info["main_root"]:
+        main_root = dataset_info["main_root"].replace(
+            "{dataset}", dataset_info["dataset"]
+        )
+    else:
+        main_root = dataset_info["main_root"]
+
+    if "{main_root}" in dataset_info["roi_root"]:
+        roi_root = dataset_info["roi_root"].replace("{main_root}", main_root)
+    else:
+        roi_root = dataset_info["roi_root"]
+
+    if "{main_root}" in dataset_info["fitted_measures_root"]:
+        fitted_measures_root = dataset_info["fitted_measures_root"].replace(
+            "{main_root}", main_root
+        )
+    else:
+        fitted_measures_root = dataset_info["fitted_measures_root"]
+
+    if "{main_root}" in dataset_info["dFC_root"]:
+        output_root = dataset_info["dFC_root"].replace("{main_root}", main_root)
+    else:
+        output_root = dataset_info["dFC_root"]
+
+    for task in TASKS:
+        run_dFC_assess(
+            subj_id=participant_id,
+            task=task,
+            roi_root=roi_root,
+            fitted_measures_root=fitted_measures_root,
+            output_root=output_root,
+        )
+
+    print(
+        f"subject-level dFC assessment CODE finished running ... for subject: {participant_id} ..."
     )
-
-    ################################# dFC ASSESSMENT #################################
-
-    tic = time.time()
-    print("Measurement Started ...")
-
-    print("dFC estimation started...")
-    dFC_dict = MA.subj_lvl_dFC_assess(time_series_dict=BOLD)
-    print("dFC estimation done.")
-
-    print(f"Measurement required {time.time() - tic:0.3f} seconds.")
-
-    ################################# SAVE DATA #################################
-
-    folder = f"{output_root}/{task}/{subj_id}"
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-
-    for dFC_id, dFC in enumerate(dFC_dict["dFC_lst"]):
-        np.save(f"{folder}/dFC_{str(dFC_id)}.npy", dFC)
 
 #######################################################################################

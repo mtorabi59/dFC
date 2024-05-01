@@ -190,10 +190,10 @@ if __name__ == "__main__":
     else:
         fmriprep_root = dataset_info["fmriprep_root"]
 
-    if "{main_root}" in dataset_info["output_root"]:
-        output_root = dataset_info["output_root"].replace("{main_root}", main_root)
+    if "{main_root}" in dataset_info["roi_root"]:
+        output_root = dataset_info["roi_root"].replace("{main_root}", main_root)
     else:
-        output_root = dataset_info["output_root"]
+        output_root = dataset_info["roi_root"]
 
     for task in TASKS:
         run_roi_signal_extraction(
