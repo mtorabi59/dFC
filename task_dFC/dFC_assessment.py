@@ -38,6 +38,11 @@ def run_dFC_assess(
     ]
     ALL_ROI_FILES.sort()
 
+    # if there are no files for this task, return
+    if not len(ALL_ROI_FILES) >= 1:
+        print(f"No time series files found for {subj_id} {task}")
+        return
+
     # check if "_run" exists in all the task file names
     if all(["_run" in roi_file for roi_file in ALL_ROI_FILES]):
         # find all the runs
