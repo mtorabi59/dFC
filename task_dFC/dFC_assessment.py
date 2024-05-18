@@ -120,7 +120,7 @@ def run_dFC_assess(
         print("Measurement Started ...")
 
         print("dFC estimation started...")
-        dFC_dict = MA.subj_lvl_dFC_assess(time_series_dict=BOLD)
+        dFC_dict = MA.subj_lvl_dFC_assess(time_series=BOLD)
         print("dFC estimation done.")
 
         print(f"Measurement required {time.time() - tic:0.3f} seconds.")
