@@ -60,7 +60,7 @@ def extract_task_features(TASKS, roi_root, output_root):
         for subj in SUBJECTS:
             # event data
             task_data = np.load(
-                f"{roi_root}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
+                f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
             ).item()
             Fs_task = task_data["Fs_task"]
             TR_task = 1 / Fs_task
@@ -98,7 +98,7 @@ def extract_task_features(TASKS, roi_root, output_root):
     folder = f"{output_root}"
     if not os.path.exists(folder):
         os.makedirs(folder)
-    np.save(f"{folder}/task_features_KNN_classify.npy", task_features)
+    np.save(f"{folder}/task_features.npy", task_features)
 
 
 def dFC_feature_extraction_subj_lvl(
@@ -110,6 +110,7 @@ def dFC_feature_extraction_subj_lvl(
     """
     Extract features and target for task presence classification
     for a single subject.
+    dynamic_pred: "no", "past", "past_and_future"
     """
     # dFC features
     dFC_mat = dFC.get_dFC_mat()
@@ -180,7 +181,7 @@ def dFC_feature_extraction(
         ).item()
 
         task_data = np.load(
-            f"{roi_root}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
+            f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
         ).item()
 
         X_subj, y_subj = dFC_feature_extraction_subj_lvl(
@@ -207,7 +208,7 @@ def dFC_feature_extraction(
         ).item()
 
         task_data = np.load(
-            f"{roi_root}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
+            f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
         ).item()
 
         X_subj, y_subj = dFC_feature_extraction_subj_lvl(
@@ -392,7 +393,7 @@ def run_classification(
             os.makedirs(folder)
         np.save(f"{folder}/ML_RESULT_{dFC_id}.npy", ML_RESULT)
 
-    np.save(f"{folder}/ML_scores_KNN_classify.npy", ML_scores)
+    np.save(f"{folder}/ML_scores_classify.npy", ML_scores)
 
 
 #######################################################################################
