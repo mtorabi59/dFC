@@ -16,7 +16,7 @@ from pydfc.dfc_utils import dFC_mat2vec, rank_norm
 #######################################################################################
 
 
-def find_available_subjects(dFC_root, task, dFC_id=None):
+def find_available_subjects(dFC_root, task, run=None, dFC_id=None):
     """
     Find the subjects that have dFC results for the given task and dFC_id (method).
     """
@@ -31,6 +31,8 @@ def find_available_subjects(dFC_root, task, dFC_id=None):
             ALL_DFC_FILES = [
                 dFC_file for dFC_file in ALL_DFC_FILES if f"_{dFC_id}.npy" in dFC_file
             ]
+        if run is not None:
+            ALL_DFC_FILES = [dFC_file for dFC_file in ALL_DFC_FILES if run in dFC_file]
         ALL_DFC_FILES.sort()
         if len(ALL_DFC_FILES) > 0:
             SUBJECTS.append(subj_folder)
@@ -165,24 +167,34 @@ def dFC_feature_extraction(
     dFC_id,
     roi_root,
     dFC_root,
+    run=None,
     dynamic_pred="no",
     normalize_dFC=True,
 ):
     """
     Extract features and target for task presence classification
     for all subjects.
+    if run is specified, dFC results for that run will be used.
     """
     X_train = None
     y_train = None
     subj_label_train = list()
     for subj in train_subjects:
-        dFC = np.load(
-            f"{dFC_root}/{subj}/dFC_{task}_{dFC_id}.npy", allow_pickle="TRUE"
-        ).item()
-
-        task_data = np.load(
-            f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
-        ).item()
+        if run is None:
+            dFC = np.load(
+                f"{dFC_root}/{subj}/dFC_{task}_{dFC_id}.npy", allow_pickle="TRUE"
+            ).item()
+            task_data = np.load(
+                f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
+            ).item()
+        else:
+            dFC = np.load(
+                f"{dFC_root}/{subj}/dFC_{task}_{run}_{dFC_id}.npy", allow_pickle="TRUE"
+            ).item()
+            task_data = np.load(
+                f"{roi_root}/{subj}/{subj}_{task}_{run}_task-data.npy",
+                allow_pickle="TRUE",
+            ).item()
 
         X_subj, y_subj = dFC_feature_extraction_subj_lvl(
             dFC=dFC,
@@ -203,13 +215,21 @@ def dFC_feature_extraction(
     y_test = None
     subj_label_test = list()
     for subj in test_subjects:
-        dFC = np.load(
-            f"{dFC_root}/{subj}/dFC_{task}_{dFC_id}.npy", allow_pickle="TRUE"
-        ).item()
-
-        task_data = np.load(
-            f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
-        ).item()
+        if run is None:
+            dFC = np.load(
+                f"{dFC_root}/{subj}/dFC_{task}_{dFC_id}.npy", allow_pickle="TRUE"
+            ).item()
+            task_data = np.load(
+                f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
+            ).item()
+        else:
+            dFC = np.load(
+                f"{dFC_root}/{subj}/dFC_{task}_{run}_{dFC_id}.npy", allow_pickle="TRUE"
+            ).item()
+            task_data = np.load(
+                f"{roi_root}/{subj}/{subj}_{task}_{run}_task-data.npy",
+                allow_pickle="TRUE",
+            ).item()
 
         X_subj, y_subj = dFC_feature_extraction_subj_lvl(
             dFC=dFC,
@@ -246,17 +266,26 @@ def task_presence_classification(
     dFC_id,
     roi_root,
     dFC_root,
+    run=None,
     dynamic_pred="no",
     normalize_dFC=True,
     train_test_ratio=0.8,
     explained_var_threshold=0.95,
 ):
-    print(f"=============== {task} ===============")
+    """
+    perform task presence classification using KNN for a given task and dFC method and run.
+    """
+    if run is None:
+        print(f"=============== {task} ===============")
+    else:
+        print(f"=============== {task} {run} ===============")
 
     if task == "task-restingstate":
         return
 
-    SUBJECTS = find_available_subjects(dFC_root=dFC_root, task=task, dFC_id=dFC_id)
+    SUBJECTS = find_available_subjects(
+        dFC_root=dFC_root, task=task, run=run, dFC_id=dFC_id
+    )
 
     # randomly select train_test_ratio of the subjects for training
     # and rest for testing using numpy.random.choice
@@ -276,6 +305,7 @@ def task_presence_classification(
             dFC_id=dFC_id,
             roi_root=roi_root,
             dFC_root=dFC_root,
+            run=run,
             dynamic_pred=dynamic_pred,
             normalize_dFC=normalize_dFC,
         )
@@ -332,6 +362,7 @@ def task_presence_classification(
         "subj_id": list(),
         "group": list(),
         "task": list(),
+        "run": list(),
         "dFC method": list(),
         "KNN accuracy": list(),
     }
@@ -351,6 +382,7 @@ def task_presence_classification(
         ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred))
 
         ML_scores["task"].append(task)
+        ML_scores["run"].append(run)
         ML_scores["dFC method"].append(measure_name)
 
     return ML_RESULT, ML_scores
@@ -358,6 +390,7 @@ def task_presence_classification(
 
 def run_classification(
     TASKS,
+    RUNS,
     roi_root,
     dFC_root,
     output_root,
@@ -368,6 +401,7 @@ def run_classification(
         "subj_id": list(),
         "group": list(),
         "task": list(),
+        "run": list(),
         "dFC method": list(),
         "KNN accuracy": list(),
     }
@@ -376,17 +410,25 @@ def run_classification(
 
         ML_RESULT = {}
         for task_id, task in enumerate(TASKS):
-            ML_RESULT_new, ML_scores_new = task_presence_classification(
-                task=task,
-                dFC_id=dFC_id,
-                roi_root=roi_root,
-                dFC_root=dFC_root,
-                dynamic_pred=dynamic_pred,
-                normalize_dFC=normalize_dFC,
-            )
-            ML_RESULT[task] = ML_RESULT_new
-            for key in ML_scores:
-                ML_scores[key].extend(ML_scores_new[key])
+            if RUNS is None:
+                RUNS = {task: [None]}
+            ML_RESULT[task] = {}
+            for run in RUNS[task]:
+                ML_RESULT_new, ML_scores_new = task_presence_classification(
+                    task=task,
+                    dFC_id=dFC_id,
+                    roi_root=roi_root,
+                    dFC_root=dFC_root,
+                    run=run,
+                    dynamic_pred=dynamic_pred,
+                    normalize_dFC=normalize_dFC,
+                )
+                if run is None:
+                    ML_RESULT[task] = ML_RESULT_new
+                else:
+                    ML_RESULT[task][run] = ML_RESULT_new
+                for key in ML_scores:
+                    ML_scores[key].extend(ML_scores_new[key])
 
         folder = f"{output_root}"
         if not os.path.exists(folder):
@@ -419,6 +461,13 @@ if __name__ == "__main__":
     print("Task presence prediction started ...")
 
     TASKS = dataset_info["TASKS"]
+    if "RUNS" in dataset_info:
+        if dataset_info["RUNS"] is not None:
+            RUNS = dataset_info["RUNS"]
+        else:
+            RUNS = None
+    else:
+        RUNS = None
 
     if "{dataset}" in dataset_info["main_root"]:
         main_root = dataset_info["main_root"].replace(
@@ -449,6 +498,7 @@ if __name__ == "__main__":
     )
     run_classification(
         TASKS=TASKS,
+        RUNS=RUNS,
         roi_root=roi_root,
         dFC_root=dFC_root,
         output_root=ML_root,
