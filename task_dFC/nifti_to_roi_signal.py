@@ -109,17 +109,11 @@ def run_roi_signal_extraction(
             events_file = f"{task_events_root}/{ALL_EVENTS_FILES[0]}"
             events = np.genfromtxt(events_file, delimiter="\t", dtype=str)
             # get the event labels
-            # check that "rest" does not already exist in the event types
-            if any(
-                ["rest" in event_type for event_type in list(np.unique(events[1:, 2]))]
-            ):
-                raise ValueError("Event types should not include 'rest'")
-            event_types = ["rest"] + list(np.unique(events[1:, 2]))
-            event_labels, Fs_task = task_utils.events_time_to_labels(
+            event_labels, Fs_task, event_types = task_utils.events_time_to_labels(
                 events=events,
                 TR_mri=TR_mri,
                 num_time_mri=num_time_mri,
-                event_types=event_types,
+                event_types=None,
                 oversampling=oversampling,
                 return_0_1=False,
             )

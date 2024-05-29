@@ -19,10 +19,10 @@ from .dfc_utils import TR_intersection, rank_norm, visualize_conn_mat
 
 
 def events_time_to_labels(
-    events, TR_mri, num_time_mri, event_types=[], oversampling=50, return_0_1=False
+    events, TR_mri, num_time_mri, event_types=None, oversampling=50, return_0_1=False
 ):
     """
-    event_types is a list of event types to be considered. If None, 0 and 1s will be returned.
+    event_types is a list of event types to be considered. If None, it will found based on events.
     Assigns the longest event in each TR to that TR (in the interval from last TR to current TR).
     It assumes that the first time point is TR0 which corresponds to [0 sec, TR sec] interval.
     oversampling: number of samples per TR_mri to improve the time resolution of tasks
@@ -43,6 +43,9 @@ def events_time_to_labels(
         events[0, trial_type_idx] == "trial_type"
     ), "Something went wrong with the events file! The trial_type column was not found!"
 
+    if event_types is None:
+        event_types = ["rest"] + list(np.unique(events[1:, trial_type_idx]))
+
     Fs = float(1 / TR_mri) * oversampling
     num_time_task = int(num_time_mri * oversampling)
     event_labels = np.zeros((num_time_task, 1))
@@ -52,8 +55,10 @@ def events_time_to_labels(
             continue
 
         if events[i, trial_type_idx] in event_types:
-            if events[i, trial_type_idx] == "rest":
-                warnings.warn("trial types should not include 'rest'")
+            if ("rest" in events[i, trial_type_idx]) or (
+                "Rest" in events[i, trial_type_idx]
+            ):
+                raise ValueError("trial types should not include 'rest'")
             start_time = float(events[i, onset_idx])
             end_time = float(events[i, onset_idx]) + float(events[i, duration_idx])
             start_timepoint = int(np.rint(start_time * Fs))
@@ -65,7 +70,7 @@ def events_time_to_labels(
     if return_0_1:
         event_labels = np.multiply(event_labels != 0, 1)
 
-    return event_labels, Fs
+    return event_labels, Fs, event_types
 
 
 ################################# Visualization Functions ####################################
