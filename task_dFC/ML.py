@@ -84,6 +84,7 @@ def extract_task_features(TASKS, RUNS, roi_root, output_root):
                     TR_task=TR_task,
                     TR_mri=task_data["TR_mri"],
                     binary=True,
+                    binarizing_method="median",
                 )
 
                 relative_task_on = task_utils.relative_task_on(task_presence)
@@ -141,6 +142,7 @@ def dFC_feature_extraction_subj_lvl(
         TR_mri=task_data["TR_mri"],
         TR_array=TR_array,
         binary=True,
+        binarizing_method="median",
     )
 
     features = dFC_vecs

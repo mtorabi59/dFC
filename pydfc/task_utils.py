@@ -237,7 +237,9 @@ def downsample_events_hrf(events_hrf, TR_mri, TR_task, method="uniform"):
     return events_hrf_ds
 
 
-def extract_task_presence(event_labels, TR_task, TR_mri, TR_array=None, binary=True):
+def extract_task_presence(
+    event_labels, TR_task, TR_mri, TR_array=None, binary=True, binarizing_method="median"
+):
     """
     event_labels: event labels including 0 and event ids at the time each event happens
     TR_task: TR of task
@@ -247,6 +249,7 @@ def extract_task_presence(event_labels, TR_task, TR_mri, TR_array=None, binary=T
     This function extracts the task presence from the event labels and returns it in the same time points as the dFC data
     It also downsamples the task presence to the time points of the dFC data
     if binary is True, the task presence is binarized using the mean of the task presence
+    binarizing_method: 'median' or 'mean'
     """
 
     # event_labels_all_task is all conditions together, rest vs. task times
@@ -266,9 +269,14 @@ def extract_task_presence(event_labels, TR_task, TR_mri, TR_array=None, binary=T
         event_labels_all_task_hrf = event_labels_all_task_hrf[:, 1]
 
     if binary:
-        task_presence = np.where(
-            event_labels_all_task_hrf > np.mean(event_labels_all_task_hrf), 1, 0
-        )
+        if binarizing_method == "median":
+            task_presence = np.where(
+                event_labels_all_task_hrf > np.median(event_labels_all_task_hrf), 1, 0
+            )
+        elif binarizing_method == "mean":
+            task_presence = np.where(
+                event_labels_all_task_hrf > np.mean(event_labels_all_task_hrf), 1, 0
+            )
     else:
         task_presence = event_labels_all_task_hrf
 
