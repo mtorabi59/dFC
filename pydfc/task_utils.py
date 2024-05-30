@@ -44,7 +44,15 @@ def events_time_to_labels(
     ), "Something went wrong with the events file! The trial_type column was not found!"
 
     if event_types is None:
-        event_types = ["rest"] + list(np.unique(events[1:, trial_type_idx]))
+        event_types = list(np.unique(events[1:, trial_type_idx]))
+        # if rest is already there, remove it
+        if "rest" in event_types:
+            warnings.warn("rest is already in the event types")
+            event_types.remove("rest")
+        if "Rest" in event_types:
+            warnings.warn("Rest is already in the event types")
+            event_types.remove("Rest")
+        event_types = ["rest"] + event_types
 
     Fs = float(1 / TR_mri) * oversampling
     num_time_task = int(num_time_mri * oversampling)
@@ -58,7 +66,7 @@ def events_time_to_labels(
             if ("rest" in events[i, trial_type_idx]) or (
                 "Rest" in events[i, trial_type_idx]
             ):
-                raise ValueError("trial types should not include 'rest'")
+                continue
             start_time = float(events[i, onset_idx])
             end_time = float(events[i, onset_idx]) + float(events[i, duration_idx])
             start_timepoint = int(np.rint(start_time * Fs))
