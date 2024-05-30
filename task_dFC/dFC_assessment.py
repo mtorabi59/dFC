@@ -158,7 +158,7 @@ if __name__ == "__main__":
     dataset_info_file = args.dataset_info
     participant_id = args.participant_id
 
-    # Read global configs
+    # Read dataset info
     with open(dataset_info_file, "r") as f:
         dataset_info = json.load(f)
 
