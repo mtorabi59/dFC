@@ -84,8 +84,8 @@ def run_FCS_estimate(
         print("FCS estimation done.")
 
         # Save
-        if not os.path.exists(f"{output_root}"):
-            os.makedirs(f"{output_root}")
+        if not os.path.exists(f"{output_dir}"):
+            os.makedirs(f"{output_dir}")
         np.save(f"{output_dir}/MEASURE_{file_suffix}_{MEASURE_id}.npy", measure)
 
     print(f"Measurement required {time.time() - tic:0.3f} seconds.")
