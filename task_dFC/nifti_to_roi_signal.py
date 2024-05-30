@@ -12,16 +12,26 @@ from pydfc import data_loader, task_utils
 
 ################################# FUNCTIONS #################################
 def run_roi_signal_extraction(
-    subj, task, main_root, fmriprep_root, bold_suffix, output_root
+    subj,
+    task,
+    main_root,
+    fmriprep_root,
+    bold_suffix,
+    output_root,
+    session="",
 ):
     """
     Extract ROI signals and task labels for a given subject and task
+    and optionally session.
     """
     # find the func file for this subject and task
     try:
-        ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/func/")
+        if session == "":
+            ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/func/")
+        else:
+            ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/{session}/func/")
     except FileNotFoundError:
-        print(f"Subject {subj} not found in {fmriprep_root}")
+        print(f"Subject {subj} {session} not found in {fmriprep_root}")
         return
 
     ALL_TASK_FILES = [
@@ -32,7 +42,7 @@ def run_roi_signal_extraction(
 
     if not len(ALL_TASK_FILES) >= 1:
         # if the func file is not found, exclude the subject
-        print(f"Func file not found for {subj} {task}")
+        print(f"Func file not found for {subj} {session} {task}")
         return
 
     # there might be multiple runs for the same task
@@ -58,11 +68,13 @@ def run_roi_signal_extraction(
 
     for run in RUNS:
         task_file = [file_i for file_i in ALL_TASK_FILES if run in file_i][0]
-        nifti_file = f"{fmriprep_root}/{subj}/func/{task_file}"
-        info_file = (
-            f"{main_root}/bids/{subj}/func/{task_file.replace(bold_suffix, '_bold.json')}"
-        )
-
+        if session == "":
+            nifti_file = f"{fmriprep_root}/{subj}/func/{task_file}"
+            task_events_root = f"{main_root}/bids/{subj}/func"
+        else:
+            nifti_file = f"{fmriprep_root}/{subj}/{session}/func/{task_file}"
+            task_events_root = f"{main_root}/bids/{subj}/{session}/func"
+        info_file = f"{task_events_root}/{task_file.replace(bold_suffix, '_bold.json')}"
         ################################# LOAD JSON INFO #########################
         # Opening JSON file as a dictionary
         f = open(info_file)
@@ -91,7 +103,6 @@ def run_roi_signal_extraction(
             task_labels = np.zeros((int(num_time_mri * oversampling), 1))
             Fs_task = float(1 / TR_mri) * oversampling
         else:
-            task_events_root = f"{main_root}/bids/{subj}/func"
             ALL_EVENTS_FILES = os.listdir(task_events_root)
             ALL_EVENTS_FILES = [
                 file_i
@@ -99,11 +110,12 @@ def run_roi_signal_extraction(
                 if (subj in file_i)
                 and (task in file_i)
                 and (run in file_i)
+                and (session in file_i)
                 and ("events.tsv" in file_i)
             ]
             if not len(ALL_EVENTS_FILES) == 1:
                 # if the events file is not found, exclude the subject
-                print(f"Events file not found for {subj} {task} {run}")
+                print(f"Events file not found for {subj} {session} {task} {run}")
                 return
             # load the tsv events file
             events_file = f"{task_events_root}/{ALL_EVENTS_FILES[0]}"
@@ -134,14 +146,23 @@ def run_roi_signal_extraction(
             "TR_mri": TR_mri,
             "num_time_mri": num_time_mri,
         }
-        if multi_run_flag:
-            output_file_prefix = f"{subj}_{task}_{run}"
+
+        if session == "":
+            subj_session_prefix = f"{subj}"
+            output_dir = f"{output_root}/{subj}"
         else:
-            output_file_prefix = f"{subj}_{task}"
-        if not os.path.exists(f"{output_root}/{subj}/"):
-            os.makedirs(f"{output_root}/{subj}/")
-        np.save(f"{output_root}/{subj}/{output_file_prefix}_time-series.npy", time_series)
-        np.save(f"{output_root}/{subj}/{output_file_prefix}_task-data.npy", task_data)
+            subj_session_prefix = f"{subj}_{session}"
+            output_dir = f"{output_root}/{subj}/{session}"
+
+        if multi_run_flag:
+            output_file_prefix = f"{subj_session_prefix}_{task}_{run}"
+        else:
+            output_file_prefix = f"{subj_session_prefix}_{task}"
+
+        if not os.path.exists(f"{output_dir}/"):
+            os.makedirs(f"{output_dir}/")
+        np.save(f"{output_dir}/{output_file_prefix}_time-series.npy", time_series)
+        np.save(f"{output_dir}/{output_file_prefix}_task-data.npy", task_data)
 
 
 ########################################################################################
@@ -171,6 +192,9 @@ if __name__ == "__main__":
     )
 
     TASKS = dataset_info["TASKS"]
+    SESSIONS = dataset_info["SESSIONS"]
+    if SESSIONS is None:
+        SESSIONS = [""]
 
     if "{dataset}" in dataset_info["main_root"]:
         main_root = dataset_info["main_root"].replace(
@@ -189,15 +213,17 @@ if __name__ == "__main__":
     else:
         output_root = dataset_info["roi_root"]
 
-    for task in TASKS:
-        run_roi_signal_extraction(
-            subj=participant_id,
-            task=task,
-            main_root=main_root,
-            fmriprep_root=fmriprep_root,
-            bold_suffix=dataset_info["bold_suffix"],
-            output_root=output_root,
-        )
+    for session in SESSIONS:
+        for task in TASKS:
+            run_roi_signal_extraction(
+                subj=participant_id,
+                task=task,
+                main_root=main_root,
+                fmriprep_root=fmriprep_root,
+                bold_suffix=dataset_info["bold_suffix"],
+                output_root=output_root,
+                session=session,
+            )
 
     print(
         f"subject-level ROI signal extraction CODE finished running ... for subject: {participant_id} ..."
