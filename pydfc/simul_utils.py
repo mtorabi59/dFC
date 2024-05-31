@@ -184,7 +184,6 @@ def create_simul_task_info(
     """
     ####################### EXTRACT TASK LABELS #######################
     events = []
-    event_types = ["rest", "task"]
 
     # using onset, task_duration, task_block_duration to create the events
     events.append(["onset", "duration", "trial_type"])
@@ -194,11 +193,10 @@ def create_simul_task_info(
         t += task_block_duration
     events = np.array(events)
 
-    event_labels, Fs_task = task_utils.events_time_to_labels(
+    event_labels, Fs_task, event_types = task_utils.events_time_to_labels(
         events=events,
         TR_mri=TR_mri,
         num_time_mri=num_time_mri,
-        event_types=event_types,
         oversampling=oversampling,
         return_0_1=False,
     )
