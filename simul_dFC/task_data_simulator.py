@@ -22,7 +22,7 @@ os.environ["OMP_NUM_THREADS"] = "16"
 # data paths
 dataset = "ds000001"
 # main_root = f"./DATA/{dataset}" # for local
-main_root = f"../../DATA/task-based/simulated/{dataset}"  # for server
+main_root = f"/data/origami/dFC/DATA/task-based/simulated/{dataset}"  # for server
 output_root = f"{main_root}/derivatives/ROI_timeseries"
 
 # simulation parameters
