@@ -150,11 +150,6 @@ if __name__ == "__main__":
     else:
         main_root = dataset_info["main_root"]
 
-    if "{main_root}" in dataset_info["fmriprep_root"]:
-        fmriprep_root = dataset_info["fmriprep_root"].replace("{main_root}", main_root)
-    else:
-        fmriprep_root = dataset_info["fmriprep_root"]
-
     if "{main_root}" in dataset_info["roi_root"]:
         roi_root = dataset_info["roi_root"].replace("{main_root}", main_root)
     else:
