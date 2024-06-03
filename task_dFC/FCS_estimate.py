@@ -129,10 +129,17 @@ if __name__ == "__main__":
 
     print(f"FCS estimation CODE started running ... for task: {task} ...")
 
-    SESSIONS = dataset_info["SESSIONS"]
+    if "SESSIONS" in dataset_info:
+        SESSIONS = dataset_info["SESSIONS"]
+    else:
+        SESSIONS = None
     if SESSIONS is None:
         SESSIONS = [None]
-    RUNS = dataset_info["RUNS"]
+
+    if "RUNS" in dataset_info:
+        RUNS = dataset_info["RUNS"]
+    else:
+        RUNS = None
     if RUNS is None:
         RUNS = {task: [None]}
 
