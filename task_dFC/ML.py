@@ -16,7 +16,7 @@ from pydfc.dfc_utils import dFC_mat2vec, rank_norm
 #######################################################################################
 
 
-def find_available_subjects(dFC_root, task, run=None, dFC_id=None):
+def find_available_subjects(dFC_root, task, run=None, session=None, dFC_id=None):
     """
     Find the subjects that have dFC results for the given task and dFC_id (method).
     """
@@ -25,7 +25,10 @@ def find_available_subjects(dFC_root, task, run=None, dFC_id=None):
     ALL_SUBJ_FOLDERS = [folder for folder in ALL_SUBJ_FOLDERS if "sub-" in folder]
     ALL_SUBJ_FOLDERS.sort()
     for subj_folder in ALL_SUBJ_FOLDERS:
-        ALL_DFC_FILES = os.listdir(f"{dFC_root}/{subj_folder}/")
+        if session is None:
+            ALL_DFC_FILES = os.listdir(f"{dFC_root}/{subj_folder}/")
+        else:
+            ALL_DFC_FILES = os.listdir(f"{dFC_root}/{subj_folder}/{session}/")
         ALL_DFC_FILES = [dFC_file for dFC_file in ALL_DFC_FILES if task in dFC_file]
         if dFC_id is not None:
             ALL_DFC_FILES = [
@@ -33,88 +36,93 @@ def find_available_subjects(dFC_root, task, run=None, dFC_id=None):
             ]
         if run is not None:
             ALL_DFC_FILES = [dFC_file for dFC_file in ALL_DFC_FILES if run in dFC_file]
+        if session is not None:
+            ALL_DFC_FILES = [
+                dFC_file for dFC_file in ALL_DFC_FILES if session in dFC_file
+            ]
         ALL_DFC_FILES.sort()
         if len(ALL_DFC_FILES) > 0:
             SUBJECTS.append(subj_folder)
     return SUBJECTS
 
 
-def extract_task_features(TASKS, RUNS, roi_root, output_root):
+def extract_task_features(TASKS, RUNS, SESSIONS, roi_root, output_root):
     """
     Extract task features from the event data."""
-    task_features = {
-        "task": list(),
-        "run": list(),
-        "relative_task_on": list(),
-        "avg_task_duration": list(),
-        "var_task_duration": list(),
-        "avg_rest_duration": list(),
-        "var_rest_duration": list(),
-        "num_of_transitions": list(),
-        "relative_transition_freq": list(),
-    }
-    for task_id, task in enumerate(TASKS):
+    for session in SESSIONS:
+        task_features = {
+            "task": list(),
+            "run": list(),
+            "relative_task_on": list(),
+            "avg_task_duration": list(),
+            "var_task_duration": list(),
+            "avg_rest_duration": list(),
+            "var_rest_duration": list(),
+            "num_of_transitions": list(),
+            "relative_transition_freq": list(),
+        }
+        for task_id, task in enumerate(TASKS):
 
-        if task == "task-restingstate":
-            continue
+            if task == "task-restingstate":
+                continue
 
-        if RUNS is None:
-            RUNS = {task: [None]}
-        for run in RUNS[task]:
+            if RUNS is None:
+                RUNS = {task: [None]}
+            for run in RUNS[task]:
 
-            SUBJECTS = find_available_subjects(dFC_root=dFC_root, task=task, run=run)
-
-            for subj in SUBJECTS:
-                # event data
-                if run is None:
-                    task_data = np.load(
-                        f"{roi_root}/{subj}/{subj}_{task}_task-data.npy",
-                        allow_pickle="TRUE",
-                    ).item()
-                else:
-                    task_data = np.load(
-                        f"{roi_root}/{subj}/{subj}_{task}_{run}_task-data.npy",
-                        allow_pickle="TRUE",
-                    ).item()
-                Fs_task = task_data["Fs_task"]
-                TR_task = 1 / Fs_task
-
-                task_presence = task_utils.extract_task_presence(
-                    event_labels=task_data["event_labels"],
-                    TR_task=TR_task,
-                    TR_mri=task_data["TR_mri"],
-                    binary=True,
-                    binarizing_method="median",
+                SUBJECTS = find_available_subjects(
+                    dFC_root=dFC_root, task=task, run=run, session=session
                 )
 
-                relative_task_on = task_utils.relative_task_on(task_presence)
-                # task duration
-                avg_task_duration, var_task_duration = task_utils.task_duration(
-                    task_presence, task_data["TR_mri"]
-                )
-                # rest duration
-                avg_rest_duration, var_rest_duration = task_utils.rest_duration(
-                    task_presence, task_data["TR_mri"]
-                )
-                # freq of transitions
-                num_of_transitions, relative_transition_freq = task_utils.transition_freq(
-                    task_presence
-                )
+                for subj in SUBJECTS:
+                    # event data
+                    task_data = load_task_data(
+                        roi_root=roi_root, subj=subj, task=task, run=run, session=session
+                    )
+                    Fs_task = task_data["Fs_task"]
+                    TR_task = 1 / Fs_task
 
-                task_features["task"].append(task)
-                task_features["run"].append(run)
-                task_features["relative_task_on"].append(relative_task_on)
-                task_features["avg_task_duration"].append(avg_task_duration)
-                task_features["var_task_duration"].append(var_task_duration)
-                task_features["avg_rest_duration"].append(avg_rest_duration)
-                task_features["var_rest_duration"].append(var_rest_duration)
-                task_features["num_of_transitions"].append(num_of_transitions)
-                task_features["relative_transition_freq"].append(relative_transition_freq)
+                    task_presence = task_utils.extract_task_presence(
+                        event_labels=task_data["event_labels"],
+                        TR_task=TR_task,
+                        TR_mri=task_data["TR_mri"],
+                        binary=True,
+                        binarizing_method="mean",
+                    )
 
-    folder = f"{output_root}"
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    np.save(f"{folder}/task_features.npy", task_features)
+                    relative_task_on = task_utils.relative_task_on(task_presence)
+                    # task duration
+                    avg_task_duration, var_task_duration = task_utils.task_duration(
+                        task_presence, task_data["TR_mri"]
+                    )
+                    # rest duration
+                    avg_rest_duration, var_rest_duration = task_utils.rest_duration(
+                        task_presence, task_data["TR_mri"]
+                    )
+                    # freq of transitions
+                    num_of_transitions, relative_transition_freq = (
+                        task_utils.transition_freq(task_presence)
+                    )
+
+                    task_features["task"].append(task)
+                    task_features["run"].append(run)
+                    task_features["relative_task_on"].append(relative_task_on)
+                    task_features["avg_task_duration"].append(avg_task_duration)
+                    task_features["var_task_duration"].append(var_task_duration)
+                    task_features["avg_rest_duration"].append(avg_rest_duration)
+                    task_features["var_rest_duration"].append(var_rest_duration)
+                    task_features["num_of_transitions"].append(num_of_transitions)
+                    task_features["relative_transition_freq"].append(
+                        relative_transition_freq
+                    )
+
+        if session is None:
+            folder = f"{output_root}"
+        else:
+            folder = f"{output_root}/{session}"
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        np.save(f"{folder}/task_features.npy", task_features)
 
 
 def dFC_feature_extraction_subj_lvl(
@@ -142,7 +150,7 @@ def dFC_feature_extraction_subj_lvl(
         TR_mri=task_data["TR_mri"],
         TR_array=TR_array,
         binary=True,
-        binarizing_method="median",
+        binarizing_method="mean",
     )
 
     features = dFC_vecs
@@ -175,6 +183,63 @@ def dFC_feature_extraction_subj_lvl(
     return features, target
 
 
+def load_dFC(dFC_root, subj, task, dFC_id, run=None, session=None):
+    """
+    Load the dFC results for a given subject, task, dFC_id, run and session.
+    """
+    if session is None:
+        if run is None:
+            dFC = np.load(
+                f"{dFC_root}/{subj}/dFC_{task}_{dFC_id}.npy", allow_pickle="TRUE"
+            ).item()
+        else:
+            dFC = np.load(
+                f"{dFC_root}/{subj}/dFC_{task}_{run}_{dFC_id}.npy", allow_pickle="TRUE"
+            ).item()
+    else:
+        if run is None:
+            dFC = np.load(
+                f"{dFC_root}/{subj}/{session}/dFC_{session}_{task}_{dFC_id}.npy",
+                allow_pickle="TRUE",
+            ).item()
+        else:
+            dFC = np.load(
+                f"{dFC_root}/{subj}/{session}/dFC_{session}_{task}_{run}_{dFC_id}.npy",
+                allow_pickle="TRUE",
+            ).item()
+
+    return dFC
+
+
+def load_task_data(roi_root, subj, task, run=None, session=None):
+    """
+    Load the task data for a given subject, task and run.
+    """
+    if session is None:
+        if run is None:
+            task_data = np.load(
+                f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
+            ).item()
+        else:
+            task_data = np.load(
+                f"{roi_root}/{subj}/{subj}_{task}_{run}_task-data.npy",
+                allow_pickle="TRUE",
+            ).item()
+    else:
+        if run is None:
+            task_data = np.load(
+                f"{roi_root}/{subj}/{session}/{subj}_{session}_{task}_task-data.npy",
+                allow_pickle="TRUE",
+            ).item()
+        else:
+            task_data = np.load(
+                f"{roi_root}/{subj}/{session}/{subj}_{session}_{task}_{run}_task-data.npy",
+                allow_pickle="TRUE",
+            ).item()
+
+    return task_data
+
+
 def dFC_feature_extraction(
     task,
     train_subjects,
@@ -183,6 +248,7 @@ def dFC_feature_extraction(
     roi_root,
     dFC_root,
     run=None,
+    session=None,
     dynamic_pred="no",
     normalize_dFC=True,
 ):
@@ -191,25 +257,23 @@ def dFC_feature_extraction(
     for all subjects.
     if run is specified, dFC results for that run will be used.
     """
+    dFC_measure_name = None
     X_train = None
     y_train = None
     subj_label_train = list()
     for subj in train_subjects:
-        if run is None:
-            dFC = np.load(
-                f"{dFC_root}/{subj}/dFC_{task}_{dFC_id}.npy", allow_pickle="TRUE"
-            ).item()
-            task_data = np.load(
-                f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
-            ).item()
-        else:
-            dFC = np.load(
-                f"{dFC_root}/{subj}/dFC_{task}_{run}_{dFC_id}.npy", allow_pickle="TRUE"
-            ).item()
-            task_data = np.load(
-                f"{roi_root}/{subj}/{subj}_{task}_{run}_task-data.npy",
-                allow_pickle="TRUE",
-            ).item()
+
+        dFC = load_dFC(
+            dFC_root=dFC_root,
+            subj=subj,
+            task=task,
+            dFC_id=dFC_id,
+            run=run,
+            session=session,
+        )
+        task_data = load_task_data(
+            roi_root=roi_root, subj=subj, task=task, run=run, session=session
+        )
 
         X_subj, y_subj = dFC_feature_extraction_subj_lvl(
             dFC=dFC,
@@ -226,25 +290,28 @@ def dFC_feature_extraction(
             X_train = np.concatenate((X_train, X_subj), axis=0)
             y_train = np.concatenate((y_train, y_subj), axis=0)
 
+        if dFC_measure_name is None:
+            dFC_measure_name = dFC.measure.measure_name
+        else:
+            assert (
+                dFC_measure_name == dFC.measure.measure_name
+            ), "dFC measure is not consistent."
+
     X_test = None
     y_test = None
     subj_label_test = list()
     for subj in test_subjects:
-        if run is None:
-            dFC = np.load(
-                f"{dFC_root}/{subj}/dFC_{task}_{dFC_id}.npy", allow_pickle="TRUE"
-            ).item()
-            task_data = np.load(
-                f"{roi_root}/{subj}/{subj}_{task}_task-data.npy", allow_pickle="TRUE"
-            ).item()
-        else:
-            dFC = np.load(
-                f"{dFC_root}/{subj}/dFC_{task}_{run}_{dFC_id}.npy", allow_pickle="TRUE"
-            ).item()
-            task_data = np.load(
-                f"{roi_root}/{subj}/{subj}_{task}_{run}_task-data.npy",
-                allow_pickle="TRUE",
-            ).item()
+        dFC = load_dFC(
+            dFC_root=dFC_root,
+            subj=subj,
+            task=task,
+            dFC_id=dFC_id,
+            run=run,
+            session=session,
+        )
+        task_data = load_task_data(
+            roi_root=roi_root, subj=subj, task=task, run=run, session=session
+        )
 
         X_subj, y_subj = dFC_feature_extraction_subj_lvl(
             dFC=dFC,
@@ -261,6 +328,13 @@ def dFC_feature_extraction(
             X_test = np.concatenate((X_test, X_subj), axis=0)
             y_test = np.concatenate((y_test, y_subj), axis=0)
 
+        if dFC_measure_name is None:
+            dFC_measure_name = dFC.measure.measure_name
+        else:
+            assert (
+                dFC_measure_name == dFC.measure.measure_name
+            ), "dFC measure is not consistent."
+
     print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
     subj_label_train = np.array(subj_label_train)
     subj_label_test = np.array(subj_label_test)
@@ -272,7 +346,7 @@ def dFC_feature_extraction(
         y_test,
         subj_label_train,
         subj_label_test,
-        dFC.measure.measure_name,
+        dFC_measure_name,
     )
 
 
@@ -282,6 +356,7 @@ def task_presence_classification(
     roi_root,
     dFC_root,
     run=None,
+    session=None,
     dynamic_pred="no",
     normalize_dFC=True,
     train_test_ratio=0.8,
@@ -299,7 +374,7 @@ def task_presence_classification(
         return
 
     SUBJECTS = find_available_subjects(
-        dFC_root=dFC_root, task=task, run=run, dFC_id=dFC_id
+        dFC_root=dFC_root, task=task, run=run, session=session, dFC_id=dFC_id
     )
 
     # randomly select train_test_ratio of the subjects for training
@@ -321,6 +396,7 @@ def task_presence_classification(
             roi_root=roi_root,
             dFC_root=dFC_root,
             run=run,
+            session=session,
             dynamic_pred=dynamic_pred,
             normalize_dFC=normalize_dFC,
         )
@@ -406,51 +482,59 @@ def task_presence_classification(
 def run_classification(
     TASKS,
     RUNS,
+    SESSIONS,
     roi_root,
     dFC_root,
     output_root,
     dynamic_pred="no",
     normalize_dFC=True,
 ):
-    ML_scores = {
-        "subj_id": list(),
-        "group": list(),
-        "task": list(),
-        "run": list(),
-        "dFC method": list(),
-        "KNN accuracy": list(),
-    }
-    for dFC_id in range(0, 7):
-        print(f"=================== dFC {dFC_id} ===================")
+    for session in SESSIONS:
+        if not session is None:
+            print(f"=================== {session} ===================")
+        ML_scores = {
+            "subj_id": list(),
+            "group": list(),
+            "task": list(),
+            "run": list(),
+            "dFC method": list(),
+            "KNN accuracy": list(),
+        }
+        for dFC_id in range(0, 7):
+            print(f"=================== dFC {dFC_id} ===================")
 
-        ML_RESULT = {}
-        for task_id, task in enumerate(TASKS):
-            if RUNS is None:
-                RUNS = {task: [None]}
-            ML_RESULT[task] = {}
-            for run in RUNS[task]:
-                ML_RESULT_new, ML_scores_new = task_presence_classification(
-                    task=task,
-                    dFC_id=dFC_id,
-                    roi_root=roi_root,
-                    dFC_root=dFC_root,
-                    run=run,
-                    dynamic_pred=dynamic_pred,
-                    normalize_dFC=normalize_dFC,
-                )
-                if run is None:
-                    ML_RESULT[task] = ML_RESULT_new
-                else:
-                    ML_RESULT[task][run] = ML_RESULT_new
-                for key in ML_scores:
-                    ML_scores[key].extend(ML_scores_new[key])
+            ML_RESULT = {}
+            for task_id, task in enumerate(TASKS):
+                if RUNS is None:
+                    RUNS = {task: [None]}
+                ML_RESULT[task] = {}
+                for run in RUNS[task]:
+                    ML_RESULT_new, ML_scores_new = task_presence_classification(
+                        task=task,
+                        dFC_id=dFC_id,
+                        roi_root=roi_root,
+                        dFC_root=dFC_root,
+                        run=run,
+                        session=session,
+                        dynamic_pred=dynamic_pred,
+                        normalize_dFC=normalize_dFC,
+                    )
+                    if run is None:
+                        ML_RESULT[task] = ML_RESULT_new
+                    else:
+                        ML_RESULT[task][run] = ML_RESULT_new
+                    for key in ML_scores:
+                        ML_scores[key].extend(ML_scores_new[key])
 
-        folder = f"{output_root}"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        np.save(f"{folder}/ML_RESULT_{dFC_id}.npy", ML_RESULT)
+            if session is None:
+                folder = f"{output_root}"
+            else:
+                folder = f"{output_root}/{session}"
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+            np.save(f"{folder}/ML_RESULT_{dFC_id}.npy", ML_RESULT)
 
-    np.save(f"{folder}/ML_scores_classify.npy", ML_scores)
+        np.save(f"{folder}/ML_scores_classify.npy", ML_scores)
 
 
 #######################################################################################
@@ -484,6 +568,13 @@ if __name__ == "__main__":
     else:
         RUNS = None
 
+    if "SESSIONS" in dataset_info:
+        SESSIONS = dataset_info["SESSIONS"]
+    else:
+        SESSIONS = None
+    if SESSIONS is None:
+        SESSIONS = [None]
+
     if "{dataset}" in dataset_info["main_root"]:
         main_root = dataset_info["main_root"].replace(
             "{dataset}", dataset_info["dataset"]
@@ -509,12 +600,14 @@ if __name__ == "__main__":
     extract_task_features(
         TASKS=TASKS,
         RUNS=RUNS,
+        SESSIONS=SESSIONS,
         roi_root=roi_root,
         output_root=ML_root,
     )
     run_classification(
         TASKS=TASKS,
         RUNS=RUNS,
+        SESSIONS=SESSIONS,
         roi_root=roi_root,
         dFC_root=dFC_root,
         output_root=ML_root,
