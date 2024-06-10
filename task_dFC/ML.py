@@ -66,8 +66,6 @@ def extract_task_features(TASKS, RUNS, SESSIONS, roi_root, output_root):
             if task == "task-restingstate":
                 continue
 
-            if RUNS is None:
-                RUNS = {task: [None]}
             for run in RUNS[task]:
 
                 SUBJECTS = find_available_subjects(
@@ -505,8 +503,6 @@ def run_classification(
 
             ML_RESULT = {}
             for task_id, task in enumerate(TASKS):
-                if RUNS is None:
-                    RUNS = {task: [None]}
                 ML_RESULT[task] = {}
                 for run in RUNS[task]:
                     ML_RESULT_new, ML_scores_new = task_presence_classification(
@@ -561,12 +557,11 @@ if __name__ == "__main__":
 
     TASKS = dataset_info["TASKS"]
     if "RUNS" in dataset_info:
-        if dataset_info["RUNS"] is not None:
-            RUNS = dataset_info["RUNS"]
-        else:
-            RUNS = None
+        RUNS = dataset_info["RUNS"]
     else:
         RUNS = None
+    if RUNS is None:
+        RUNS = {task: [None] for task in TASKS}
 
     if "SESSIONS" in dataset_info:
         SESSIONS = dataset_info["SESSIONS"]
