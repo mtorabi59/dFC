@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import warnings
+from re import A
 
 import numpy as np
 
@@ -18,57 +19,44 @@ def run_roi_signal_extraction(
     fmriprep_root,
     bold_suffix,
     output_root,
-    session="",
+    session=None,
+    RUNS=[None],
 ):
     """
     Extract ROI signals and task labels for a given subject and task
     and optionally session.
     """
+    if session is None:
+        session_str = ""
+    else:
+        session_str = session
     # find the func file for this subject and task
     try:
-        if session == "":
+        if session is None:
             ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/func/")
         else:
             ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/{session}/func/")
     except FileNotFoundError:
-        print(f"Subject {subj} {session} not found in {fmriprep_root}")
+        print(f"Subject {subj} {session_str} not found in {fmriprep_root}")
         return
 
     ALL_TASK_FILES = [
         file_i
         for file_i in ALL_TASK_FILES
-        if (bold_suffix in file_i) and (task in file_i)
+        if (bold_suffix in file_i) and (f"_{task}_" in file_i)
     ]  # only keep the denoised files? or use the original files?
 
     if not len(ALL_TASK_FILES) >= 1:
         # if the func file is not found, exclude the subject
-        print(f"Func file not found for {subj} {session} {task}")
+        print(f"Func file not found for {subj} {session_str} {task}")
         return
 
-    # there might be multiple runs for the same task
-    # check if "_run" exists in all the task file names
-    if all(["_run" in task_file for task_file in ALL_TASK_FILES]):
-        multi_run_flag = True
-        # find all the runs
-        RUNS = [
-            task_file[
-                task_file.find("_run")
-                + 1 : task_file.find("_run")
-                + 1
-                + task_file[task_file.find("_run") + 1 :].find("_")
-            ]
-            for task_file in ALL_TASK_FILES
-        ]
-        # sort
-        RUNS.sort()
-        print(f"Found multiple runs for {subj} {task}: {RUNS}")
-    else:
-        multi_run_flag = False
-        RUNS = [""]
-
     for run in RUNS:
-        task_file = [file_i for file_i in ALL_TASK_FILES if run in file_i][0]
-        if session == "":
+        if run is None:
+            task_file = ALL_TASK_FILES[0]
+        else:
+            task_file = [file_i for file_i in ALL_TASK_FILES if f"_{run}_" in file_i][0]
+        if session is None:
             nifti_file = f"{fmriprep_root}/{subj}/func/{task_file}"
             task_events_root = f"{main_root}/bids/{subj}/func"
         else:
@@ -107,15 +95,24 @@ def run_roi_signal_extraction(
             ALL_EVENTS_FILES = [
                 file_i
                 for file_i in ALL_EVENTS_FILES
-                if (subj in file_i)
-                and (task in file_i)
-                and (run in file_i)
-                and (session in file_i)
+                if (f"{subj}_" in file_i)
+                and (f"_{task}_" in file_i)
                 and ("events.tsv" in file_i)
             ]
+            if not run is None:
+                ALL_EVENTS_FILES = [
+                    file_i for file_i in ALL_EVENTS_FILES if f"_{run}_" in file_i
+                ]
+            if not session is None:
+                ALL_EVENTS_FILES = [
+                    file_i for file_i in ALL_EVENTS_FILES if f"_{session}_" in file_i
+                ]
             if not len(ALL_EVENTS_FILES) == 1:
                 # if the events file is not found, exclude the subject
-                print(f"Events file not found for {subj} {session} {task} {run}")
+                if run is None:
+                    print(f"Events file not found for {subj} {session_str} {task}")
+                else:
+                    print(f"Events file not found for {subj} {session_str} {task} {run}")
                 return
             # load the tsv events file
             events_file = f"{task_events_root}/{ALL_EVENTS_FILES[0]}"
@@ -147,17 +144,17 @@ def run_roi_signal_extraction(
             "num_time_mri": num_time_mri,
         }
 
-        if session == "":
+        if session is None:
             subj_session_prefix = f"{subj}"
             output_dir = f"{output_root}/{subj}"
         else:
             subj_session_prefix = f"{subj}_{session}"
             output_dir = f"{output_root}/{subj}/{session}"
 
-        if multi_run_flag:
-            output_file_prefix = f"{subj_session_prefix}_{task}_{run}"
-        else:
+        if run is None:
             output_file_prefix = f"{subj_session_prefix}_{task}"
+        else:
+            output_file_prefix = f"{subj_session_prefix}_{task}_{run}"
 
         if not os.path.exists(f"{output_dir}/"):
             os.makedirs(f"{output_dir}/")
@@ -192,9 +189,20 @@ if __name__ == "__main__":
     )
 
     TASKS = dataset_info["TASKS"]
-    SESSIONS = dataset_info["SESSIONS"]
+
+    if "SESSIONS" in dataset_info:
+        SESSIONS = dataset_info["SESSIONS"]
+    else:
+        SESSIONS = None
     if SESSIONS is None:
-        SESSIONS = [""]
+        SESSIONS = [None]
+
+    if "RUNS" in dataset_info:
+        RUNS = dataset_info["RUNS"]
+    else:
+        RUNS = None
+    if RUNS is None:
+        RUNS = {task: [None] for task in TASKS}
 
     if "{dataset}" in dataset_info["main_root"]:
         main_root = dataset_info["main_root"].replace(
@@ -223,6 +231,7 @@ if __name__ == "__main__":
                 bold_suffix=dataset_info["bold_suffix"],
                 output_root=output_root,
                 session=session,
+                RUNS=RUNS[task],
             )
 
     print(

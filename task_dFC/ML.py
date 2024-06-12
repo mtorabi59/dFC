@@ -30,16 +30,20 @@ def find_available_subjects(dFC_root, task, run=None, session=None, dFC_id=None)
             ALL_DFC_FILES = os.listdir(f"{dFC_root}/{subj_folder}/")
         else:
             ALL_DFC_FILES = os.listdir(f"{dFC_root}/{subj_folder}/{session}/")
-        ALL_DFC_FILES = [dFC_file for dFC_file in ALL_DFC_FILES if task in dFC_file]
+        ALL_DFC_FILES = [
+            dFC_file for dFC_file in ALL_DFC_FILES if f"_{task}_" in dFC_file
+        ]
         if dFC_id is not None:
             ALL_DFC_FILES = [
                 dFC_file for dFC_file in ALL_DFC_FILES if f"_{dFC_id}.npy" in dFC_file
             ]
         if run is not None:
-            ALL_DFC_FILES = [dFC_file for dFC_file in ALL_DFC_FILES if run in dFC_file]
+            ALL_DFC_FILES = [
+                dFC_file for dFC_file in ALL_DFC_FILES if f"_{run}_" in dFC_file
+            ]
         if session is not None:
             ALL_DFC_FILES = [
-                dFC_file for dFC_file in ALL_DFC_FILES if session in dFC_file
+                dFC_file for dFC_file in ALL_DFC_FILES if f"_{session}_" in dFC_file
             ]
         ALL_DFC_FILES.sort()
         if len(ALL_DFC_FILES) > 0:

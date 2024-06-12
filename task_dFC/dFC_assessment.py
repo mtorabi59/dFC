@@ -71,12 +71,16 @@ def run_dFC_assess(
     ALL_ROI_FILES = [
         roi_file
         for roi_file in ALL_ROI_FILES
-        if ("_time-series.npy" in roi_file) and (task in roi_file)
+        if ("_time-series.npy" in roi_file) and (f"_{task}_" in roi_file)
     ]
     if session is not None:
-        ALL_ROI_FILES = [roi_file for roi_file in ALL_ROI_FILES if (session in roi_file)]
+        ALL_ROI_FILES = [
+            roi_file for roi_file in ALL_ROI_FILES if (f"_{session}_" in roi_file)
+        ]
     if run is not None:
-        ALL_ROI_FILES = [roi_file for roi_file in ALL_ROI_FILES if (run in roi_file)]
+        ALL_ROI_FILES = [
+            roi_file for roi_file in ALL_ROI_FILES if (f"_{run}_" in roi_file)
+        ]
     ALL_ROI_FILES.sort()
 
     # if there are no files for this task, return
@@ -91,7 +95,9 @@ def run_dFC_assess(
     ).item()
 
     ALL_RECORDS = os.listdir(f"{fitted_measures_dir}/")
-    ALL_RECORDS = [i for i in ALL_RECORDS if ("MEASURE" in i) and (file_suffix in i)]
+    ALL_RECORDS = [
+        i for i in ALL_RECORDS if ("MEASURE" in i) and (f"_{file_suffix}_" in i)
+    ]
     ALL_RECORDS.sort()
     MEASURES_fit_lst = list()
     for s in ALL_RECORDS:
