@@ -3,16 +3,17 @@ import json
 import os
 
 import numpy as np
+from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import balanced_accuracy_score
+from sklearn.metrics import adjusted_rand_score, balanced_accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from pydfc import DFC, data_loader, task_utils
-from pydfc.dfc_utils import dFC_mat2vec, rank_norm
+from pydfc.dfc_utils import dFC_mat2vec, dFC_vec2mat, rank_norm
 
 #######################################################################################
 
@@ -515,6 +516,103 @@ def task_presence_classification(
     return ML_RESULT, ML_scores
 
 
+def task_presence_clustering(
+    task,
+    dFC_id,
+    roi_root,
+    dFC_root,
+    run=None,
+    session=None,
+    normalize_dFC=True,
+    explained_var_threshold=0.95,
+):
+    if run is None:
+        print(f"=============== {task} ===============")
+    else:
+        print(f"=============== {task} {run} ===============")
+
+    if task == "task-restingstate":
+        return
+
+    SUBJECTS = find_available_subjects(
+        dFC_root=dFC_root, task=task, run=run, session=session, dFC_id=dFC_id
+    )
+
+    print(f"Number of subjects: {len(SUBJECTS)}")
+
+    X, _, y, _, subj_label, _, measure_name = dFC_feature_extraction(
+        task=task,
+        train_subjects=SUBJECTS,
+        test_subjects=[],
+        dFC_id=dFC_id,
+        roi_root=roi_root,
+        dFC_root=dFC_root,
+        run=run,
+        session=session,
+        dynamic_pred="no",
+        normalize_dFC=normalize_dFC,
+    )
+
+    # clustering
+    # apply kmeans clustering with PCA to dFC features
+
+    n_clusters = 2  # corresponding to task and rest
+
+    scaler = StandardScaler()
+    X_normalized = scaler.fit_transform(X)
+    # PCA
+    # find number of components that explain 95% of variance
+    pca = PCA()
+    pca.fit(X_normalized)
+    n_components = np.where(
+        np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold
+    )[0][0]
+    pca = PCA(n_components=n_components)
+    X_pca = pca.fit_transform(X_normalized)
+    kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=4)
+    labels_pred = kmeans.fit_predict(X_pca)
+
+    # ARI score
+    print(f"ARI score: {adjusted_rand_score(y, labels_pred)}")
+
+    # visualize clustering centroids
+    centroids = kmeans.cluster_centers_
+    centroids = pca.inverse_transform(centroids)
+    centroids = scaler.inverse_transform(centroids)
+    n_regions = (1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2
+    centroids_mat = dFC_vec2mat(centroids, n_regions)
+
+    clustering_RESULTS = {
+        "num_PCs": n_components,
+        "PCA": pca,
+        "kmeans": kmeans,
+        "ARI": adjusted_rand_score(y, labels_pred),
+        "centroids": centroids_mat,
+    }
+
+    clustering_scores = {
+        "subj_id": list(),
+        "task": list(),
+        "run": list(),
+        "dFC method": list(),
+        "Kmeans ARI": list(),
+    }
+    for subj in SUBJECTS:
+        clustering_scores["subj_id"].append(subj)
+        features = X[subj_label == subj, :]
+        target = y[subj_label == subj]
+
+        pred_KNN = kmeans.predict(features)
+
+        clustering_scores["Kmeans ARI"].append(adjusted_rand_score(target, pred_KNN))
+
+        clustering_scores["task"].append(task)
+        clustering_scores["run"].append(run)
+        clustering_scores["dFC method"].append(measure_name)
+
+    return clustering_RESULTS, clustering_scores
+
+
 def run_classification(
     TASKS,
     RUNS,
@@ -570,6 +668,61 @@ def run_classification(
             np.save(f"{folder}/ML_RESULT_{dFC_id}.npy", ML_RESULT)
 
         np.save(f"{folder}/ML_scores_classify.npy", ML_scores)
+
+
+def run_clustering(
+    TASKS,
+    RUNS,
+    SESSIONS,
+    roi_root,
+    dFC_root,
+    output_root,
+    normalize_dFC=True,
+):
+    for session in SESSIONS:
+        if not session is None:
+            print(f"=================== {session} ===================")
+        clustering_scores = {
+            "subj_id": list(),
+            "task": list(),
+            "run": list(),
+            "dFC method": list(),
+            "Kmeans ARI": list(),
+        }
+        for dFC_id in range(0, 7):
+            print(f"=================== dFC {dFC_id} ===================")
+
+            clustering_RESULTS = {}
+            for task_id, task in enumerate(TASKS):
+                clustering_RESULTS[task] = {}
+                for run in RUNS[task]:
+                    clustering_RESULTS_new, clustering_scores_new = (
+                        task_presence_clustering(
+                            task=task,
+                            dFC_id=dFC_id,
+                            roi_root=roi_root,
+                            dFC_root=dFC_root,
+                            run=run,
+                            session=session,
+                            normalize_dFC=normalize_dFC,
+                        )
+                    )
+                    if run is None:
+                        clustering_RESULTS[task] = clustering_RESULTS_new
+                    else:
+                        clustering_RESULTS[task][run] = clustering_RESULTS_new
+                    for key in clustering_scores:
+                        clustering_scores[key].extend(clustering_scores_new[key])
+
+            if session is None:
+                folder = f"{output_root}"
+            else:
+                folder = f"{output_root}/{session}"
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+            np.save(f"{folder}/clustering_RESULTS_{dFC_id}.npy", clustering_RESULTS)
+
+        np.save(f"{folder}/clustering_scores.npy", clustering_scores)
 
 
 #######################################################################################
@@ -638,6 +791,9 @@ if __name__ == "__main__":
         roi_root=roi_root,
         output_root=ML_root,
     )
+
+    print("Task features extraction finished.")
+    print("Task presence classification started ...")
     run_classification(
         TASKS=TASKS,
         RUNS=RUNS,
@@ -648,6 +804,18 @@ if __name__ == "__main__":
         dynamic_pred="no",
         normalize_dFC=True,
     )
+    print("Task presence classification finished.")
+    print("Task presence clustering started ...")
+    run_clustering(
+        TASKS=TASKS,
+        RUNS=RUNS,
+        SESSIONS=SESSIONS,
+        roi_root=roi_root,
+        dFC_root=dFC_root,
+        output_root=ML_root,
+        normalize_dFC=True,
+    )
+    print("Task presence clustering finished.")
 
     print("Task presence prediction CODE finished running.")
 
