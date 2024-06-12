@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier
@@ -361,7 +362,8 @@ def task_presence_classification(
     explained_var_threshold=0.95,
 ):
     """
-    perform task presence classification using KNN for a given task and dFC method and run.
+    perform task presence classification using logistic regression and KNN
+    for a given task and dFC method and run.
     """
     if run is None:
         print(f"=============== {task} ===============")
@@ -404,6 +406,23 @@ def task_presence_classification(
 
     print("task presence classification ...")
 
+    # logistic regression
+    logistic_reg = make_pipeline(StandardScaler(), LogisticRegression())
+    # create a dictionary of all values we want to test for C
+    param_grid = {"C": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+    # use gridsearch to test all values for C
+    lr_gscv = GridSearchCV(logistic_reg, param_grid, cv=5)
+    # fit model to data
+    lr_gscv.fit(X_train, y_train)
+
+    C = lr_gscv.best_params_["C"]
+
+    log_reg = make_pipeline(
+        StandardScaler(),
+        LogisticRegression(C=C),
+    ).fit(X_train, y_train)
+
+    # KNN
     # find num_PCs
     pca = PCA(svd_solver="full", whiten=False)
     pca.fit(X_train)
@@ -434,6 +453,10 @@ def task_presence_classification(
     ).fit(X_train, y_train)
 
     ML_RESULT = {
+        "logistic regression": log_reg,
+        "logistic regression C": C,
+        "logistic regression train score": log_reg.score(X_train, y_train),
+        "logistic regression test score": log_reg.score(X_test, y_test),
         "pca": pca,
         "num_PCs": num_PCs,
         "cv_results": knn_gscv.cv_results_,
@@ -442,6 +465,12 @@ def task_presence_classification(
         "KNN test score": neigh.score(X_test, y_test),
     }
 
+    print(
+        f"Logistic regression train score {measure_name} {task}: {log_reg.score(X_train, y_train)}"
+    )
+    print(
+        f"Logistic regression test score {measure_name} {task}: {log_reg.score(X_test, y_test)}"
+    )
     print(f"KNN train score {measure_name} {task}: {neigh.score(X_train, y_train)}")
     print(f"KNN test score {measure_name} {task}: {neigh.score(X_test, y_test)}")
 
@@ -453,6 +482,7 @@ def task_presence_classification(
         "task": list(),
         "run": list(),
         "dFC method": list(),
+        "Logistic regression accuracy": list(),
         "KNN accuracy": list(),
     }
     for subj in SUBJECTS:
@@ -466,9 +496,13 @@ def task_presence_classification(
             features = X_test[subj_label_test == subj, :]
             target = y_test[subj_label_test == subj]
 
-        pred = neigh.predict(features)
+        pred_lr = log_reg.predict(features)
+        pred_KNN = neigh.predict(features)
 
-        ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred))
+        ML_scores["Logistic regression accuracy"].append(
+            balanced_accuracy_score(target, pred_lr)
+        )
+        ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred_KNN))
 
         ML_scores["task"].append(task)
         ML_scores["run"].append(run)
@@ -496,6 +530,7 @@ def run_classification(
             "task": list(),
             "run": list(),
             "dFC method": list(),
+            "Logistic regression accuracy": list(),
             "KNN accuracy": list(),
         }
         for dFC_id in range(0, 7):
