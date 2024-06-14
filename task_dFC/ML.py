@@ -584,6 +584,7 @@ def task_presence_clustering(
     centroids_mat = dFC_vec2mat(centroids, n_regions)
 
     clustering_RESULTS = {
+        "StandardScaler": scaler,
         "num_PCs": n_components,
         "PCA": pca,
         "kmeans": kmeans,
