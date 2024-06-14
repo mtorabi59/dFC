@@ -564,12 +564,13 @@ def task_presence_clustering(
     # find number of components that explain 95% of variance
     pca = PCA()
     pca.fit(X_normalized)
-    n_components = np.where(
-        np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold
-    )[0][0]
+    n_components = (
+        np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
+        + 1
+    )
     pca = PCA(n_components=n_components)
     X_pca = pca.fit_transform(X_normalized)
-    kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=4)
+    kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
     labels_pred = kmeans.fit_predict(X_pca)
 
     # ARI score
