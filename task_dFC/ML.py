@@ -414,13 +414,13 @@ def task_presence_classification(
     # logistic regression
     logistic_reg = make_pipeline(StandardScaler(), LogisticRegression())
     # create a dictionary of all values we want to test for C
-    param_grid = {"C": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+    param_grid = {"logisticregression__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
     # use gridsearch to test all values for C
     lr_gscv = GridSearchCV(logistic_reg, param_grid, cv=5)
     # fit model to data
     lr_gscv.fit(X_train, y_train)
 
-    C = lr_gscv.best_params_["C"]
+    C = lr_gscv.best_params_["logisticregression__C"]
 
     log_reg = make_pipeline(
         StandardScaler(),
