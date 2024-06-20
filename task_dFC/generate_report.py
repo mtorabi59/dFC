@@ -326,9 +326,11 @@ def plot_ML_results(ML_root, output_root, task, run=None, session=None):
 
     f = g.get_figure()
     if run is None:
-        f.savefig(f"{output_dir}/ML_results_classify.png", bbox_inches="tight")
+        f.savefig(f"{output_dir}/ML_results_classify_{task}.png", bbox_inches="tight")
     else:
-        f.savefig(f"{output_dir}/ML_results_classify_{run}.png", bbox_inches="tight")
+        f.savefig(
+            f"{output_dir}/ML_results_classify_{task}_{run}.png", bbox_inches="tight"
+        )
 
 
 def plot_task_presence_characteristics():
