@@ -292,7 +292,20 @@ def plot_dFC_matrices(
         dFC.visualize_dFC(TRs=chosen_TRs, normalize=False, rank_norm=True, fix_lim=False)
 
 
-def plot_ML_results(ML_root, output_root, task, run=None, session=None):
+def plot_ML_results(
+    ML_root, output_root, task, run=None, session=None, ML_algorithm="KNN"
+):
+    """
+    Plot the ML results for a given task, run and session.
+    parameters:
+    ----------
+        ML_root: str, path to ML results
+        output_root: str, path to save the figures
+        task: str, task name
+        run: int, run number
+        session: str, session name
+        ML_algorithm: str, ML algorithm name (default: KNN, other options: Logistic regression)
+    """
     if session is None:
         ML_scores = np.load(
             f"{ML_root}/ML_scores_classify.npy", allow_pickle="TRUE"
@@ -314,7 +327,7 @@ def plot_ML_results(ML_root, output_root, task, run=None, session=None):
     g = sns.pointplot(
         data=dataframe[dataframe["task"] == task],
         x="dFC method",
-        y="KNN accuracy",
+        y=f"{ML_algorithm} accuracy",
         hue="group",
         errorbar="sd",
         linestyle="none",
@@ -334,9 +347,14 @@ def plot_ML_results(ML_root, output_root, task, run=None, session=None):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    if ML_algorithm == "Logistic regression":
+        ML_algorithm_name = "LogReg"
+    elif ML_algorithm == "KNN":
+        ML_algorithm_name = "KNN"
+
     if run is None:
         plt.savefig(
-            f"{output_dir}/ML_results_classify_{task}.{save_fig_format}",
+            f"{output_dir}/ML_results_classify_{ML_algorithm_name}_{task}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -344,7 +362,7 @@ def plot_ML_results(ML_root, output_root, task, run=None, session=None):
         )
     else:
         plt.savefig(
-            f"{output_dir}/ML_results_classify_{task}_{run}.{save_fig_format}",
+            f"{output_dir}/ML_results_classify_{ML_algorithm_name}_{task}_{run}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -497,6 +515,15 @@ if __name__ == "__main__":
                     task=task,
                     run=run,
                     session=session,
+                    ML_algorithm="KNN",
+                )
+                plot_ML_results(
+                    ML_root=ML_root,
+                    output_root=figures_root,
+                    task=task,
+                    run=run,
+                    session=session,
+                    ML_algorithm="Logistic regression",
                 )
 
     print("Report generated successfully!")
