@@ -14,6 +14,14 @@ from sklearn.preprocessing import StandardScaler
 from pydfc import DFC, data_loader, task_utils
 from pydfc.dfc_utils import TR_intersection, dFC_mat2vec, dFC_vec2mat, rank_norm
 
+################################# Parameters ####################################
+
+fig_dpi = 120
+fig_bbox_inches = "tight"
+fig_pad = 0.1
+show_title = True
+save_fig_format = "png"  # pdf, png,
+
 #######################################################################################
 
 
@@ -302,6 +310,7 @@ def plot_ML_results(ML_root, output_root, task, run=None, session=None):
     if run is not None:
         dataframe = dataframe[dataframe["run"] == run]
 
+    plt.figure(figsize=(10, 5))
     g = sns.pointplot(
         data=dataframe[dataframe["task"] == task],
         x="dFC method",
@@ -313,7 +322,8 @@ def plot_ML_results(ML_root, output_root, task, run=None, session=None):
         capsize=0.1,
     )
     g.axhline(0.5, color="r", linestyle="--")
-    g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
+    if show_title:
+        g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
 
     # save the figure
     if session is None:
@@ -324,13 +334,24 @@ def plot_ML_results(ML_root, output_root, task, run=None, session=None):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    f = g.get_figure()
     if run is None:
-        f.savefig(f"{output_dir}/ML_results_classify_{task}.png", bbox_inches="tight")
-    else:
-        f.savefig(
-            f"{output_dir}/ML_results_classify_{task}_{run}.png", bbox_inches="tight"
+        plt.savefig(
+            f"{output_dir}/ML_results_classify_{task}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
         )
+    else:
+        plt.savefig(
+            f"{output_dir}/ML_results_classify_{task}_{run}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+
+    plt.close()
 
 
 def plot_task_presence_characteristics():
