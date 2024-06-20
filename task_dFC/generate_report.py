@@ -321,6 +321,9 @@ def plot_ML_results(ML_root, output_root, task, run=None, session=None):
     else:
         output_dir = f"{output_root}/group_results/classification/{session}"
 
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     f = g.get_figure()
     if run is None:
         f.savefig(f"{output_dir}/ML_results_classify.png", bbox_inches="tight")
