@@ -6,6 +6,7 @@
 	"fitted_measures_root" : "{main_root}/derivatives/fitted_MEASURES",
 	"dFC_root" : "{main_root}/derivatives/dFC_assessed",
 	"ML_root" : "{main_root}/derivatives/ML",
+	"reports_root" : "{main_root}/derivatives/reports",
 	"bold_suffix" : "_space-MNI152NLin2009cAsym_res-2_desc-preproc_bold.nii.gz",
 	"SESSIONS" : [
 		"ses-1"
