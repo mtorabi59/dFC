@@ -517,14 +517,14 @@ if __name__ == "__main__":
                     session=session,
                     ML_algorithm="KNN",
                 )
-                plot_ML_results(
-                    ML_root=ML_root,
-                    output_root=figures_root,
-                    task=task,
-                    run=run,
-                    session=session,
-                    ML_algorithm="Logistic regression",
-                )
+                # plot_ML_results(
+                #     ML_root=ML_root,
+                #     output_root=figures_root,
+                #     task=task,
+                #     run=run,
+                #     session=session,
+                #     ML_algorithm="Logistic regression",
+                # )
 
     print("Report generated successfully!")
 
