@@ -339,7 +339,7 @@ def dFC_feature_extraction(
                 dFC_measure_name == dFC.measure.measure_name
             ), "dFC measure is not consistent."
 
-    print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
+    # print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
     subj_label_train = np.array(subj_label_train)
     subj_label_test = np.array(subj_label_test)
 
@@ -743,7 +743,7 @@ if __name__ == "__main__":
 
     dataset_info_file = args.dataset_info
 
-    # Read global configs
+    # Read dataset info
     with open(dataset_info_file, "r") as f:
         dataset_info = json.load(f)
 
