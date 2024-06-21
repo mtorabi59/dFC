@@ -155,14 +155,11 @@ def plot_roi_signals(
     )
 
     time = np.arange(0, BOLD.data.shape[1]) * TR_mri
-    start_time = 200
-    end_time = 300
-    start_TR = int(start_time / TR_mri)
-    end_TR = int(end_time / TR_mri)
-    fig_width = (end_time - start_time) / 5
-    plt.figure(figsize=(fig_width, 3))
+    # keep the figure width proportional to the number of time points in data
+    fig_width = int(2.5 * task_data["num_time_mri"])
+    plt.figure(figsize=(fig_width, 5))
     for i in nodes_list:
-        plt.plot(time[start_TR:end_TR], BOLD.data[i, start_TR:end_TR], linewidth=4)
+        plt.plot(time, BOLD.data[i, :], linewidth=4)
     if show_title:
         plt.title("ROI signals")
     plt.xlabel("Time (s)")
@@ -202,7 +199,9 @@ def plot_event_labels(
     Fs_task = task_data["Fs_task"]
 
     time = np.arange(0, task_data["event_labels"].shape[0]) / Fs_task
-    plt.figure(figsize=(35, 4))
+    # keep the figure width proportional to the number of time points in data
+    fig_width = int(2.5 * task_data["num_time_mri"])
+    plt.figure(figsize=(fig_width, 5))
     plt.plot(time, task_data["event_labels"], linewidth=4)
     plt.title("Event labels")
     plt.xlabel("Time (s)")
@@ -260,7 +259,9 @@ def plot_task_presence(
     )
 
     time = np.arange(0, task_presence.shape[0]) / Fs_mri
-    plt.figure(figsize=(35, 4))
+    # keep the figure width proportional to the number of time points in data
+    fig_width = int(2.5 * task_data["num_time_mri"])
+    plt.figure(figsize=(fig_width, 5))
     plt.plot(time, task_presence_non_binarized, linewidth=4)
     plt.plot(time, task_presence, linewidth=4)
     # plot mean of task presence_non_binarized as a line
@@ -551,53 +552,95 @@ def plot_clustering_results():
 
 def create_html_report(
     subj,
+    SESSIONS,
+    TASKS,
+    RUNS,
     reports_root,
 ):
     """
     This function creates an html report for the subject results
     using the generated figures.
     """
+    img_height = 150
     # create html report
     subj_dir = f"{reports_root}/subject_results/{subj}"
     file = open(f"{subj_dir}/report.html", "w")
     file.write("<html>\n")
     file.write("<head>\n")
-    file.write("<title>Subject results</title>\n")
+    file.write(f"<title>Subject {subj} Results</title>\n")
     file.write("</head>\n")
     file.write("<body>\n")
-    file.write("<h1>Subject results</h1>\n")
+    file.write(f"<h1>Subject {subj} Results</h1>\n")
     for session in SESSIONS:
         if session is not None:
-            file.write(f"<h2> {session} </h2>\n")
+            file.write(f"<h1> {session} </h1>\n")
         for task in TASKS:
-            file.write(f"<h2> {task} </h2>\n")
+            file.write(f"<h1> {task} </h1>\n")
             for run in RUNS[task]:
                 if run is not None:
                     file.write(f"<h2> {run} </h2>\n")
-                session_task_run_dir = f"{subj_dir}"
                 if session is not None:
-                    session_task_run_dir = f"{session_task_run_dir}/{session}"
-                session_task_run_dir = f"{session_task_run_dir}/{task}"
+                    session_task_run_dir = f"{session}/{task}"
+                else:
+                    session_task_run_dir = f"{task}"
                 if run is not None:
                     session_task_run_dir = f"{session_task_run_dir}/{run}"
 
-                file.write(
-                    f"<img src='{subj_dir}/ROI_signals/{session_task_run_dir}/ROI_signals.png' alt='ROI signals'>\n"
+                # display ROI signals
+                ROI_signals_img = (
+                    f"{subj_dir}/ROI_signals/{session_task_run_dir}/ROI_signals.png"
                 )
+                img = plt.imread(ROI_signals_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
                 file.write(
-                    f"<img src='{subj_dir}/event_labels/{session_task_run_dir}/event_labels.png' alt='Event labels'>\n"
+                    f"<img src='{ROI_signals_img}' alt='ROI signals' width='{width}' height='{img_height}'>\n"
                 )
+                file.write("<br>\n")
+
+                # display event labels
+                event_labels_img = (
+                    f"{subj_dir}/event_labels/{session_task_run_dir}/event_labels.png"
+                )
+                img = plt.imread(event_labels_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
                 file.write(
-                    f"<img src='{subj_dir}/task_presence/{session_task_run_dir}/task_presence.png' alt='Task presence'>\n"
+                    f"<img src='{subj_dir}/event_labels/{session_task_run_dir}/event_labels.png' alt='Event labels' width='{width}' height='{img_height}'>\n"
                 )
+                file.write("<br>\n")
+
+                # display task presence
+                task_presence_img = (
+                    f"{subj_dir}/task_presence/{session_task_run_dir}/task_presence.png"
+                )
+                img = plt.imread(task_presence_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                file.write(
+                    f"<img src='{subj_dir}/task_presence/{session_task_run_dir}/task_presence.png' alt='Task presence' width='{width}' height='{img_height}'>\n"
+                )
+                file.write("<br>\n")
+
+                # display dFC matrices
                 # for dFC matrices find all png files in the directory
                 dFC_matrices_dir = f"{subj_dir}/dFC_matrices/{session_task_run_dir}"
                 if os.path.exists(dFC_matrices_dir):
                     for file_name in os.listdir(dFC_matrices_dir):
                         if file_name.endswith(".png"):
+                            file.write(f"<h3>{file_name[:file_name.find('_dFC')]}</h3>\n")
+                            # get the original size of the image
+                            img = plt.imread(f"{dFC_matrices_dir}/{file_name}")
+                            height, width, _ = img.shape
+                            # change the width so that height equals img_height
+                            width = int(width * img_height / height)
                             file.write(
-                                f"<img src='{dFC_matrices_dir}/{file_name}' alt='{file_name}'>\n"
+                                f"<img src='{dFC_matrices_dir}/{file_name}' alt='{file_name}' width='{width}' height='{img_height}'>\n"
                             )
+                            file.write("<br>\n")
     file.write("</body>\n")
     file.write("</html>\n")
     file.close()
@@ -734,7 +777,13 @@ if __name__ == "__main__":
                         print(f"Error in plotting task presence: {e}")
         # create html report
         try:
-            create_html_report(subj, reports_root)
+            create_html_report(
+                subj=subj,
+                SESSIONS=SESSIONS,
+                TASKS=TASKS,
+                RUNS=RUNS,
+                reports_root=reports_root,
+            )
         except Exception as e:
             print(f"Error in creating html report: {e}")
 
