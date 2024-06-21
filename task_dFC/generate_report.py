@@ -124,6 +124,10 @@ def plot_roi_signals(
     roi_root,
     subj,
     task,
+    start_time,
+    end_time,
+    output_root,
+    nodes_list=range(0, 10),
     session=None,
     run=None,
 ):
@@ -138,6 +142,9 @@ def plot_roi_signals(
         else:
             file_name = "{subj_id}_{session}_{task}_{run}_time-series.npy"
 
+    task_data = load_task_data(roi_root, subj, task, run, session)
+    TR_mri = task_data["TR_mri"]
+
     BOLD = data_loader.load_TS(
         data_root=roi_root,
         file_name=file_name,
@@ -147,13 +154,47 @@ def plot_roi_signals(
         session=session,
     )
 
-    BOLD.visualize(nodes_lst=list(range(0, 10)), save_image=False, output_root=None)
+    time = np.arange(0, BOLD.data.shape[1]) * TR_mri
+    start_time = 200
+    end_time = 300
+    start_TR = int(start_time / TR_mri)
+    end_TR = int(end_time / TR_mri)
+    fig_width = (start_time - end_time) / 5
+    plt.figure(figsize=(fig_width, 3))
+    for i in nodes_list:
+        plt.plot(time[start_TR:end_TR], BOLD.data[i, start_TR:end_TR], linewidth=4)
+    if show_title:
+        plt.title("ROI signals")
+    plt.xlabel("Time (s)")
+
+    # save the figure
+    output_dir = f"{output_root}/subject_results/{subj}/ROI_signals"
+    if session is not None:
+        output_dir = f"{output_dir}/{session}"
+    output_dir = f"{output_dir}/{task}"
+    if run is not None:
+        output_dir = f"{output_dir}/{run}"
+    output_dir = f"{output_dir}/"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    plt.savefig(
+        f"{output_dir}/ROI_signals.{save_fig_format}",
+        dpi=fig_dpi,
+        bbox_inches=fig_bbox_inches,
+        pad_inches=fig_pad,
+        format=save_fig_format,
+    )
+
+    plt.close()
 
 
 def plot_event_labels(
     roi_root,
     subj,
     task,
+    output_root,
     run=None,
     session=None,
 ):
@@ -165,13 +206,35 @@ def plot_event_labels(
     plt.plot(time, task_data["event_labels"], linewidth=4)
     plt.title("Event labels")
     plt.xlabel("Time (s)")
-    plt.show()
+
+    # save the figure
+    output_dir = f"{output_root}/subject_results/{subj}/event_labels"
+    if session is not None:
+        output_dir = f"{output_dir}/{session}"
+    output_dir = f"{output_dir}/{task}"
+    if run is not None:
+        output_dir = f"{output_dir}/{run}"
+    output_dir = f"{output_dir}/"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    plt.savefig(
+        f"{output_dir}/event_labels.{save_fig_format}",
+        dpi=fig_dpi,
+        bbox_inches=fig_bbox_inches,
+        pad_inches=fig_pad,
+        format=save_fig_format,
+    )
+
+    plt.close()
 
 
 def plot_task_presence(
     roi_root,
     subj,
     task,
+    output_root,
     run=None,
     session=None,
 ):
@@ -204,7 +267,28 @@ def plot_task_presence(
     plt.plot(time, np.mean(task_presence_non_binarized) * np.ones_like(time), linewidth=4)
     plt.title("Task presence")
     plt.xlabel("Time (s)")
-    plt.show()
+
+    # save the figure
+    output_dir = f"{output_root}/subject_results/{subj}/task_presence"
+    if session is not None:
+        output_dir = f"{output_dir}/{session}"
+    output_dir = f"{output_dir}/{task}"
+    if run is not None:
+        output_dir = f"{output_dir}/{run}"
+    output_dir = f"{output_dir}/"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    plt.savefig(
+        f"{output_dir}/task_presence.{save_fig_format}",
+        dpi=fig_dpi,
+        bbox_inches=fig_bbox_inches,
+        pad_inches=fig_pad,
+        format=save_fig_format,
+    )
+
+    plt.close()
 
 
 def calculate_subj_lvl_task_presence_characteristics(
@@ -246,8 +330,14 @@ def calculate_subj_lvl_task_presence_characteristics(
     print(f"Relative transition frequency: {relative_transition_freq}")
 
 
-def plot_FCS():
-    pass
+# def plot_FCS():
+#     visualize_FCS(
+#         measure,
+#         normalize=True,
+#         fix_lim=False,
+#         save_image=save_image,
+#         output_root=output_root + "FCS/",
+#     )
 
 
 def plot_dFC_matrices(
@@ -531,16 +621,59 @@ if __name__ == "__main__":
         for session in SESSIONS:
             for task in TASKS:
                 for run in RUNS[task]:
-                    plot_dFC_matrices(
-                        dFC_root=dFC_root,
-                        subj=subj,
-                        task=task,
-                        start_time=50,
-                        end_time=150,
-                        output_root=reports_root,
-                        run=run,
-                        session=session,
-                    )
+
+                    try:
+                        plot_dFC_matrices(
+                            dFC_root=dFC_root,
+                            subj=subj,
+                            task=task,
+                            start_time=50,
+                            end_time=150,
+                            output_root=reports_root,
+                            run=run,
+                            session=session,
+                        )
+                    except Exception as e:
+                        print(f"Error in plotting dFC matrices: {e}")
+
+                    try:
+                        plot_roi_signals(
+                            roi_root=roi_root,
+                            subj=subj,
+                            task=task,
+                            start_time=50,
+                            end_time=150,
+                            nodes_list=range(0, 10),
+                            output_root=reports_root,
+                            run=run,
+                            session=session,
+                        )
+                    except Exception as e:
+                        print(f"Error in plotting ROI signals: {e}")
+
+                    try:
+                        plot_event_labels(
+                            roi_root=roi_root,
+                            subj=subj,
+                            task=task,
+                            output_root=reports_root,
+                            run=run,
+                            session=session,
+                        )
+                    except Exception as e:
+                        print(f"Error in plotting event labels: {e}")
+
+                    try:
+                        plot_task_presence(
+                            roi_root=roi_root,
+                            subj=subj,
+                            task=task,
+                            output_root=reports_root,
+                            run=run,
+                            session=session,
+                        )
+                    except Exception as e:
+                        print(f"Error in plotting task presence: {e}")
 
     for session in SESSIONS:
         for task in TASKS:
