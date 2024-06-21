@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from tracemalloc import start
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -155,11 +156,19 @@ def plot_roi_signals(
     )
 
     time = np.arange(0, BOLD.data.shape[1]) * TR_mri
-    # keep the figure width proportional to the number of time points in data
-    fig_width = int(2.5 * task_data["num_time_mri"])
+    start_TR = int(start_time / TR_mri)
+    end_TR = int(end_time / TR_mri)
+    # keep the figure width proportional to the number of time points
+    fig_width = int(2.5 * (end_time - start_time) / TR_mri)
     plt.figure(figsize=(fig_width, 5))
     for i in nodes_list:
-        plt.plot(time, BOLD.data[i, :], linewidth=4)
+        plt.plot(time[start_TR:end_TR], BOLD.data[i, start_TR:end_TR], linewidth=4)
+    # put vertical lines at the start of each TR
+    for TR in range(start_TR, end_TR):
+        plt.axvline(x=TR * TR_mri, color="r", linestyle="--")
+    # show TR labels on the red lines with a small font and at the top
+    for TR in range(start_TR, end_TR):
+        plt.text(TR * TR_mri, 1.2, f"TR {TR}", fontsize=8, color="black", ha="center")
     if show_title:
         plt.title("ROI signals")
     plt.xlabel("Time (s)")
@@ -191,18 +200,28 @@ def plot_event_labels(
     roi_root,
     subj,
     task,
+    start_time,
+    end_time,
     output_root,
     run=None,
     session=None,
 ):
     task_data = load_task_data(roi_root, subj, task, run, session)
     Fs_task = task_data["Fs_task"]
+    TR_task = 1 / Fs_task
+    TR_mri = task_data["TR_mri"]
 
     time = np.arange(0, task_data["event_labels"].shape[0]) / Fs_task
-    # keep the figure width proportional to the number of time points in data
-    fig_width = int(2.5 * task_data["num_time_mri"])
+    start_timepoint = int(start_time / TR_task)
+    end_timepoint = int(end_time / TR_task)
+    # keep the figure width proportional to the number of time points
+    fig_width = int(2.5 * (end_time - start_time) / TR_mri)
     plt.figure(figsize=(fig_width, 5))
-    plt.plot(time, task_data["event_labels"], linewidth=4)
+    plt.plot(
+        time[start_timepoint:end_timepoint],
+        task_data["event_labels"][start_timepoint:end_timepoint],
+        linewidth=4,
+    )
     plt.title("Event labels")
     plt.xlabel("Time (s)")
 
@@ -233,6 +252,8 @@ def plot_task_presence(
     roi_root,
     subj,
     task,
+    start_time,
+    end_time,
     output_root,
     run=None,
     session=None,
@@ -259,13 +280,27 @@ def plot_task_presence(
     )
 
     time = np.arange(0, task_presence.shape[0]) / Fs_mri
+    start_TR = int(start_time / TR_mri)
+    end_TR = int(end_time / TR_mri)
     # keep the figure width proportional to the number of time points in data
-    fig_width = int(2.5 * task_data["num_time_mri"])
+    fig_width = int(2.5 * (end_time - start_time) / TR_mri)
     plt.figure(figsize=(fig_width, 5))
-    plt.plot(time, task_presence_non_binarized, linewidth=4)
-    plt.plot(time, task_presence, linewidth=4)
+    plt.plot(
+        time[start_TR:end_TR], task_presence_non_binarized[start_TR:end_TR], linewidth=4
+    )
+    plt.plot(time[start_TR:end_TR], task_presence[start_TR:end_TR], linewidth=4)
     # plot mean of task presence_non_binarized as a line
-    plt.plot(time, np.mean(task_presence_non_binarized) * np.ones_like(time), linewidth=4)
+    plt.plot(
+        time[start_TR:end_TR],
+        np.mean(task_presence_non_binarized) * np.ones_like(time[start_TR:end_TR]),
+        linewidth=4,
+    )
+    # put vertical lines at the start of each TR
+    for TR in range(start_TR, end_TR):
+        plt.axvline(x=TR * TR_mri, color="r", linestyle="--")
+    # show TR labels on the red lines with a small font and at the top
+    for TR in range(start_TR, end_TR):
+        plt.text(TR * TR_mri, 1.2, f"TR {TR}", fontsize=8, color="black", ha="center")
     plt.title("Task presence")
     plt.xlabel("Time (s)")
 
@@ -718,6 +753,9 @@ if __name__ == "__main__":
     # Generate report only one random subjects
     SUBJECTS = np.random.choice(SUBJECTS, 1)
 
+    start_time = 0
+    end_time = 200
+
     for subj in SUBJECTS:
         for session in SESSIONS:
             for task in TASKS:
@@ -728,8 +766,8 @@ if __name__ == "__main__":
                             dFC_root=dFC_root,
                             subj=subj,
                             task=task,
-                            start_time=50,
-                            end_time=150,
+                            start_time=start_time,
+                            end_time=end_time,
                             output_root=reports_root,
                             run=run,
                             session=session,
@@ -742,8 +780,8 @@ if __name__ == "__main__":
                             roi_root=roi_root,
                             subj=subj,
                             task=task,
-                            start_time=50,
-                            end_time=150,
+                            start_time=start_time,
+                            end_time=end_time,
                             nodes_list=range(0, 10),
                             output_root=reports_root,
                             run=run,
@@ -757,6 +795,8 @@ if __name__ == "__main__":
                             roi_root=roi_root,
                             subj=subj,
                             task=task,
+                            start_time=start_time,
+                            end_time=end_time,
                             output_root=reports_root,
                             run=run,
                             session=session,
@@ -769,6 +809,8 @@ if __name__ == "__main__":
                             roi_root=roi_root,
                             subj=subj,
                             task=task,
+                            start_time=start_time,
+                            end_time=end_time,
                             output_root=reports_root,
                             run=run,
                             session=session,
