@@ -159,7 +159,7 @@ def plot_roi_signals(
     end_time = 300
     start_TR = int(start_time / TR_mri)
     end_TR = int(end_time / TR_mri)
-    fig_width = (start_time - end_time) / 5
+    fig_width = (end_time - start_time) / 5
     plt.figure(figsize=(fig_width, 3))
     for i in nodes_list:
         plt.plot(time[start_TR:end_TR], BOLD.data[i, start_TR:end_TR], linewidth=4)
@@ -616,6 +616,9 @@ if __name__ == "__main__":
         reports_root = dataset_info["reports_root"]
 
     print("Generating report...")
+
+    # Generate report only for 5 random subjects
+    SUBJECTS = np.random.choice(SUBJECTS, 5)
 
     for subj in SUBJECTS:
         for session in SESSIONS:
