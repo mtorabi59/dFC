@@ -583,7 +583,7 @@ def task_presence_clustering(
     centroids = kmeans.cluster_centers_
     centroids = pca.inverse_transform(centroids)
     centroids = scaler.inverse_transform(centroids)
-    n_regions = (1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2
+    n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
     centroids_mat = dFC_vec2mat(centroids, n_regions)
 
     clustering_RESULTS = {
