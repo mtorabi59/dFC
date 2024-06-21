@@ -548,6 +548,61 @@ def plot_clustering_results():
 #         plt.xlabel('Time (s)')
 #         plt.show()
 
+
+def create_html_report(
+    subj,
+    reports_root,
+):
+    """
+    This function creates an html report for the subject results
+    using the generated figures.
+    """
+    # create html report
+    subj_dir = f"{reports_root}/subject_results/{subj}"
+    file = open(f"{subj_dir}/report.html", "w")
+    file.write("<html>\n")
+    file.write("<head>\n")
+    file.write("<title>Subject results</title>\n")
+    file.write("</head>\n")
+    file.write("<body>\n")
+    file.write("<h1>Subject results</h1>\n")
+    for session in SESSIONS:
+        if session is not None:
+            file.write(f"<h2> {session} </h2>\n")
+        for task in TASKS:
+            file.write(f"<h2> {task} </h2>\n")
+            for run in RUNS[task]:
+                if run is not None:
+                    file.write(f"<h2> {run} </h2>\n")
+                session_task_run_dir = f"{subj_dir}"
+                if session is not None:
+                    session_task_run_dir = f"{session_task_run_dir}/{session}"
+                session_task_run_dir = f"{session_task_run_dir}/{task}"
+                if run is not None:
+                    session_task_run_dir = f"{session_task_run_dir}/{run}"
+
+                file.write(
+                    f"<img src='{subj_dir}/ROI_signals/{session_task_run_dir}/ROI_signals.png' alt='ROI signals'>\n"
+                )
+                file.write(
+                    f"<img src='{subj_dir}/event_labels/{session_task_run_dir}/event_labels.png' alt='Event labels'>\n"
+                )
+                file.write(
+                    f"<img src='{subj_dir}/task_presence/{session_task_run_dir}/task_presence.png' alt='Task presence'>\n"
+                )
+                # for dFC matrices find all png files in the directory
+                dFC_matrices_dir = f"{subj_dir}/dFC_matrices/{session_task_run_dir}"
+                if os.path.exists(dFC_matrices_dir):
+                    for file_name in os.listdir(dFC_matrices_dir):
+                        if file_name.endswith(".png"):
+                            file.write(
+                                f"<img src='{dFC_matrices_dir}/{file_name}' alt='{file_name}'>\n"
+                            )
+    file.write("</body>\n")
+    file.write("</html>\n")
+    file.close()
+
+
 #######################################################################################
 if __name__ == "__main__":
     # argparse
@@ -617,8 +672,8 @@ if __name__ == "__main__":
 
     print("Generating report...")
 
-    # Generate report only for 5 random subjects
-    SUBJECTS = np.random.choice(SUBJECTS, 5)
+    # Generate report only one random subjects
+    SUBJECTS = np.random.choice(SUBJECTS, 1)
 
     for subj in SUBJECTS:
         for session in SESSIONS:
@@ -677,6 +732,11 @@ if __name__ == "__main__":
                         )
                     except Exception as e:
                         print(f"Error in plotting task presence: {e}")
+        # create html report
+        try:
+            create_html_report(subj, reports_root)
+        except Exception as e:
+            print(f"Error in creating html report: {e}")
 
     for session in SESSIONS:
         for task in TASKS:
