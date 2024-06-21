@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from re import S
 
 import numpy as np
 from sklearn.cluster import KMeans
@@ -381,6 +382,7 @@ def task_presence_classification(
     SUBJECTS = find_available_subjects(
         dFC_root=dFC_root, task=task, run=run, session=session, dFC_id=dFC_id
     )
+    SUBJECTS = SUBJECTS[:20]
 
     # randomly select train_test_ratio of the subjects for training
     # and rest for testing using numpy.random.choice
@@ -537,6 +539,7 @@ def task_presence_clustering(
     SUBJECTS = find_available_subjects(
         dFC_root=dFC_root, task=task, run=run, session=session, dFC_id=dFC_id
     )
+    SUBJECTS = SUBJECTS[:20]
 
     print(f"Number of subjects: {len(SUBJECTS)}")
 

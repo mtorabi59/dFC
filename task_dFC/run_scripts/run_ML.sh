@@ -3,7 +3,7 @@
 #$ -cwd
 #$ -o logs/ML_out.txt
 #$ -e logs/ML_err.txt
-#$ -l h_vmem=32G
+#$ -l h_vmem=64G
 #$ -q origami.q
 
 DATASET_INFO="./dataset_info.json"
