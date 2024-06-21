@@ -607,9 +607,11 @@ def task_presence_clustering(
         features = X[subj_label == subj, :]
         target = y[subj_label == subj]
 
-        pred_KNN = kmeans.predict(features)
+        features_normalized = scaler.transform(features)
+        features_pca = pca.transform(features_normalized)
+        pred_kmeans = kmeans.predict(features_pca)
 
-        clustering_scores["Kmeans ARI"].append(adjusted_rand_score(target, pred_KNN))
+        clustering_scores["Kmeans ARI"].append(adjusted_rand_score(target, pred_kmeans))
 
         clustering_scores["task"].append(task)
         clustering_scores["run"].append(run)
