@@ -256,6 +256,7 @@ def plot_dFC_matrices(
     task,
     start_time,
     end_time,
+    output_root,
     run=None,
     session=None,
 ):
@@ -287,9 +288,23 @@ def plot_dFC_matrices(
     end_TR_idx = np.where(np.array(TRs) <= end_TR)[0][-1]
     chosen_TRs = TRs[start_TR_idx:end_TR_idx]
 
+    output_dir = f"{output_root}/subject_results/{subj}/dFC_matrices"
+    if session is not None:
+        output_dir = f"{output_dir}/{session}"
+    output_dir = f"{output_dir}/{task}"
+    if run is not None:
+        output_dir = f"{output_dir}/{run}"
+    output_dir = f"{output_dir}/"
+
     for dFC in dFC_lst:
-        print(dFC.measure.measure_name)
-        dFC.visualize_dFC(TRs=chosen_TRs, normalize=False, rank_norm=True, fix_lim=False)
+        dFC.visualize_dFC(
+            TRs=chosen_TRs,
+            normalize=False,
+            rank_norm=True,
+            fix_lim=False,
+            save_image=True,
+            output_root=output_dir,
+        )
 
 
 def plot_ML_results(
@@ -453,14 +468,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=HELPTEXT)
 
     parser.add_argument("--dataset_info", type=str, help="path to dataset info file")
+    parser.add_argument("--subj_list", type=str, help="path to subject list file")
 
     args = parser.parse_args()
 
     dataset_info_file = args.dataset_info
+    subj_list_file = args.subj_list
 
-    # Read global configs
+    # Read dataset info
     with open(dataset_info_file, "r") as f:
         dataset_info = json.load(f)
+
+    # Read subject list file, a txt file with one subject id per line
+    with open(subj_list_file, "r") as f:
+        SUBJECTS = f.read().splitlines()
 
     TASKS = dataset_info["TASKS"]
     if "RUNS" in dataset_info:
@@ -500,18 +521,33 @@ if __name__ == "__main__":
         ML_root = dataset_info["ML_root"]
 
     if "{main_root}" in dataset_info["reports_root"]:
-        figures_root = dataset_info["reports_root"].replace("{main_root}", main_root)
+        reports_root = dataset_info["reports_root"].replace("{main_root}", main_root)
     else:
-        figures_root = dataset_info["reports_root"]
+        reports_root = dataset_info["reports_root"]
 
     print("Generating report...")
+
+    for subj in SUBJECTS:
+        for session in SESSIONS:
+            for task in TASKS:
+                for run in RUNS[task]:
+                    plot_dFC_matrices(
+                        dFC_root=dFC_root,
+                        subj=subj,
+                        task=task,
+                        start_time=50,
+                        end_time=150,
+                        output_root=reports_root,
+                        run=run,
+                        session=session,
+                    )
 
     for session in SESSIONS:
         for task in TASKS:
             for run in RUNS[task]:
                 plot_ML_results(
                     ML_root=ML_root,
-                    output_root=figures_root,
+                    output_root=reports_root,
                     task=task,
                     run=run,
                     session=session,
@@ -519,7 +555,7 @@ if __name__ == "__main__":
                 )
                 # plot_ML_results(
                 #     ML_root=ML_root,
-                #     output_root=figures_root,
+                #     output_root=reports_root,
                 #     task=task,
                 #     run=run,
                 #     session=session,

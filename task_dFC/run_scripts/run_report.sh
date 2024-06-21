@@ -7,10 +7,12 @@
 #$ -q origami.q
 
 DATASET_INFO="./dataset_info.json"
+SUBJ_LIST="./subj_list.txt"
 
 source /data/origami/dFC/anaconda3/etc/profile.d/conda.sh
 conda activate pydfc
 python "/data/origami/dFC/CODEs/pydfc/dFC/task_dFC/generate_report.py" \
---dataset_info $DATASET_INFO
+--dataset_info $DATASET_INFO, \
+--subj_list $SUBJ_LIST
 
 conda deactivate
