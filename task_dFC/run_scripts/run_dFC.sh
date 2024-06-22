@@ -5,7 +5,7 @@
 #$ -e logs/dfc_err.txt
 #$ -l h_vmem=32G
 #$ -q origami.q
-#$ -t 1-200
+#$ -t 1-300
 
 SUBJECT_LIST="./subj_list.txt"
 DATASET_INFO="./dataset_info.json"

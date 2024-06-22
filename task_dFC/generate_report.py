@@ -158,7 +158,7 @@ def plot_roi_signals(
     start_TR = int(start_time / TR_mri)
     end_TR = int(end_time / TR_mri)
     # keep the figure width proportional to the number of time points
-    fig_width = int(5 * (end_time - start_time) / TR_mri)
+    fig_width = int(2.5 * (end_time - start_time) / TR_mri)
     plt.figure(figsize=(fig_width, 5))
     for i in nodes_list:
         plt.plot(time[start_TR:end_TR], BOLD.data[i, start_TR:end_TR], linewidth=4)
@@ -214,7 +214,7 @@ def plot_event_labels(
     start_timepoint = int(start_time / TR_task)
     end_timepoint = int(end_time / TR_task)
     # keep the figure width proportional to the number of time points
-    fig_width = int(5 * (end_time - start_time) / TR_mri)
+    fig_width = int(2.5 * (end_time - start_time) / TR_mri)
     plt.figure(figsize=(fig_width, 5))
     plt.plot(
         time[start_timepoint:end_timepoint],
@@ -282,7 +282,7 @@ def plot_task_presence(
     start_TR = int(start_time / TR_mri)
     end_TR = int(end_time / TR_mri)
     # keep the figure width proportional to the number of time points in data
-    fig_width = int(5 * (end_time - start_time) / TR_mri)
+    fig_width = int(2.5 * (end_time - start_time) / TR_mri)
     plt.figure(figsize=(fig_width, 5))
     plt.plot(
         time[start_TR:end_TR], task_presence_non_binarized[start_TR:end_TR], linewidth=4
@@ -595,7 +595,7 @@ def create_html_report(
     This function creates an html report for the subject results
     using the generated figures.
     """
-    img_height = 150
+
     # create html report
     subj_dir = f"{reports_root}/subject_results/{subj}"
     file = open(f"{subj_dir}/report.html", "w")
@@ -619,6 +619,8 @@ def create_html_report(
                     session_task_run_dir = f"{task}"
                 if run is not None:
                     session_task_run_dir = f"{session_task_run_dir}/{run}"
+
+                img_height = 100
 
                 # display ROI signals
                 ROI_signals_img = (
@@ -660,6 +662,7 @@ def create_html_report(
                 file.write("<br>\n")
 
                 # display dFC matrices
+                img_height = 50
                 # for dFC matrices find all png files in the directory
                 dFC_matrices_dir = f"{subj_dir}/dFC_matrices/{session_task_run_dir}"
                 if os.path.exists(dFC_matrices_dir):
