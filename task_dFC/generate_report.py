@@ -464,11 +464,13 @@ def plot_ML_results(
         dataframe = dataframe[dataframe["run"] == run]
 
     plt.figure(figsize=(10, 5))
+
     g = sns.pointplot(
         data=dataframe[dataframe["task"] == task],
         x="dFC method",
         y=f"{ML_algorithm} accuracy",
         hue="group",
+        hue_order=["train", "test"],
         errorbar="sd",
         linestyle="none",
         dodge=True,
@@ -510,10 +512,6 @@ def plot_ML_results(
         )
 
     plt.close()
-
-
-def plot_task_presence_characteristics():
-    pass
 
 
 def plot_clustering_results():
@@ -584,7 +582,76 @@ def plot_clustering_results():
 #         plt.show()
 
 
-def create_html_report(
+def plot_task_presence_features(
+    ML_root,
+    output_root,
+    session=None,
+    run=None,
+):
+    """
+    Plot the task presence features for a given session and run.
+    for comparability of tasks, pass the same run number for all tasks
+    parameters:
+    ----------
+        ML_root: str, path to ML results
+        output_root: str, path to save the figures
+        session: str, session name
+        run: int, run number
+    """
+    if session is None:
+        task_features = np.load(
+            f"{ML_root}/task_features.npy", allow_pickle="TRUE"
+        ).item()
+    else:
+        task_features = np.load(
+            f"{ML_root}/{session}/task_features.npy", allow_pickle="TRUE"
+        ).item()
+
+    sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.0})
+
+    sns.set_style("darkgrid")
+
+    dataframe = pd.DataFrame(task_features)
+    if run is not None:
+        dataframe = dataframe[dataframe["run"] == run]
+
+    # FEATURES are columns in the dataframe except for 'task' and 'run'
+    FEATURES = list(dataframe.columns)
+    FEATURES.remove("task")
+    FEATURES.remove("run")
+
+    for i, feature in enumerate(FEATURES):
+        plt.figure(figsize=(10, 5))
+        sns.pointplot(
+            data=dataframe,
+            x="task",
+            y=feature,
+            errorbar="sd",
+            linestyle="none",
+            dodge=True,
+            capsize=0.1,
+        )
+        # save the figure
+        if session is None:
+            output_dir = f"{output_root}/group_results/task_presence_features"
+        else:
+            output_dir = f"{output_root}/group_results/task_presence_features/{session}"
+
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        plt.savefig(
+            f"{output_dir}/task_presence_features_{feature}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+
+        plt.close()
+
+
+def create_html_report_subj_results(
     subj,
     SESSIONS,
     TASKS,
@@ -687,6 +754,111 @@ def create_html_report(
                                 f"<img src='{dFC_matrices_img}' alt='{file_name}' width='{width}' height='{img_height}'>\n"
                             )
                             file.write("<br>\n")
+    file.write("</body>\n")
+    file.write("</html>\n")
+    file.close()
+
+
+def create_html_report_group_results(
+    SESSIONS,
+    TASKS,
+    RUNS,
+    reports_root,
+):
+    """
+    This function creates an html report for the group results
+    using the generated figures.
+    """
+    # create html report
+    group_dir = f"{reports_root}/group_results"
+    file = open(f"{group_dir}/report.html", "w")
+    file.write("<html>\n")
+    file.write("<head>\n")
+    file.write("<title>Group Results</title>\n")
+    file.write("</head>\n")
+    file.write("<body>\n")
+    file.write("<h1>Group Results</h1>\n")
+
+    # task presence features
+    img_height = 300
+    file.write("<h1>Task presence features</h1>\n")
+    for session in SESSIONS:
+        if session is not None:
+            file.write(f"<h1> {session} </h1>\n")
+        # display task presence features
+        if session is not None:
+            task_presence_features_dir = f"{group_dir}/task_presence_features/{session}"
+        else:
+            task_presence_features_dir = f"{group_dir}/task_presence_features"
+        # find all png files in the directory
+        for file_name in os.listdir(task_presence_features_dir):
+            if file_name.endswith(".png"):
+                file.write(f"<h3>{file_name[:file_name.find('_task')]}</h3>\n")
+                task_presence_features_img = f"{task_presence_features_dir}/{file_name}"
+                # get the original size of the image
+                img = plt.imread(task_presence_features_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                task_presence_features_img = task_presence_features_img.replace(
+                    group_dir, "."
+                )
+                file.write(
+                    f"<img src='{task_presence_features_img}' alt='Task presence features' width='{width}' height='{img_height}'>\n"
+                )
+
+    # classification results
+    img_height = 300
+    file.write("<h1>Classification results</h1>\n")
+    for session in SESSIONS:
+        if session is not None:
+            file.write(f"<h1> {session} </h1>\n")
+        for task in TASKS:
+            file.write(f"<h1> {task} </h1>\n")
+            for run in RUNS[task]:
+                # if run is not None:
+                #     file.write(f"<h2> {run} </h2>\n")
+                if session is not None:
+                    classification_dir = f"{group_dir}/classification/{session}"
+                else:
+                    classification_dir = f"{group_dir}/classification"
+
+                # display KNN classification results
+                if run is None:
+                    classification_img = (
+                        f"{classification_dir}/ML_results_classify_KNN_{task}.png"
+                    )
+                else:
+                    classification_img = (
+                        f"{classification_dir}/ML_results_classify_KNN_{task}_{run}.png"
+                    )
+                img = plt.imread(classification_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                classification_img = classification_img.replace(group_dir, ".")
+                file.write(
+                    f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
+                )
+
+                # # display Logistic regression classification results
+                # if run is None:
+                #     classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}.png"
+                # else:
+                #     classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{run}.png"
+                # img = plt.imread(classification_img)
+                # height, width, _ = img.shape
+                # # change the width so that height equals img_height
+                # width = int(width * img_height / height)
+                # # replace the path to the image with a relative path
+                # classification_img = classification_img.replace(group_dir, ".")
+                # file.write(
+                #     f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
+                # )
+
+            file.write("<br>\n")
     file.write("</body>\n")
     file.write("</html>\n")
     file.close()
@@ -831,7 +1003,7 @@ if __name__ == "__main__":
                         print(f"Error in plotting task presence: {e}")
         # create html report
         try:
-            create_html_report(
+            create_html_report_subj_results(
                 subj=subj,
                 SESSIONS=SESSIONS,
                 TASKS=TASKS,
@@ -839,19 +1011,46 @@ if __name__ == "__main__":
                 reports_root=reports_root,
             )
         except Exception as e:
-            print(f"Error in creating html report: {e}")
+            print(f"Error in creating html report for subject results: {e}")
+
+    # find the common run number for all tasks for task presence features
+    common_run = None
+    for task in TASKS:
+        if common_run is None:
+            common_run = RUNS[task][0]
+        else:
+            if RUNS[task][0] != common_run:
+                common_run = None
+                # raise warning
+                print(
+                    "Warning: Tasks have different run numbers for task presence features!"
+                )
+                break
 
     for session in SESSIONS:
+        try:
+            plot_task_presence_features(
+                ML_root=ML_root,
+                output_root=reports_root,
+                session=session,
+                run=common_run,
+            )
+        except Exception as e:
+            print(f"Error in plotting task presence features: {e}")
+
         for task in TASKS:
             for run in RUNS[task]:
-                plot_ML_results(
-                    ML_root=ML_root,
-                    output_root=reports_root,
-                    task=task,
-                    run=run,
-                    session=session,
-                    ML_algorithm="KNN",
-                )
+                try:
+                    plot_ML_results(
+                        ML_root=ML_root,
+                        output_root=reports_root,
+                        task=task,
+                        run=run,
+                        session=session,
+                        ML_algorithm="KNN",
+                    )
+                except Exception as e:
+                    print(f"Error in plotting ML results for KNN: {e}")
                 # plot_ML_results(
                 #     ML_root=ML_root,
                 #     output_root=reports_root,
@@ -860,6 +1059,17 @@ if __name__ == "__main__":
                 #     session=session,
                 #     ML_algorithm="Logistic regression",
                 # )
+
+    # create html report
+    try:
+        create_html_report_group_results(
+            SESSIONS=SESSIONS,
+            TASKS=TASKS,
+            RUNS=RUNS,
+            reports_root=reports_root,
+        )
+    except Exception as e:
+        print(f"Error in creating html report for group results: {e}")
 
     print("Report generated successfully!")
 
