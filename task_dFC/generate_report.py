@@ -630,6 +630,8 @@ def create_html_report(
                 height, width, _ = img.shape
                 # change the width so that height equals img_height
                 width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                ROI_signals_img = ROI_signals_img.replace(subj_dir, ".")
                 file.write(
                     f"<img src='{ROI_signals_img}' alt='ROI signals' width='{width}' height='{img_height}'>\n"
                 )
@@ -643,8 +645,10 @@ def create_html_report(
                 height, width, _ = img.shape
                 # change the width so that height equals img_height
                 width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                event_labels_img = event_labels_img.replace(subj_dir, ".")
                 file.write(
-                    f"<img src='{subj_dir}/event_labels/{session_task_run_dir}/event_labels.png' alt='Event labels' width='{width}' height='{img_height}'>\n"
+                    f"<img src='{event_labels_img}' alt='Event labels' width='{width}' height='{img_height}'>\n"
                 )
                 file.write("<br>\n")
 
@@ -656,26 +660,31 @@ def create_html_report(
                 height, width, _ = img.shape
                 # change the width so that height equals img_height
                 width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                task_presence_img = task_presence_img.replace(subj_dir, ".")
                 file.write(
-                    f"<img src='{subj_dir}/task_presence/{session_task_run_dir}/task_presence.png' alt='Task presence' width='{width}' height='{img_height}'>\n"
+                    f"<img src='{task_presence_img}' alt='Task presence' width='{width}' height='{img_height}'>\n"
                 )
                 file.write("<br>\n")
 
                 # display dFC matrices
-                img_height = 50
+                img_height = 45
                 # for dFC matrices find all png files in the directory
                 dFC_matrices_dir = f"{subj_dir}/dFC_matrices/{session_task_run_dir}"
                 if os.path.exists(dFC_matrices_dir):
                     for file_name in os.listdir(dFC_matrices_dir):
                         if file_name.endswith(".png"):
                             file.write(f"<h3>{file_name[:file_name.find('_dFC')]}</h3>\n")
+                            dFC_matrices_img = f"{dFC_matrices_dir}/{file_name}"
                             # get the original size of the image
-                            img = plt.imread(f"{dFC_matrices_dir}/{file_name}")
+                            img = plt.imread(dFC_matrices_img)
                             height, width, _ = img.shape
                             # change the width so that height equals img_height
                             width = int(width * img_height / height)
+                            # replace the path to the image with a relative path
+                            dFC_matrices_img = dFC_matrices_img.replace(subj_dir, ".")
                             file.write(
-                                f"<img src='{dFC_matrices_dir}/{file_name}' alt='{file_name}' width='{width}' height='{img_height}'>\n"
+                                f"<img src='{dFC_matrices_img}' alt='{file_name}' width='{width}' height='{img_height}'>\n"
                             )
                             file.write("<br>\n")
     file.write("</body>\n")
