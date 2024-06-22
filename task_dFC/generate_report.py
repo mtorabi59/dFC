@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-from tracemalloc import start
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -159,7 +158,7 @@ def plot_roi_signals(
     start_TR = int(start_time / TR_mri)
     end_TR = int(end_time / TR_mri)
     # keep the figure width proportional to the number of time points
-    fig_width = int(2.5 * (end_time - start_time) / TR_mri)
+    fig_width = int(5 * (end_time - start_time) / TR_mri)
     plt.figure(figsize=(fig_width, 5))
     for i in nodes_list:
         plt.plot(time[start_TR:end_TR], BOLD.data[i, start_TR:end_TR], linewidth=4)
@@ -215,7 +214,7 @@ def plot_event_labels(
     start_timepoint = int(start_time / TR_task)
     end_timepoint = int(end_time / TR_task)
     # keep the figure width proportional to the number of time points
-    fig_width = int(2.5 * (end_time - start_time) / TR_mri)
+    fig_width = int(5 * (end_time - start_time) / TR_mri)
     plt.figure(figsize=(fig_width, 5))
     plt.plot(
         time[start_timepoint:end_timepoint],
@@ -283,7 +282,7 @@ def plot_task_presence(
     start_TR = int(start_time / TR_mri)
     end_TR = int(end_time / TR_mri)
     # keep the figure width proportional to the number of time points in data
-    fig_width = int(2.5 * (end_time - start_time) / TR_mri)
+    fig_width = int(5 * (end_time - start_time) / TR_mri)
     plt.figure(figsize=(fig_width, 5))
     plt.plot(
         time[start_TR:end_TR], task_presence_non_binarized[start_TR:end_TR], linewidth=4
@@ -750,8 +749,9 @@ if __name__ == "__main__":
 
     print("Generating report...")
 
-    # Generate report only one random subjects
-    SUBJECTS = np.random.choice(SUBJECTS, 1)
+    # Generate report only 5 random subjects
+    # SUBJECTS = np.random.choice(SUBJECTS, 5)
+    SUBJECTS = SUBJECTS[:1]
 
     start_time = 0
     end_time = 200
