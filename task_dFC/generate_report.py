@@ -781,7 +781,7 @@ def create_html_report_group_results(
 
     # task presence features
     img_height = 300
-    file.write("<h1>Task presence features</h1>\n")
+    file.write("<h1>Task Presence Features</h1>\n")
     for session in SESSIONS:
         if session is not None:
             file.write(f"<h1> {session} </h1>\n")
@@ -793,7 +793,6 @@ def create_html_report_group_results(
         # find all png files in the directory
         for file_name in os.listdir(task_presence_features_dir):
             if file_name.endswith(".png"):
-                file.write(f"<h3>{file_name[:file_name.find('_task')]}</h3>\n")
                 task_presence_features_img = f"{task_presence_features_dir}/{file_name}"
                 # get the original size of the image
                 img = plt.imread(task_presence_features_img)
@@ -810,7 +809,7 @@ def create_html_report_group_results(
 
     # classification results
     img_height = 300
-    file.write("<h1>Classification results</h1>\n")
+    file.write("<h1>Classification Results</h1>\n")
     for session in SESSIONS:
         if session is not None:
             file.write(f"<h1> {session} </h1>\n")
