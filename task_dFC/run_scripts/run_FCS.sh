@@ -5,7 +5,6 @@
 #$ -e logs/fcs_err.txt
 #$ -l h_vmem=64G
 #$ -q origami.q
-#$ -t 1-10
 
 DATASET_INFO="./dataset_info.json"
 METHODS_CONFIG="./methods_config.json"

@@ -7,8 +7,6 @@
 #$ -l h_vmem=32G
 #$ -q origami.q
 
-#$ -t 1-300
-
 # TODO replace with local paths
 source "/data/origami/dFC/anaconda3/etc/profile.d/conda.sh"
 conda activate nipoppy_env
