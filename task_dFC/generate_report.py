@@ -514,72 +514,168 @@ def plot_ML_results(
     plt.close()
 
 
-def plot_clustering_results():
-    pass
+def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
+    """
+    Plot the clustering results for a given task, run and session.
+    parameters:
+    ----------
+        ML_root: str, path to ML results
+        output_root: str, path to save the figures
+        task: str, task name
+        run: int, run number
+        session: str, session name
+    """
+    if session is None:
+        clustering_scores = np.load(
+            f"{ML_root}/clustering_scores.npy", allow_pickle="TRUE"
+        ).item()
+    else:
+        clustering_scores = np.load(
+            f"{ML_root}/{session}/clustering_scores.npy", allow_pickle="TRUE"
+        ).item()
+
+    sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.0})
+
+    sns.set_style("darkgrid")
+
+    dataframe = pd.DataFrame(clustering_scores)
+    if run is not None:
+        dataframe = dataframe[dataframe["run"] == run]
+
+    plt.figure(figsize=(10, 5))
+    g = sns.pointplot(
+        data=dataframe[dataframe["task"] == task],
+        x="dFC method",
+        y="Kmeans ARI",
+        errorbar="sd",
+        linestyle="none",
+        dodge=True,
+        capsize=0.1,
+    )
+    g.axhline(0.0, color="r", linestyle="--")
+    if show_title:
+        g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
+
+    # save the figure
+    if session is None:
+        output_dir = f"{output_root}/group_results/clustering"
+    else:
+        output_dir = f"{output_root}/group_results/clustering/{session}"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    if run is None:
+        plt.savefig(
+            f"{output_dir}/clustering_results_{task}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+    else:
+        plt.savefig(
+            f"{output_dir}/clustering_results_{task}_{run}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+
+    plt.close()
 
 
-# def plot_dFC_clustering(
-#     dFC_root,
-#     subj,
-#     task,
-#     start_time,
-#     end_time,
-#     run=None,
-#     session=None,
-#     normalize_dFC=True,
-# ):
-#     task_data = load_task_data(roi_root, subj, task, run, session)
-#     TR_mri = task_data['TR_mri']
+def plot_dFC_clustering(
+    dFC_root,
+    subj,
+    task,
+    start_time,
+    end_time,
+    output_root,
+    run=None,
+    session=None,
+    normalize_dFC=True,
+):
+    task_data = load_task_data(roi_root, subj, task, run, session)
+    TR_mri = task_data["TR_mri"]
 
-#     dFC_lst = list()
-#     for dFC_id in range(0, 20): # change this to the number of dFCs you have
-#         try:
-#             dFC = load_dFC(dFC_root, subj, task, dFC_id, run, session)
-#             dFC_lst.append(dFC)
-#         except Exception:
-#             pass
+    for dFC_id in range(
+        0, 20
+    ):  # change this to the number of dFCs you have or right a function that finds available dFC ids
+        try:
+            dFC = load_dFC(dFC_root, subj, task, dFC_id, run, session)
+        except Exception:
+            pass
 
-#     for dFC in dFC_lst:
-#         dFC_mat = dFC.get_dFC_mat()
-#         TR_array = dFC.TR_array
-#         if normalize_dFC:
-#             dFC_mat = rank_norm(dFC_mat)
-#         dFC_vecs = dFC_mat2vec(dFC_mat)
+        dFC_mat = dFC.get_dFC_mat()
+        TR_array = dFC.TR_array
+        if normalize_dFC:
+            dFC_mat = rank_norm(dFC_mat)
+        dFC_vecs = dFC_mat2vec(dFC_mat)
 
-#         # apply kmeans clustering with PCA to dFC vectors
-#         n_clusters = 2
+        if session is None:
+            clustering_RESULTS = np.load(
+                f"{ML_root}/clustering_RESULTS_{dFC_id}.npy", allow_pickle="TRUE"
+            ).item()
+        else:
+            clustering_RESULTS = np.load(
+                f"{ML_root}/{session}/clustering_RESULTS_{dFC_id}.npy",
+                allow_pickle="TRUE",
+            ).item()
 
-#         scaler = StandardScaler()
-#         dFC_vecs = scaler.fit_transform(dFC_vecs)
-#         # PCA
-#         # find number of components that explain 95% of variance
-#         pca = PCA()
-#         pca.fit(dFC_vecs)
-#         n_components = np.where(np.cumsum(pca.explained_variance_ratio_) > 0.95)[0][0] + 1
-#         # print(f"Number of components: {n_components}")
-#         pca = PCA(n_components=n_components)
-#         pca.fit(dFC_vecs)
+        if run is None:
+            scaler = clustering_RESULTS[task]["StandardScaler"]
+            pca = clustering_RESULTS[task]["PCA"]
+            kmeans = clustering_RESULTS[task]["kmeans"]
+        else:
+            scaler = clustering_RESULTS[task][run]["StandardScaler"]
+            pca = clustering_RESULTS[task][run]["PCA"]
+            kmeans = clustering_RESULTS[task][run]["kmeans"]
 
+        dFC_vecs_normalized = scaler.transform(dFC_vecs)
+        dFC_vecs_pca = pca.transform(dFC_vecs_normalized)
+        cluster_labels = kmeans.predict(dFC_vecs_pca)
 
-#         dFC_vecs_pca = pca.transform(dFC_vecs)
-#         kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=20)
-#         labels_pred = kmeans.fit_predict(dFC_vecs_pca)
+        start_TR = int(start_time / TR_mri)
+        end_TR = int(end_time / TR_mri)
 
-#         start_TR = int(start_time/TR_mri)
-#         end_TR = int(end_time/TR_mri)
-#         start_TR_idx = np.where(np.array(TR_array) >= start_TR)[0][0]
-#         end_TR_idx = np.where(np.array(TR_array) <= end_TR)[0][-1]
+        start_TR_idx = np.where(np.array(TR_array) >= start_TR)[0][0]
+        end_TR_idx = np.where(np.array(TR_array) <= end_TR)[0][-1]
 
-#         # plot labels_pred
-#         plt.figure(figsize=(35, 2))
-#         plt.plot(time[start_TR:end_TR], labels_pred[start_TR_idx:end_TR_idx], linewidth=4)
-#         # put vertical lines at the start of each TR
-#         for TR in chosen_TRs:
-#             plt.axvline(x=TR*TR_mri, color='r', linestyle='--')
-#             # plt.text(TR*TR_mri, 0.5, f"TR {TR}", fontsize=8, color='black', ha='center')
-#         plt.title(f"Cluster labels of {dFC.measure.measure_name}")
-#         plt.xlabel('Time (s)')
-#         plt.show()
+        fig_width = int(2.5 * (end_time - start_time) / TR_mri)
+        plt.figure(figsize=(fig_width, 5))
+        time = TR_array[start_TR_idx:end_TR_idx] * TR_mri
+        plt.plot(
+            time[start_TR:end_TR], cluster_labels[start_TR_idx:end_TR_idx], linewidth=4
+        )
+        # put vertical lines at the start of each TR
+        for t in time:
+            plt.axvline(x=t, color="r", linestyle="--")
+            # plt.text(t, 0.5, f"TR {int(t/TR_mri)}", fontsize=8, color='black', ha='center')
+        plt.title(f"Cluster labels of {dFC.measure.measure_name}")
+        plt.xlabel("Time (s)")
+
+        # save the figure
+        output_dir = f"{output_root}/subject_results/{subj}/dFC_clustering"
+        if session is not None:
+            output_dir = f"{output_dir}/{session}"
+        output_dir = f"{output_dir}/{task}"
+        if run is not None:
+            output_dir = f"{output_dir}/{run}"
+        output_dir = f"{output_dir}/"
+
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        plt.savefig(
+            f"{output_dir}/dFC_clustering_{dFC.measure.measure_name}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+
+        plt.close()
 
 
 def plot_task_presence_features(
@@ -754,6 +850,29 @@ def create_html_report_subj_results(
                                 f"<img src='{dFC_matrices_img}' alt='{file_name}' width='{width}' height='{img_height}'>\n"
                             )
                             file.write("<br>\n")
+
+                # display dFC clustering
+                img_height = 100
+                # for dFC matrices find all png files in the directory
+                dFC_clustering_dir = f"{subj_dir}/dFC_clustering/{session_task_run_dir}"
+                if os.path.exists(dFC_clustering_dir):
+                    for file_name in os.listdir(dFC_clustering_dir):
+                        if file_name.endswith(".png"):
+                            file.write(
+                                f"<h3>{file_name[file_name.find('dFC_clustering_')+15:file_name.find('.png')]}</h3>\n"
+                            )
+                            dFC_clustering_img = f"{dFC_clustering_dir}/{file_name}"
+                            # get the original size of the image
+                            img = plt.imread(dFC_clustering_img)
+                            height, width, _ = img.shape
+                            # change the width so that height equals img_height
+                            width = int(width * img_height / height)
+                            # replace the path to the image with a relative path
+                            dFC_clustering_img = dFC_clustering_img.replace(subj_dir, ".")
+                            file.write(
+                                f"<img src='{dFC_clustering_img}' alt='{file_name}' width='{width}' height='{img_height}'>\n"
+                            )
+                            file.write("<br>\n")
     file.write("</body>\n")
     file.write("</html>\n")
     file.close()
@@ -816,14 +935,15 @@ def create_html_report_group_results(
         for task in TASKS:
             file.write(f"<h1> {task} </h1>\n")
             for run in RUNS[task]:
-                # if run is not None:
-                #     file.write(f"<h2> {run} </h2>\n")
+                if run is not None:
+                    file.write(f"<h2> {run} </h2>\n")
                 if session is not None:
                     classification_dir = f"{group_dir}/classification/{session}"
                 else:
                     classification_dir = f"{group_dir}/classification"
 
                 # display KNN classification results
+                file.write("<h3>KNN</h3>\n")
                 if run is None:
                     classification_img = (
                         f"{classification_dir}/ML_results_classify_KNN_{task}.png"
@@ -842,22 +962,60 @@ def create_html_report_group_results(
                     f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
                 )
 
-                # # display Logistic regression classification results
-                # if run is None:
-                #     classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}.png"
-                # else:
-                #     classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{run}.png"
-                # img = plt.imread(classification_img)
-                # height, width, _ = img.shape
-                # # change the width so that height equals img_height
-                # width = int(width * img_height / height)
-                # # replace the path to the image with a relative path
-                # classification_img = classification_img.replace(group_dir, ".")
-                # file.write(
-                #     f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
-                # )
+                # display Logistic regression classification results
+                file.write("<h3>Logistic Regression</h3>\n")
+                if run is None:
+                    classification_img = (
+                        f"{classification_dir}/ML_results_classify_LogReg_{task}.png"
+                    )
+                else:
+                    classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{run}.png"
+                img = plt.imread(classification_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                classification_img = classification_img.replace(group_dir, ".")
+                file.write(
+                    f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
+                )
 
-            file.write("<br>\n")
+                file.write("<br>\n")
+
+    # clustering results
+    img_height = 300
+    file.write("<h1>Clustering Results</h1>\n")
+    for session in SESSIONS:
+        if session is not None:
+            file.write(f"<h1> {session} </h1>\n")
+        for task in TASKS:
+            file.write(f"<h1> {task} </h1>\n")
+            for run in RUNS[task]:
+                if run is not None:
+                    file.write(f"<h2> {run} </h2>\n")
+                if session is not None:
+                    clustering_dir = f"{group_dir}/clustering/{session}"
+                else:
+                    clustering_dir = f"{group_dir}/clustering"
+
+                # display clustering results
+                if run is None:
+                    clustering_img = f"{clustering_dir}/clustering_results_{task}.png"
+                else:
+                    clustering_img = (
+                        f"{clustering_dir}/clustering_results_{task}_{run}.png"
+                    )
+                img = plt.imread(clustering_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                clustering_img = clustering_img.replace(group_dir, ".")
+                file.write(
+                    f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
+                )
+
+                file.write("<br>\n")
     file.write("</body>\n")
     file.write("</html>\n")
     file.close()
@@ -1000,6 +1158,21 @@ if __name__ == "__main__":
                         )
                     except Exception as e:
                         print(f"Error in plotting task presence: {e}")
+
+                    try:
+                        plot_dFC_clustering(
+                            dFC_root=dFC_root,
+                            subj=subj,
+                            task=task,
+                            start_time=start_time,
+                            end_time=end_time,
+                            output_root=reports_root,
+                            run=run,
+                            session=session,
+                            normalize_dFC=True,
+                        )
+                    except Exception as e:
+                        print(f"Error in plotting dFC clustering: {e}")
         # create html report
         try:
             create_html_report_subj_results(
@@ -1050,14 +1223,27 @@ if __name__ == "__main__":
                     )
                 except Exception as e:
                     print(f"Error in plotting ML results for KNN: {e}")
-                # plot_ML_results(
-                #     ML_root=ML_root,
-                #     output_root=reports_root,
-                #     task=task,
-                #     run=run,
-                #     session=session,
-                #     ML_algorithm="Logistic regression",
-                # )
+                try:
+                    plot_ML_results(
+                        ML_root=ML_root,
+                        output_root=reports_root,
+                        task=task,
+                        run=run,
+                        session=session,
+                        ML_algorithm="Logistic regression",
+                    )
+                except Exception as e:
+                    print(f"Error in plotting ML results for Logistic regression: {e}")
+                try:
+                    plot_clustering_results(
+                        ML_root=ML_root,
+                        output_root=reports_root,
+                        task=task,
+                        run=run,
+                        session=session,
+                    )
+                except Exception as e:
+                    print(f"Error in plotting clustering results: {e}")
 
     # create html report
     try:
