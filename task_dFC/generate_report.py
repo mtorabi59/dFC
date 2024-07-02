@@ -159,6 +159,7 @@ def plot_roi_signals(
     end_TR = int(end_time / TR_mri)
     # keep the figure width proportional to the number of time points
     fig_width = int(2.5 * (end_time - start_time) / TR_mri)
+    fig_width = min(fig_width, 500)
     plt.figure(figsize=(fig_width, 5))
     for i in nodes_list:
         plt.plot(time[start_TR:end_TR], BOLD.data[i, start_TR:end_TR], linewidth=4)
@@ -215,6 +216,7 @@ def plot_event_labels(
     end_timepoint = int(end_time / TR_task)
     # keep the figure width proportional to the number of time points
     fig_width = int(2.5 * (end_time - start_time) / TR_mri)
+    fig_width = min(fig_width, 500)
     plt.figure(figsize=(fig_width, 5))
     plt.plot(
         time[start_timepoint:end_timepoint],
@@ -283,6 +285,7 @@ def plot_task_presence(
     end_TR = int(end_time / TR_mri)
     # keep the figure width proportional to the number of time points in data
     fig_width = int(2.5 * (end_time - start_time) / TR_mri)
+    fig_width = min(fig_width, 500)
     plt.figure(figsize=(fig_width, 5))
     plt.plot(
         time[start_TR:end_TR], task_presence_non_binarized[start_TR:end_TR], linewidth=4
@@ -643,6 +646,7 @@ def plot_dFC_clustering(
         end_TR_idx = np.where(np.array(TR_array) <= end_TR)[0][-1]
 
         fig_width = int(2.5 * (end_time - start_time) / TR_mri)
+        fig_width = min(fig_width, 500)
         plt.figure(figsize=(fig_width, 5))
         time = TR_array[start_TR_idx:end_TR_idx] * TR_mri
         plt.plot(
