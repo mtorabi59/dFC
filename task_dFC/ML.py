@@ -454,7 +454,7 @@ def random_forest_classify(
     # create a dictionary of all values we want to test for n_estimators
     param_grid = {
         "randomforestclassifier__n_estimators": [10, 50, 100, 200],
-        "randomforestclassifier__max_depth": [None, 5, 10, 15, 20, 30],
+        "randomforestclassifier__max_depth": [None, 5, 10, 20, 30],
     }
     # use gridsearch to test all values for n_estimators
     rf_gscv = GridSearchCV(rf, param_grid, cv=5)
