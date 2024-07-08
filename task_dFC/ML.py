@@ -5,9 +5,10 @@ import os
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import adjusted_rand_score, balanced_accuracy_score
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -354,6 +355,133 @@ def dFC_feature_extraction(
     )
 
 
+def logistic_regression_classify(X_train, y_train, X_test, y_test):
+    """
+    Logistic regression classification
+    """
+    # create a pipeline with a logistic regression model to find the best C
+    logistic_reg = make_pipeline(StandardScaler(), LogisticRegression())
+    # create a dictionary of all values we want to test for C
+    param_grid = {"logisticregression__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+    # use gridsearch to test all values for C
+    lr_gscv = GridSearchCV(logistic_reg, param_grid, cv=5)
+    # fit model to data
+    lr_gscv.fit(X_train, y_train)
+
+    C = lr_gscv.best_params_["logisticregression__C"]
+
+    log_reg = make_pipeline(
+        StandardScaler(),
+        LogisticRegression(C=C),
+    ).fit(X_train, y_train)
+
+    RESULT = {
+        "log_reg_model": log_reg,
+        "log_reg_C": C,
+        "log_reg_train_score": log_reg.score(X_train, y_train),
+        "log_reg_test_score": log_reg.score(X_test, y_test),
+    }
+
+    return RESULT
+
+
+def KNN_classify(X_train, y_train, X_test, y_test, explained_var_threshold=0.95):
+    """
+    KNN classification
+    """
+    # find num_PCs
+    pca = PCA(svd_solver="full", whiten=False)
+    pca.fit(X_train)
+    num_PCs = (
+        np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
+        + 1
+    )
+
+    # create a pipeline with a knn model to find the best n_neighbors
+    knn = make_pipeline(
+        StandardScaler(),
+        PCA(n_components=num_PCs),
+        KNeighborsClassifier(),
+    )
+    # create a dictionary of all values we want to test for n_neighbors
+    param_grid = {"kneighborsclassifier__n_neighbors": np.arange(1, 30)}
+    # use gridsearch to test all values for n_neighbors
+    knn_gscv = GridSearchCV(knn, param_grid, cv=5)
+    # fit model to data
+    knn_gscv.fit(X_train, y_train)
+
+    n_neighbors = knn_gscv.best_params_["kneighborsclassifier__n_neighbors"]
+
+    neigh = make_pipeline(
+        StandardScaler(),
+        PCA(n_components=num_PCs),
+        KNeighborsClassifier(n_neighbors=n_neighbors),
+    ).fit(X_train, y_train)
+
+    RESULT = {
+        "KNN_pca": pca,
+        "KNN_num_PCs": num_PCs,
+        "KNN_cv_results": knn_gscv.cv_results_,
+        "KNN_model": neigh,
+        "KNN_train_score": neigh.score(X_train, y_train),
+        "KNN_test_score": neigh.score(X_test, y_test),
+    }
+
+    return RESULT
+
+
+def random_forest_classify(
+    X_train, y_train, X_test, y_test, explained_var_threshold=0.95
+):
+    """
+    Random Forest classification
+    """
+    # find num_PCs
+    pca = PCA(svd_solver="full", whiten=False)
+    pca.fit(X_train)
+    num_PCs = (
+        np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
+        + 1
+    )
+    num_PCs = min(num_PCs, 100)
+
+    # create a pipeline with a random forest model to find the best n_estimators
+    rf = make_pipeline(
+        StandardScaler(),
+        PCA(n_components=num_PCs),
+        RandomForestClassifier(),
+    )
+    # create a dictionary of all values we want to test for n_estimators
+    param_grid = {
+        "randomforestclassifier__n_estimators": [10, 50, 100, 200],
+        "randomforestclassifier__max_depth": [None, 5, 10, 15, 20, 30],
+    }
+    # use gridsearch to test all values for n_estimators
+    rf_gscv = GridSearchCV(rf, param_grid, cv=5)
+    # fit model to data
+    rf_gscv.fit(X_train, y_train)
+
+    n_estimators = rf_gscv.best_params_["randomforestclassifier__n_estimators"]
+    max_depth = rf_gscv.best_params_["randomforestclassifier__max_depth"]
+
+    rf = make_pipeline(
+        StandardScaler(),
+        PCA(n_components=num_PCs),
+        RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth),
+    ).fit(X_train, y_train)
+
+    RESULT = {
+        "RF_pca": pca,
+        "RF_num_PCs": num_PCs,
+        "RF_cv_results": rf_gscv.cv_results_,
+        "RF_model": rf,
+        "RF_train_score": rf.score(X_train, y_train),
+        "RF_test_score": rf.score(X_test, y_test),
+    }
+
+    return RESULT
+
+
 def task_presence_classification(
     task,
     dFC_id,
@@ -367,7 +495,7 @@ def task_presence_classification(
     explained_var_threshold=0.95,
 ):
     """
-    perform task presence classification using logistic regression and KNN
+    perform task presence classification using logistic regression, KNN, or Random Forest
     for a given task and dFC method and run.
     """
     if run is None:
@@ -412,72 +540,25 @@ def task_presence_classification(
     print("task presence classification ...")
 
     # logistic regression
-    logistic_reg = make_pipeline(StandardScaler(), LogisticRegression())
-    # create a dictionary of all values we want to test for C
-    param_grid = {"logisticregression__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
-    # use gridsearch to test all values for C
-    lr_gscv = GridSearchCV(logistic_reg, param_grid, cv=5)
-    # fit model to data
-    lr_gscv.fit(X_train, y_train)
+    log_reg_RESULT = logistic_regression_classify(X_train, y_train, X_test, y_test)
 
-    C = lr_gscv.best_params_["logisticregression__C"]
+    # # KNN
+    # KNN_RESULT = KNN_classify(
+    #     X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
+    # )
 
-    log_reg = make_pipeline(
-        StandardScaler(),
-        LogisticRegression(C=C),
-    ).fit(X_train, y_train)
-
-    # KNN
-    # find num_PCs
-    pca = PCA(svd_solver="full", whiten=False)
-    pca.fit(X_train)
-    num_PCs = (
-        np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
-        + 1
+    # Random Forest
+    RF_RESULT = random_forest_classify(
+        X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
     )
 
-    # create a pipeline with a knn model to find the best n_neighbors
-    knn = make_pipeline(
-        StandardScaler(),
-        PCA(n_components=num_PCs),
-        KNeighborsClassifier(),
-    )
-    # create a dictionary of all values we want to test for n_neighbors
-    param_grid = {"kneighborsclassifier__n_neighbors": np.arange(1, 30)}
-    # use gridsearch to test all values for n_neighbors
-    knn_gscv = GridSearchCV(knn, param_grid, cv=5)
-    # fit model to data
-    knn_gscv.fit(X_train, y_train)
-
-    n_neighbors = knn_gscv.best_params_["kneighborsclassifier__n_neighbors"]
-
-    neigh = make_pipeline(
-        StandardScaler(),
-        PCA(n_components=num_PCs),
-        KNeighborsClassifier(n_neighbors=n_neighbors),
-    ).fit(X_train, y_train)
-
-    ML_RESULT = {
-        "logistic regression": log_reg,
-        "logistic regression C": C,
-        "logistic regression train score": log_reg.score(X_train, y_train),
-        "logistic regression test score": log_reg.score(X_test, y_test),
-        "pca": pca,
-        "num_PCs": num_PCs,
-        "cv_results": knn_gscv.cv_results_,
-        "KNN": neigh,
-        "KNN train score": neigh.score(X_train, y_train),
-        "KNN test score": neigh.score(X_test, y_test),
-    }
-
-    print(
-        f"Logistic regression train score {measure_name} {task}: {log_reg.score(X_train, y_train)}"
-    )
-    print(
-        f"Logistic regression test score {measure_name} {task}: {log_reg.score(X_test, y_test)}"
-    )
-    print(f"KNN train score {measure_name} {task}: {neigh.score(X_train, y_train)}")
-    print(f"KNN test score {measure_name} {task}: {neigh.score(X_test, y_test)}")
+    ML_RESULT = {}
+    for key in log_reg_RESULT:
+        ML_RESULT[key] = log_reg_RESULT[key]
+    # for key in KNN_RESULT:
+    #     ML_RESULT[key] = KNN_RESULT[key]
+    for key in RF_RESULT:
+        ML_RESULT[key] = RF_RESULT[key]
 
     # measure pred score on each subj
 
@@ -488,8 +569,12 @@ def task_presence_classification(
         "run": list(),
         "dFC method": list(),
         "Logistic regression accuracy": list(),
-        "KNN accuracy": list(),
+        # "KNN accuracy": list(),
     }
+    log_reg = log_reg_RESULT["log_reg_model"]
+    # KNN = KNN_RESULT["KNN_model"]
+    RF = RF_RESULT["RF_model"]
+
     for subj in SUBJECTS:
         ML_scores["subj_id"].append(subj)
         if subj in train_subjects:
@@ -502,12 +587,16 @@ def task_presence_classification(
             target = y_test[subj_label_test == subj]
 
         pred_lr = log_reg.predict(features)
-        pred_KNN = neigh.predict(features)
+        # pred_KNN = KNN.predict(features)
+        pred_RF = RF.predict(features)
 
         ML_scores["Logistic regression accuracy"].append(
             balanced_accuracy_score(target, pred_lr)
         )
-        ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred_KNN))
+        # ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred_KNN))
+        ML_scores["Random Forest accuracy"].append(
+            balanced_accuracy_score(target, pred_RF)
+        )
 
         ML_scores["task"].append(task)
         ML_scores["run"].append(run)
@@ -637,7 +726,8 @@ def run_classification(
             "run": list(),
             "dFC method": list(),
             "Logistic regression accuracy": list(),
-            "KNN accuracy": list(),
+            # "KNN accuracy": list(),
+            "Random Forest accuracy": list(),
         }
         for dFC_id in range(0, 7):
             print(f"=================== dFC {dFC_id} ===================")
