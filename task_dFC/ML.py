@@ -707,6 +707,7 @@ def task_presence_clustering(
 
 
 def run_classification(
+    dFC_id,
     TASKS,
     RUNS,
     SESSIONS,
@@ -729,42 +730,41 @@ def run_classification(
             # "KNN accuracy": list(),
             "Random Forest accuracy": list(),
         }
-        for dFC_id in range(0, 7):
-            print(f"=================== dFC {dFC_id} ===================")
 
-            ML_RESULT = {}
-            for task_id, task in enumerate(TASKS):
-                ML_RESULT[task] = {}
-                for run in RUNS[task]:
-                    ML_RESULT_new, ML_scores_new = task_presence_classification(
-                        task=task,
-                        dFC_id=dFC_id,
-                        roi_root=roi_root,
-                        dFC_root=dFC_root,
-                        run=run,
-                        session=session,
-                        dynamic_pred=dynamic_pred,
-                        normalize_dFC=normalize_dFC,
-                    )
-                    if run is None:
-                        ML_RESULT[task] = ML_RESULT_new
-                    else:
-                        ML_RESULT[task][run] = ML_RESULT_new
-                    for key in ML_scores:
-                        ML_scores[key].extend(ML_scores_new[key])
+        ML_RESULT = {}
+        for task_id, task in enumerate(TASKS):
+            ML_RESULT[task] = {}
+            for run in RUNS[task]:
+                ML_RESULT_new, ML_scores_new = task_presence_classification(
+                    task=task,
+                    dFC_id=dFC_id,
+                    roi_root=roi_root,
+                    dFC_root=dFC_root,
+                    run=run,
+                    session=session,
+                    dynamic_pred=dynamic_pred,
+                    normalize_dFC=normalize_dFC,
+                )
+                if run is None:
+                    ML_RESULT[task] = ML_RESULT_new
+                else:
+                    ML_RESULT[task][run] = ML_RESULT_new
+                for key in ML_scores:
+                    ML_scores[key].extend(ML_scores_new[key])
 
-            if session is None:
-                folder = f"{output_root}"
-            else:
-                folder = f"{output_root}/{session}"
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-            np.save(f"{folder}/ML_RESULT_{dFC_id}.npy", ML_RESULT)
+        if session is None:
+            folder = f"{output_root}"
+        else:
+            folder = f"{output_root}/{session}"
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        np.save(f"{folder}/ML_RESULT_{dFC_id}.npy", ML_RESULT)
 
-        np.save(f"{folder}/ML_scores_classify.npy", ML_scores)
+        np.save(f"{folder}/ML_scores_classify_{dFC_id}.npy", ML_scores)
 
 
 def run_clustering(
+    dFC_id,
     TASKS,
     RUNS,
     SESSIONS,
@@ -783,40 +783,36 @@ def run_clustering(
             "dFC method": list(),
             "Kmeans ARI": list(),
         }
-        for dFC_id in range(0, 7):
-            print(f"=================== dFC {dFC_id} ===================")
 
-            clustering_RESULTS = {}
-            for task_id, task in enumerate(TASKS):
-                clustering_RESULTS[task] = {}
-                for run in RUNS[task]:
-                    clustering_RESULTS_new, clustering_scores_new = (
-                        task_presence_clustering(
-                            task=task,
-                            dFC_id=dFC_id,
-                            roi_root=roi_root,
-                            dFC_root=dFC_root,
-                            run=run,
-                            session=session,
-                            normalize_dFC=normalize_dFC,
-                        )
-                    )
-                    if run is None:
-                        clustering_RESULTS[task] = clustering_RESULTS_new
-                    else:
-                        clustering_RESULTS[task][run] = clustering_RESULTS_new
-                    for key in clustering_scores:
-                        clustering_scores[key].extend(clustering_scores_new[key])
+        clustering_RESULTS = {}
+        for task_id, task in enumerate(TASKS):
+            clustering_RESULTS[task] = {}
+            for run in RUNS[task]:
+                clustering_RESULTS_new, clustering_scores_new = task_presence_clustering(
+                    task=task,
+                    dFC_id=dFC_id,
+                    roi_root=roi_root,
+                    dFC_root=dFC_root,
+                    run=run,
+                    session=session,
+                    normalize_dFC=normalize_dFC,
+                )
+                if run is None:
+                    clustering_RESULTS[task] = clustering_RESULTS_new
+                else:
+                    clustering_RESULTS[task][run] = clustering_RESULTS_new
+                for key in clustering_scores:
+                    clustering_scores[key].extend(clustering_scores_new[key])
 
-            if session is None:
-                folder = f"{output_root}"
-            else:
-                folder = f"{output_root}/{session}"
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-            np.save(f"{folder}/clustering_RESULTS_{dFC_id}.npy", clustering_RESULTS)
+        if session is None:
+            folder = f"{output_root}"
+        else:
+            folder = f"{output_root}/{session}"
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        np.save(f"{folder}/clustering_RESULTS_{dFC_id}.npy", clustering_RESULTS)
 
-        np.save(f"{folder}/clustering_scores.npy", clustering_scores)
+        np.save(f"{folder}/clustering_scores_{dFC_id}.npy", clustering_scores)
 
 
 #######################################################################################
@@ -885,32 +881,43 @@ if __name__ == "__main__":
         roi_root=roi_root,
         output_root=ML_root,
     )
-
     print("Task features extraction finished.")
-    print("Task presence classification started ...")
-    run_classification(
-        TASKS=TASKS,
-        RUNS=RUNS,
-        SESSIONS=SESSIONS,
-        roi_root=roi_root,
-        dFC_root=dFC_root,
-        output_root=ML_root,
-        dynamic_pred="no",
-        normalize_dFC=True,
-    )
-    print("Task presence classification finished.")
-    print("Task presence clustering started ...")
-    run_clustering(
-        TASKS=TASKS,
-        RUNS=RUNS,
-        SESSIONS=SESSIONS,
-        roi_root=roi_root,
-        dFC_root=dFC_root,
-        output_root=ML_root,
-        normalize_dFC=True,
-    )
-    print("Task presence clustering finished.")
 
-    print("Task presence prediction CODE finished running.")
+    job_id = int(os.getenv("SGE_TASK_ID"))
+    dFC_id = job_id - 1  # SGE_TASK_ID starts from 1 not 0
+
+    print(f"Task presence classification started for dFC ID {dFC_id}...")
+    try:
+        run_classification(
+            dFC_id=dFC_id,
+            TASKS=TASKS,
+            RUNS=RUNS,
+            SESSIONS=SESSIONS,
+            roi_root=roi_root,
+            dFC_root=dFC_root,
+            output_root=ML_root,
+            dynamic_pred="no",
+            normalize_dFC=True,
+        )
+    except Exception as e:
+        print(f"Error in classification for dFC ID {dFC_id}: {e}")
+    print(f"Task presence classification finished for dFC ID {dFC_id}.")
+    print(f"Task presence clustering started for dFC ID {dFC_id} ...")
+    try:
+        run_clustering(
+            dFC_id=dFC_id,
+            TASKS=TASKS,
+            RUNS=RUNS,
+            SESSIONS=SESSIONS,
+            roi_root=roi_root,
+            dFC_root=dFC_root,
+            output_root=ML_root,
+            normalize_dFC=True,
+        )
+    except Exception as e:
+        print(f"Error in clustering for dFC ID {dFC_id}: {e}")
+
+    print(f"Task presence clustering finished for dFC ID {dFC_id}.")
+    print(f"Task presence prediction finished for dFC ID {dFC_id}.")
 
 #######################################################################################
