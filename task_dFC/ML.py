@@ -396,11 +396,11 @@ def KNN_classify(X_train, y_train, X_test, y_test, explained_var_threshold=0.95)
         np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
         + 1
     )
-
+    num_PCs = min(num_PCs, 100)
     # create a pipeline with a knn model to find the best n_neighbors
     knn = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs),
+        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         KNeighborsClassifier(),
     )
     # create a dictionary of all values we want to test for n_neighbors
@@ -414,7 +414,7 @@ def KNN_classify(X_train, y_train, X_test, y_test, explained_var_threshold=0.95)
 
     neigh = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs),
+        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         KNeighborsClassifier(n_neighbors=n_neighbors),
     ).fit(X_train, y_train)
 
@@ -448,7 +448,7 @@ def random_forest_classify(
     # create a pipeline with a random forest model to find the best n_estimators
     rf = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs),
+        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         RandomForestClassifier(),
     )
     # create a dictionary of all values we want to test for n_estimators
@@ -466,7 +466,7 @@ def random_forest_classify(
 
     rf = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs),
+        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth),
     ).fit(X_train, y_train)
 
@@ -651,13 +651,14 @@ def task_presence_clustering(
     X_normalized = scaler.fit_transform(X)
     # PCA
     # find number of components that explain 95% of variance
-    pca = PCA()
+    pca = PCA(svd_solver="full", whiten=False)
     pca.fit(X_normalized)
     n_components = (
         np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
         + 1
     )
-    pca = PCA(n_components=n_components)
+    n_components = min(n_components, 100)
+    pca = PCA(n_components=n_components, svd_solver="full", whiten=False)
     X_pca = pca.fit_transform(X_normalized)
     kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
     labels_pred = kmeans.fit_predict(X_pca)
@@ -815,6 +816,113 @@ def run_clustering(
         np.save(f"{folder}/clustering_scores_{dFC_id}.npy", clustering_scores)
 
 
+def task_paradigm_clustering(
+    dFC_id,
+    TASKS,
+    RUNS,
+    SESSIONS,
+    roi_root,
+    dFC_root,
+    output_root,
+    normalize_dFC=True,
+    explained_var_threshold=0.95,
+):
+    for session in SESSIONS:
+        # find SUBJECTS common to all tasks
+        for task_id, task in enumerate(TASKS):
+            if task_id == 0:
+                SUBJECTS = find_available_subjects(
+                    dFC_root=dFC_root, task=task, dFC_id=dFC_id
+                )
+            else:
+                SUBJECTS = np.intersect1d(
+                    SUBJECTS,
+                    find_available_subjects(dFC_root=dFC_root, task=task, dFC_id=dFC_id),
+                )
+        print(f"Number of subjects: {len(SUBJECTS)}")
+
+        X = None
+        y = None
+        for task_id, task in enumerate(TASKS):
+            for run in RUNS[task]:
+                X_new, _, _, _, _, _, measure_name = dFC_feature_extraction(
+                    task=task,
+                    train_subjects=SUBJECTS,
+                    test_subjects=[],
+                    dFC_id=dFC_id,
+                    roi_root=roi_root,
+                    dFC_root=dFC_root,
+                    run=run,
+                    session=session,
+                    dynamic_pred="no",
+                    normalize_dFC=normalize_dFC,
+                )
+                y_new = np.ones(X_new.shape[0]) * task_id
+                if X is None and y is None:
+                    X = X_new
+                    y = y_new
+                else:
+                    X = np.concatenate((X, X_new), axis=0)
+                    y = np.concatenate((y, y_new), axis=0)
+
+        assert X.shape[0] == y.shape[0], "Number of samples do not match."
+
+        # clustering
+        # apply kmeans clustering with PCA to dFC features
+
+        n_clusters = len(TASKS)  # corresponding to task paradigms
+
+        scaler = StandardScaler()
+        X_normalized = scaler.fit_transform(X)
+        # PCA
+        # find number of components that explain 95% of variance
+        pca = PCA(svd_solver="full", whiten=False)
+        pca.fit(X_normalized)
+        n_components = (
+            np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[
+                0
+            ][0]
+            + 1
+        )
+        n_components = min(n_components, 100)
+        pca = PCA(n_components=n_components, svd_solver="full", whiten=False)
+        X_pca = pca.fit_transform(X_normalized)
+        kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
+        labels_pred = kmeans.fit_predict(X_pca)
+
+        # ARI score
+        print(f"ARI score: {adjusted_rand_score(y, labels_pred)}")
+
+        # visualize clustering centroids
+        centroids = kmeans.cluster_centers_
+        centroids = pca.inverse_transform(centroids)
+        centroids = scaler.inverse_transform(centroids)
+        n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
+        centroids_mat = dFC_vec2mat(centroids, n_regions)
+
+        task_paradigm_clstr_RESULTS = {
+            "StandardScaler": scaler,
+            "num_PCs": n_components,
+            "PCA": pca,
+            "kmeans": kmeans,
+            "ARI": adjusted_rand_score(y, labels_pred),
+            "centroids": centroids_mat,
+            "task_paradigms": TASKS,
+        }
+
+        if session is None:
+            folder = f"{output_root}"
+        else:
+            folder = f"{output_root}/{session}"
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        np.save(
+            f"{folder}/task_paradigm_clstr_RESULTS_{dFC_id}.npy",
+            task_paradigm_clstr_RESULTS,
+        )
+
+
 #######################################################################################
 
 if __name__ == "__main__":
@@ -918,6 +1026,23 @@ if __name__ == "__main__":
         print(f"Error in clustering for dFC ID {dFC_id}: {e}")
 
     print(f"Task presence clustering finished for dFC ID {dFC_id}.")
+
+    print(f"Task paradigm clustering started for dFC ID {dFC_id} ...")
+    try:
+        task_paradigm_clustering(
+            dFC_id=dFC_id,
+            TASKS=TASKS,
+            RUNS=RUNS,
+            SESSIONS=SESSIONS,
+            roi_root=roi_root,
+            dFC_root=dFC_root,
+            output_root=ML_root,
+            normalize_dFC=True,
+        )
+    except Exception as e:
+        print(f"Error in task paradigm clustering for dFC ID {dFC_id}: {e}")
+
+    print(f"Task paradigm clustering finished for dFC ID {dFC_id}.")
     print(f"Task presence prediction finished for dFC ID {dFC_id}.")
 
 #######################################################################################
