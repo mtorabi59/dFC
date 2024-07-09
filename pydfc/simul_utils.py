@@ -60,6 +60,7 @@ def simulate_task_BOLD(
     sim_length,
     BOLD_period,
     TAVG_period,
+    num_stimulated_regions=5,
     global_conn_coupling_coef=0.0126,
     D=0.001,
     conn_speed=1.0,
@@ -68,6 +69,27 @@ def simulate_task_BOLD(
 ):
     """
     Simulate BOLD signal for a task.
+
+    Parameters
+    ----------
+    onset_time : float
+        The onset time of the task.
+    task_duration : float
+        The duration of the task.
+    task_block_duration : float
+        The duration of the task block.
+    sim_length : float
+        The length of the simulation.
+    BOLD_period : float
+        The BOLD period.
+    TAVG_period : float
+        The TAVG period.
+    num_stimulated_regions : int, optional
+        The number of stimulated regions. The default is 5.
+        if num_stimulated_regions is 5, the stimulated regions are:
+        [0, 7, 13, 33, 42]
+        if num_stimulated_regions is 15, the stimulated regions are:
+        [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70]
     """
     # randomize some parameters for each subjects
     onset = np.random.normal(loc=onset_time, scale=0.5)  # seconds
@@ -78,8 +100,33 @@ def simulate_task_BOLD(
     conn.speed = np.array([conn_speed_rand])
 
     # configure stimulus spatial pattern
+    if num_stimulated_regions == 5:
+        stimulated_regions_list = [0, 7, 13, 33, 42]
+    elif num_stimulated_regions == 15:
+        stimulated_regions_list = [
+            0,
+            5,
+            10,
+            15,
+            20,
+            25,
+            30,
+            35,
+            40,
+            45,
+            50,
+            55,
+            60,
+            65,
+            70,
+        ]
+    else:
+        stimulated_regions_list = np.random.choice(
+            np.arange(76), num_stimulated_regions, replace=False
+        )
+        stimulated_regions_list = list(stimulated_regions_list)
     weighting = create_random_stimulus_weights(
-        stimulated_regions_list=[0, 7, 13, 33, 42], n_regions=76
+        stimulated_regions_list=stimulated_regions_list, n_regions=76
     )
 
     stimulus = create_stimulus(
@@ -227,6 +274,7 @@ def simulate_task_BOLD_TS(
     sim_length,
     BOLD_period,
     TAVG_period,
+    num_stimulated_regions=5,
     global_conn_coupling_coef=0.0126,
     D=0.001,
     conn_speed=1.0,
@@ -244,6 +292,7 @@ def simulate_task_BOLD_TS(
             sim_length=sim_length,
             BOLD_period=BOLD_period,
             TAVG_period=TAVG_period,
+            num_stimulated_regions=num_stimulated_regions,
             global_conn_coupling_coef=global_conn_coupling_coef,
             D=D,
             conn_speed=conn_speed,
@@ -298,6 +347,8 @@ def simulate_task_data(subj_id, task_info):
                 The BOLD period.
             - TAVG_period: float
                 The TAVG period.
+            - num_stimulated_regions: int
+                The number of stimulated regions.
             - global_conn_coupling_coef: float
                 The global connectivity coupling coefficient.
             - D: float
@@ -316,6 +367,7 @@ def simulate_task_data(subj_id, task_info):
         sim_length=task_info["sim_length"],
         BOLD_period=task_info["BOLD_period"],
         TAVG_period=task_info["TAVG_period"],
+        num_stimulated_regions=task_info["num_stimulated_regions"],
         global_conn_coupling_coef=task_info["global_conn_coupling_coef"],
         D=task_info["D"],
         conn_speed=task_info["conn_speed"],
