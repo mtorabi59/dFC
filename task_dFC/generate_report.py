@@ -414,7 +414,17 @@ def plot_dFC_matrices(
     end_TR = int(end_time / TR_mri)
     start_TR_idx = np.where(np.array(TRs) >= start_TR)[0][0]
     end_TR_idx = np.where(np.array(TRs) <= end_TR)[0][-1]
-    chosen_TRs = TRs[start_TR_idx:end_TR_idx]
+    # if the TR_mri is low which will cause the figure to be too wide,
+    # we will only plot a resampled version of the dFC matrices, e.g. to make it the same as TR_mri=2s
+    if TR_mri < 2:
+        TR_step = int(2 / TR_mri)
+        chosen_TRs = TRs[start_TR_idx:end_TR_idx:TR_step]
+        # raise warning if the TR_mri is low
+        print(
+            f"TR_mri is low ({TR_mri}s), the dFC matrices will be resampled to make the figure width reasonable"
+        )
+    else:
+        chosen_TRs = TRs[start_TR_idx:end_TR_idx]
 
     output_dir = f"{output_root}/subject_results/{subj}/dFC_matrices"
     if session is not None:
