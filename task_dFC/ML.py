@@ -570,6 +570,7 @@ def task_presence_classification(
         "dFC method": list(),
         "Logistic regression accuracy": list(),
         # "KNN accuracy": list(),
+        "Random Forest accuracy": list(),
     }
     log_reg = log_reg_RESULT["log_reg_model"]
     # KNN = KNN_RESULT["KNN_model"]
