@@ -123,7 +123,7 @@ all_task_info = {
         "sim_length": sim_length,
         "BOLD_period": BOLD_period,
         "TAVG_period": TAVG_period,
-        "num_stimulated_regions": 15,
+        "num_stimulated_regions": 26,
         "global_conn_coupling_coef": global_conn_coupling_coef,
         "D": D,
         "conn_speed": conn_speed,

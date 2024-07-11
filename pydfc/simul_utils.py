@@ -88,8 +88,11 @@ def simulate_task_BOLD(
         The number of stimulated regions. The default is 5.
         if num_stimulated_regions is 5, the stimulated regions are:
         [0, 7, 13, 33, 42]
-        if num_stimulated_regions is 15, the stimulated regions are:
-        [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70]
+        if num_stimulated_regions is 16, the stimulated regions are:
+        regions = list(range(0, 76, 5))
+        if num_stimulated_regions is 26, the stimulated regions are:
+        regions = list(range(0, 76, 3))
+        else, the stimulated regions are randomly selected.
     """
     # randomize some parameters for each subjects
     onset = np.random.normal(loc=onset_time, scale=0.5)  # seconds
@@ -102,24 +105,10 @@ def simulate_task_BOLD(
     # configure stimulus spatial pattern
     if num_stimulated_regions == 5:
         stimulated_regions_list = [0, 7, 13, 33, 42]
-    elif num_stimulated_regions == 15:
-        stimulated_regions_list = [
-            0,
-            5,
-            10,
-            15,
-            20,
-            25,
-            30,
-            35,
-            40,
-            45,
-            50,
-            55,
-            60,
-            65,
-            70,
-        ]
+    elif num_stimulated_regions == 16:
+        stimulated_regions_list = list(range(0, 76, 5))
+    elif num_stimulated_regions == 26:
+        stimulated_regions_list = list(range(0, 76, 3))
     else:
         stimulated_regions_list = np.random.choice(
             np.arange(76), num_stimulated_regions, replace=False
