@@ -446,7 +446,7 @@ def plot_dFC_matrices(
 
 
 def plot_ML_results(
-    ML_root, output_root, task, run=None, session=None, ML_algorithm="KNN"
+    ML_root, output_root, task, run=None, session=None, ML_algorithm="Random Forest"
 ):
     """
     Plot the ML results for a given task, run and session.
@@ -457,16 +457,27 @@ def plot_ML_results(
         task: str, task name
         run: int, run number
         session: str, session name
-        ML_algorithm: str, ML algorithm name (default: KNN, other options: Logistic regression)
+        ML_algorithm: str, ML algorithm name (default: Random Forest, other options: Logistic regression, KNN, Gradient Boosting)
     """
+    # the ML_scores files are saved as ML_scores_classify_{dFC_id}.npy
+    # find all the ML_scores files in the directory
     if session is None:
-        ML_scores = np.load(
-            f"{ML_root}/ML_scores_classify.npy", allow_pickle="TRUE"
-        ).item()
+        input_dir = f"{ML_root}"
     else:
-        ML_scores = np.load(
-            f"{ML_root}/{session}/ML_scores_classify.npy", allow_pickle="TRUE"
-        ).item()
+        input_dir = f"{ML_root}/{session}"
+    ALL_ML_SCORES = os.listdir(input_dir)
+    ALL_ML_SCORES = [
+        score_file for score_file in ALL_ML_SCORES if "ML_scores_classify" in score_file
+    ]
+    ALL_ML_SCORES.sort()
+    ML_scores = None
+    for score_file in ALL_ML_SCORES:
+        ML_scores_new = np.load(f"{input_dir}/{score_file}", allow_pickle="TRUE").item()
+        if ML_scores is None:
+            ML_scores = ML_scores_new
+        else:
+            for key in ML_scores_new.keys():
+                ML_scores[key].extend(ML_scores_new[key])
 
     sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.0})
 
@@ -506,6 +517,10 @@ def plot_ML_results(
         ML_algorithm_name = "LogReg"
     elif ML_algorithm == "KNN":
         ML_algorithm_name = "KNN"
+    elif ML_algorithm == "Random Forest":
+        ML_algorithm_name = "RF"
+    elif ML_algorithm == "Gradient Boosting":
+        ML_algorithm_name = "GBT"
 
     if run is None:
         plt.savefig(
@@ -538,14 +553,29 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
         run: int, run number
         session: str, session name
     """
+    # the clustering_scores files are saved as clustering_scores_{dFC_id}.npy
+    # find all the clustering_scores files in the directory
     if session is None:
-        clustering_scores = np.load(
-            f"{ML_root}/clustering_scores.npy", allow_pickle="TRUE"
-        ).item()
+        input_dir = f"{ML_root}"
     else:
-        clustering_scores = np.load(
-            f"{ML_root}/{session}/clustering_scores.npy", allow_pickle="TRUE"
+        input_dir = f"{ML_root}/{session}"
+    ALL_CLUSTERING_SCORES = os.listdir(input_dir)
+    ALL_CLUSTERING_SCORES = [
+        score_file
+        for score_file in ALL_CLUSTERING_SCORES
+        if "clustering_scores" in score_file
+    ]
+    ALL_CLUSTERING_SCORES.sort()
+    clustering_scores = None
+    for score_file in ALL_CLUSTERING_SCORES:
+        clustering_scores_new = np.load(
+            f"{input_dir}/{score_file}", allow_pickle="TRUE"
         ).item()
+        if clustering_scores is None:
+            clustering_scores = clustering_scores_new
+        else:
+            for key in clustering_scores_new.keys():
+                clustering_scores[key].extend(clustering_scores_new[key])
 
     sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.0})
 
@@ -956,15 +986,15 @@ def create_html_report_group_results(
                 else:
                     classification_dir = f"{group_dir}/classification"
 
-                # display KNN classification results
-                file.write("<h3>KNN</h3>\n")
+                # display Random Forest classification results
+                file.write("<h3>Random Forest</h3>\n")
                 if run is None:
                     classification_img = (
-                        f"{classification_dir}/ML_results_classify_KNN_{task}.png"
+                        f"{classification_dir}/ML_results_classify_RF_{task}.png"
                     )
                 else:
                     classification_img = (
-                        f"{classification_dir}/ML_results_classify_KNN_{task}_{run}.png"
+                        f"{classification_dir}/ML_results_classify_RF_{task}_{run}.png"
                     )
                 img = plt.imread(classification_img)
                 height, width, _ = img.shape
@@ -1233,10 +1263,10 @@ if __name__ == "__main__":
                         task=task,
                         run=run,
                         session=session,
-                        ML_algorithm="KNN",
+                        ML_algorithm="Random Forest",
                     )
                 except Exception as e:
-                    print(f"Error in plotting ML results for KNN: {e}")
+                    print(f"Error in plotting ML results for RF: {e}")
                 try:
                     plot_ML_results(
                         ML_root=ML_root,
