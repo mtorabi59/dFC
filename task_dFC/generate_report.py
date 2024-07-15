@@ -12,7 +12,13 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 from pydfc import DFC, data_loader, task_utils
-from pydfc.dfc_utils import TR_intersection, dFC_mat2vec, dFC_vec2mat, rank_norm
+from pydfc.dfc_utils import (
+    TR_intersection,
+    dFC_mat2vec,
+    dFC_vec2mat,
+    rank_norm,
+    visualize_conn_mat_dict,
+)
 
 ################################# Parameters ####################################
 
@@ -628,7 +634,7 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
     plt.close()
 
 
-def plot_paradigm_clustering(
+def plot_paradigm_clustering_score(
     ML_root,
     output_root,
     session=None,
@@ -691,7 +697,10 @@ def plot_paradigm_clustering(
     )
     g.axhline(0.0, color="r", linestyle="--")
     if show_title:
-        g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
+        g.set_title(
+            "Task Paradigm Clustering Performance",
+            fontdict={"fontsize": 10, "fontweight": "bold"},
+        )
 
     # save the figure
     if session is None:
@@ -711,6 +720,65 @@ def plot_paradigm_clustering(
     )
 
     plt.close()
+
+
+def plot_paradigm_clstr_centroids(
+    ML_root,
+    output_root,
+    session=None,
+):
+    """ """
+    # the paradigm_clustering_RESULTS files are saved as task_paradigm_clstr_RESULTS_{dFC_id}.npy
+    # find all the paradigm_clustering_RESULTS files in the directory
+    if session is None:
+        input_dir = f"{ML_root}"
+    else:
+        input_dir = f"{ML_root}/{session}"
+
+    if session is None:
+        output_dir = f"{output_root}/group_results/paradigm_clustering_centroids"
+    else:
+        output_dir = (
+            f"{output_root}/group_results/paradigm_clustering_centroids/{session}"
+        )
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    ALL_PARADIGM_CLUSTERING_RESULTS = os.listdir(input_dir)
+    ALL_PARADIGM_CLUSTERING_RESULTS = [
+        result_file
+        for result_file in ALL_PARADIGM_CLUSTERING_RESULTS
+        if "task_paradigm_clstr_RESULTS_" in result_file
+    ]
+    ALL_PARADIGM_CLUSTERING_RESULTS.sort()
+
+    for result_file in ALL_PARADIGM_CLUSTERING_RESULTS:
+        paradigm_clustering_RESULTS_new = np.load(
+            f"{input_dir}/{result_file}", allow_pickle="TRUE"
+        ).item()
+
+        # measure_name = paradigm_clustering_RESULTS_new["dFC_method"]
+        measure_name = result_file[
+            result_file.find("task_paradigm_clstr_RESULTS_") + 28 : -4
+        ]
+        centroids_mats = paradigm_clustering_RESULTS_new["centroids"]
+
+        centroids_dict = {}
+        for i, centroid_mat in enumerate(centroids_mats):
+            centroids_dict[f"Cluster {i + 1}"] = centroid_mat
+
+        visualize_conn_mat_dict(
+            data=centroids_dict,
+            title=f"Task Paradigm Centroids {measure_name}",
+            cmap="seismic",
+            normalize=True,
+            disp_diag=False,
+            save_image=True,
+            output_root=output_dir,
+            center_0=True,
+            # node_networks=None,
+        )
 
 
 def plot_dFC_clustering(
@@ -1147,7 +1215,6 @@ def create_html_report_group_results(
                 file.write("<br>\n")
 
     # paradigm clustering results
-    img_height = 300
     file.write("<h1>Paradigm Clustering Results</h1>\n")
     for session in SESSIONS:
         if session is not None:
@@ -1157,7 +1224,9 @@ def create_html_report_group_results(
         else:
             paradigm_clustering_dir = f"{group_dir}/paradigm_clustering"
 
-        # display paradigm clustering results
+        # display paradigm clustering scores
+        img_height = 300
+        file.write("<h2>Paradigm Clustering Scores</h2>\n")
         paradigm_clustering_img = (
             f"{paradigm_clustering_dir}/paradigm_clustering_results.png"
         )
@@ -1170,6 +1239,36 @@ def create_html_report_group_results(
         file.write(
             f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
         )
+
+        file.write("<br>\n")
+
+        # display paradigm clustering centroids
+        img_height = 300
+        file.write("<h2>Paradigm Clustering Centroids</h2>\n")
+        # find all png files in the directory
+        paradigm_clustering_centroids_dir = f"{group_dir}/paradigm_clustering_centroids"
+        for file_name in os.listdir(paradigm_clustering_centroids_dir):
+            if file_name.endswith(".png"):
+                measure_name = file_name[
+                    file_name.find("Task_Paradigm_Centroids_") + 25 : -4
+                ]
+                file.write(f"<h3>{measure_name}</h3>\n")
+                paradigm_clustering_centroids_img = (
+                    f"{paradigm_clustering_centroids_dir}/{file_name}"
+                )
+                # get the original size of the image
+                img = plt.imread(paradigm_clustering_centroids_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                paradigm_clustering_centroids_img = (
+                    paradigm_clustering_centroids_img.replace(group_dir, ".")
+                )
+                file.write(
+                    f"<img src='{paradigm_clustering_centroids_img}' alt='Paradigm clustering centroids' width='{width}' height='{img_height}'>\n"
+                )
+                file.write("<br>\n")
 
         file.write("<br>\n")
 
@@ -1369,13 +1468,22 @@ if __name__ == "__main__":
             print(f"Error in plotting task presence features: {e}")
 
         try:
-            plot_paradigm_clustering(
+            plot_paradigm_clustering_score(
                 ML_root=ML_root,
                 output_root=reports_root,
                 session=session,
             )
         except Exception as e:
-            print(f"Error in plotting paradigm clustering: {e}")
+            print(f"Error in plotting paradigm clustering scores: {e}")
+
+        try:
+            plot_paradigm_clstr_centroids(
+                ML_root=ML_root,
+                output_root=reports_root,
+                session=session,
+            )
+        except Exception as e:
+            print(f"Error in plotting paradigm clustering centroids: {e}")
 
         for task in TASKS:
             for run in RUNS[task]:
