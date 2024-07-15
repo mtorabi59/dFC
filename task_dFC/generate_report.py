@@ -628,6 +628,91 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
     plt.close()
 
 
+def plot_paradigm_clustering(
+    ML_root,
+    output_root,
+    session=None,
+):
+    """
+    Plot the clustering results for a given task, run and session.
+    parameters:
+    ----------
+        ML_root: str, path to ML results
+        output_root: str, path to save the figures
+        task: str, task name
+        run: int, run number
+        session: str, session name
+    """
+    # the paradigm_clustering_RESULTS files are saved as task_paradigm_clstr_RESULTS_{dFC_id}.npy
+    # find all the paradigm_clustering_RESULTS files in the directory
+    if session is None:
+        input_dir = f"{ML_root}"
+    else:
+        input_dir = f"{ML_root}/{session}"
+    ALL_PARADIGM_CLUSTERING_RESULTS = os.listdir(input_dir)
+    ALL_PARADIGM_CLUSTERING_RESULTS = [
+        result_file
+        for result_file in ALL_PARADIGM_CLUSTERING_RESULTS
+        if "task_paradigm_clstr_RESULTS_" in result_file
+    ]
+    ALL_PARADIGM_CLUSTERING_RESULTS.sort()
+    paradigm_clustering_RESULTS = {
+        "dFC method": [],
+        "ARI score": [],
+    }
+    for result_file in ALL_PARADIGM_CLUSTERING_RESULTS:
+        paradigm_clustering_RESULTS_new = np.load(
+            f"{input_dir}/{result_file}", allow_pickle="TRUE"
+        ).item()
+        paradigm_clustering_RESULTS["dFC method"].append(
+            result_file[result_file.find("task_paradigm_clstr_RESULTS_") + 27 : -4]
+        )
+        # paradigm_clustering_RESULTS["dFC method"].append(
+        #     paradigm_clustering_RESULTS_new["dFC_method"]
+        # )
+        paradigm_clustering_RESULTS["ARI score"].append(
+            paradigm_clustering_RESULTS_new["ARI"]
+        )
+
+    sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.0})
+
+    sns.set_style("darkgrid")
+
+    dataframe = pd.DataFrame(paradigm_clustering_RESULTS)
+
+    plt.figure(figsize=(10, 5))
+    g = sns.pointplot(
+        data=dataframe,
+        x="dFC method",
+        y="ARI score",
+        linestyle="none",
+        dodge=True,
+        capsize=0.1,
+    )
+    g.axhline(0.0, color="r", linestyle="--")
+    if show_title:
+        g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
+
+    # save the figure
+    if session is None:
+        output_dir = f"{output_root}/group_results/paradigm_clustering"
+    else:
+        output_dir = f"{output_root}/group_results/paradigm_clustering/{session}"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    plt.savefig(
+        f"{output_dir}/paradigm_clustering_results.{save_fig_format}",
+        dpi=fig_dpi,
+        bbox_inches=fig_bbox_inches,
+        pad_inches=fig_pad,
+        format=save_fig_format,
+    )
+
+    plt.close()
+
+
 def plot_dFC_clustering(
     dFC_root,
     subj,
@@ -1060,6 +1145,34 @@ def create_html_report_group_results(
                 )
 
                 file.write("<br>\n")
+
+    # paradigm clustering results
+    img_height = 300
+    file.write("<h1>Paradigm Clustering Results</h1>\n")
+    for session in SESSIONS:
+        if session is not None:
+            file.write(f"<h1> {session} </h1>\n")
+        if session is not None:
+            paradigm_clustering_dir = f"{group_dir}/paradigm_clustering/{session}"
+        else:
+            paradigm_clustering_dir = f"{group_dir}/paradigm_clustering"
+
+        # display paradigm clustering results
+        paradigm_clustering_img = (
+            f"{paradigm_clustering_dir}/paradigm_clustering_results.png"
+        )
+        img = plt.imread(paradigm_clustering_img)
+        height, width, _ = img.shape
+        # change the width so that height equals img_height
+        width = int(width * img_height / height)
+        # replace the path to the image with a relative path
+        paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
+        file.write(
+            f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
+        )
+
+        file.write("<br>\n")
+
     file.write("</body>\n")
     file.write("</html>\n")
     file.close()
@@ -1229,6 +1342,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Error in creating html report for subject results: {e}")
 
+    # plot group results
     # find the common run number for all tasks for task presence features
     common_run = None
     for task in TASKS:
@@ -1253,6 +1367,15 @@ if __name__ == "__main__":
             )
         except Exception as e:
             print(f"Error in plotting task presence features: {e}")
+
+        try:
+            plot_paradigm_clustering(
+                ML_root=ML_root,
+                output_root=reports_root,
+                session=session,
+            )
+        except Exception as e:
+            print(f"Error in plotting paradigm clustering: {e}")
 
         for task in TASKS:
             for run in RUNS[task]:
