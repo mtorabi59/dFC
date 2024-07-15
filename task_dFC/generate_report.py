@@ -775,7 +775,7 @@ def plot_paradigm_clstr_centroids(
             normalize=True,
             disp_diag=False,
             save_image=True,
-            output_root=output_dir,
+            output_root=f"{output_dir}/",
             center_0=True,
             # node_networks=None,
         )
