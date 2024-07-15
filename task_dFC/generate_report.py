@@ -1250,7 +1250,7 @@ def create_html_report_group_results(
         for file_name in os.listdir(paradigm_clustering_centroids_dir):
             if file_name.endswith(".png"):
                 measure_name = file_name[
-                    file_name.find("Task_Paradigm_Centroids_") + 25 : -4
+                    file_name.find("Task_Paradigm_Centroids_") + 24 : -4
                 ]
                 file.write(f"<h3>{measure_name}</h3>\n")
                 paradigm_clustering_centroids_img = (

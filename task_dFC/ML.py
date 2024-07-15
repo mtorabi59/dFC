@@ -5,7 +5,7 @@ import os
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import adjusted_rand_score, balanced_accuracy_score
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
@@ -482,6 +482,62 @@ def random_forest_classify(
     return RESULT
 
 
+def gradient_boosting_classify(
+    X_train, y_train, X_test, y_test, explained_var_threshold=0.95
+):
+    """
+    Gradient Boosting classification
+    """
+    # find num_PCs
+    pca = PCA(svd_solver="full", whiten=False)
+    pca.fit(X_train)
+    num_PCs = (
+        np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
+        + 1
+    )
+    num_PCs = min(num_PCs, 100)
+
+    # create a pipeline with a gradient boosting model to find the best n_estimators
+    gb = make_pipeline(
+        StandardScaler(),
+        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
+        GradientBoostingClassifier(),
+    )
+    # create a dictionary of all values we want to test for n_estimators
+    param_grid = {
+        "gradientboostingclassifier__n_estimators": [10, 50, 100, 200],
+        "gradientboostingclassifier__learning_rate": [0.01, 0.1, 0.2],
+        "gradientboostingclassifier__max_depth": [3, 5, 10],
+    }
+    # use gridsearch to test all values for n_estimators
+    gb_gscv = GridSearchCV(gb, param_grid, cv=5)
+    # fit model to data
+    gb_gscv.fit(X_train, y_train)
+
+    n_estimators = gb_gscv.best_params_["gradientboostingclassifier__n_estimators"]
+    learning_rate = gb_gscv.best_params_["gradientboostingclassifier__learning_rate"]
+    max_depth = gb_gscv.best_params_["gradientboostingclassifier__max_depth"]
+
+    gb = make_pipeline(
+        StandardScaler(),
+        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
+        GradientBoostingClassifier(
+            n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate
+        ),
+    ).fit(X_train, y_train)
+
+    RESULT = {
+        "GB_pca": pca,
+        "GB_num_PCs": num_PCs,
+        "GB_cv_results": gb_gscv.cv_results_,
+        "GB_model": gb,
+        "GB_train_score": gb.score(X_train, y_train),
+        "GB_test_score": gb.score(X_test, y_test),
+    }
+
+    return RESULT
+
+
 def task_presence_classification(
     task,
     dFC_id,
@@ -495,7 +551,7 @@ def task_presence_classification(
     explained_var_threshold=0.95,
 ):
     """
-    perform task presence classification using logistic regression, KNN, or Random Forest
+    perform task presence classification using logistic regression, KNN, Random Forest, Gradient Boosting
     for a given task and dFC method and run.
     """
     if run is None:
@@ -547,8 +603,13 @@ def task_presence_classification(
     #     X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
     # )
 
-    # Random Forest
-    RF_RESULT = random_forest_classify(
+    # # Random Forest
+    # RF_RESULT = random_forest_classify(
+    #     X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
+    # )
+
+    # Gradient Boosting
+    GBT_RESULT = gradient_boosting_classify(
         X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
     )
 
@@ -557,8 +618,10 @@ def task_presence_classification(
         ML_RESULT[key] = log_reg_RESULT[key]
     # for key in KNN_RESULT:
     #     ML_RESULT[key] = KNN_RESULT[key]
-    for key in RF_RESULT:
-        ML_RESULT[key] = RF_RESULT[key]
+    # for key in RF_RESULT:
+    #     ML_RESULT[key] = RF_RESULT[key]
+    for key in GBT_RESULT:
+        ML_RESULT[key] = GBT_RESULT[key]
 
     # measure pred score on each subj
 
@@ -570,11 +633,13 @@ def task_presence_classification(
         "dFC method": list(),
         "Logistic regression accuracy": list(),
         # "KNN accuracy": list(),
-        "Random Forest accuracy": list(),
+        # "Random Forest accuracy": list(),
+        "Gradient Boosting accuracy": list(),
     }
     log_reg = log_reg_RESULT["log_reg_model"]
     # KNN = KNN_RESULT["KNN_model"]
-    RF = RF_RESULT["RF_model"]
+    # RF = RF_RESULT["RF_model"]
+    GBT = GBT_RESULT["GB_model"]
 
     for subj in SUBJECTS:
         ML_scores["subj_id"].append(subj)
@@ -589,14 +654,18 @@ def task_presence_classification(
 
         pred_lr = log_reg.predict(features)
         # pred_KNN = KNN.predict(features)
-        pred_RF = RF.predict(features)
+        # pred_RF = RF.predict(features)
+        pred_GBT = GBT.predict(features)
 
         ML_scores["Logistic regression accuracy"].append(
             balanced_accuracy_score(target, pred_lr)
         )
         # ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred_KNN))
-        ML_scores["Random Forest accuracy"].append(
-            balanced_accuracy_score(target, pred_RF)
+        # ML_scores["Random Forest accuracy"].append(
+        #     balanced_accuracy_score(target, pred_RF)
+        # )
+        ML_scores["Gradient Boosting accuracy"].append(
+            balanced_accuracy_score(target, pred_GBT)
         )
 
         ML_scores["task"].append(task)
@@ -730,7 +799,8 @@ def run_classification(
             "dFC method": list(),
             "Logistic regression accuracy": list(),
             # "KNN accuracy": list(),
-            "Random Forest accuracy": list(),
+            # "Random Forest accuracy": list(),
+            "Gradient Boosting accuracy": list(),
         }
 
         ML_RESULT = {}
@@ -844,9 +914,10 @@ def task_paradigm_clustering(
 
         X = None
         y = None
+        measure_name = None
         for task_id, task in enumerate(TASKS):
             for run in RUNS[task]:
-                X_new, _, _, _, _, _, measure_name = dFC_feature_extraction(
+                X_new, _, _, _, _, _, measure_name_new = dFC_feature_extraction(
                     task=task,
                     train_subjects=SUBJECTS,
                     test_subjects=[],
@@ -858,6 +929,14 @@ def task_paradigm_clustering(
                     dynamic_pred="no",
                     normalize_dFC=normalize_dFC,
                 )
+
+                if measure_name is not None:
+                    assert (
+                        measure_name == measure_name_new
+                    ), "dFC measure is not consistent."
+                else:
+                    measure_name = measure_name_new
+
                 y_new = np.ones(X_new.shape[0]) * task_id
                 if X is None and y is None:
                     X = X_new
@@ -902,6 +981,7 @@ def task_paradigm_clustering(
         centroids_mat = dFC_vec2mat(centroids, n_regions)
 
         task_paradigm_clstr_RESULTS = {
+            "dFC_method": measure_name,
             "StandardScaler": scaler,
             "num_PCs": n_components,
             "PCA": pca,
