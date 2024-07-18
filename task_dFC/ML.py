@@ -7,7 +7,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import adjusted_rand_score, balanced_accuracy_score
+from sklearn.metrics import adjusted_rand_score, balanced_accuracy_score, silhouette_score
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import make_pipeline
@@ -758,6 +758,8 @@ def task_presence_clustering(
         "run": list(),
         "dFC method": list(),
         "Kmeans ARI": list(),
+        "SI": list(),
+        "SI_pca": list(),
     }
     for subj in SUBJECTS:
         clustering_scores["subj_id"].append(subj)
@@ -769,6 +771,11 @@ def task_presence_clustering(
         pred_kmeans = kmeans.predict(features_pca)
 
         clustering_scores["Kmeans ARI"].append(adjusted_rand_score(target, pred_kmeans))
+
+        # silhouette score in terms of separability of original labels, not the clustering labels
+        # using both original features and PCA features
+        clustering_scores["SI"].append(silhouette_score(features, target))
+        clustering_scores["SI_pca"].append(silhouette_score(features_pca, target))
 
         clustering_scores["task"].append(task)
         clustering_scores["run"].append(run)
@@ -854,6 +861,8 @@ def run_clustering(
             "run": list(),
             "dFC method": list(),
             "Kmeans ARI": list(),
+            "SI": list(),
+            "SI_pca": list(),
         }
 
         clustering_RESULTS = {}
@@ -987,6 +996,8 @@ def task_paradigm_clustering(
             "PCA": pca,
             "kmeans": kmeans,
             "ARI": adjusted_rand_score(y, labels_pred),
+            "SI": silhouette_score(X, y),
+            "SI_pca": silhouette_score(X_pca, y),
             "centroids": centroids_mat,
             "task_paradigms": TASKS,
         }
