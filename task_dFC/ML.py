@@ -598,30 +598,30 @@ def task_presence_classification(
     # logistic regression
     log_reg_RESULT = logistic_regression_classify(X_train, y_train, X_test, y_test)
 
-    # # KNN
-    # KNN_RESULT = KNN_classify(
-    #     X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
-    # )
+    # KNN
+    KNN_RESULT = KNN_classify(
+        X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
+    )
 
     # # Random Forest
     # RF_RESULT = random_forest_classify(
     #     X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
     # )
 
-    # Gradient Boosting
-    GBT_RESULT = gradient_boosting_classify(
-        X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
-    )
+    # # Gradient Boosting
+    # GBT_RESULT = gradient_boosting_classify(
+    #     X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
+    # )
 
     ML_RESULT = {}
     for key in log_reg_RESULT:
         ML_RESULT[key] = log_reg_RESULT[key]
-    # for key in KNN_RESULT:
-    #     ML_RESULT[key] = KNN_RESULT[key]
+    for key in KNN_RESULT:
+        ML_RESULT[key] = KNN_RESULT[key]
     # for key in RF_RESULT:
     #     ML_RESULT[key] = RF_RESULT[key]
-    for key in GBT_RESULT:
-        ML_RESULT[key] = GBT_RESULT[key]
+    # for key in GBT_RESULT:
+    #     ML_RESULT[key] = GBT_RESULT[key]
 
     # measure pred score on each subj
 
@@ -632,14 +632,14 @@ def task_presence_classification(
         "run": list(),
         "dFC method": list(),
         "Logistic regression accuracy": list(),
-        # "KNN accuracy": list(),
+        "KNN accuracy": list(),
         # "Random Forest accuracy": list(),
-        "Gradient Boosting accuracy": list(),
+        # "Gradient Boosting accuracy": list(),
     }
     log_reg = log_reg_RESULT["log_reg_model"]
-    # KNN = KNN_RESULT["KNN_model"]
+    KNN = KNN_RESULT["KNN_model"]
     # RF = RF_RESULT["RF_model"]
-    GBT = GBT_RESULT["GB_model"]
+    # GBT = GBT_RESULT["GB_model"]
 
     for subj in SUBJECTS:
         ML_scores["subj_id"].append(subj)
@@ -653,20 +653,20 @@ def task_presence_classification(
             target = y_test[subj_label_test == subj]
 
         pred_lr = log_reg.predict(features)
-        # pred_KNN = KNN.predict(features)
+        pred_KNN = KNN.predict(features)
         # pred_RF = RF.predict(features)
-        pred_GBT = GBT.predict(features)
+        # pred_GBT = GBT.predict(features)
 
         ML_scores["Logistic regression accuracy"].append(
             balanced_accuracy_score(target, pred_lr)
         )
-        # ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred_KNN))
+        ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred_KNN))
         # ML_scores["Random Forest accuracy"].append(
         #     balanced_accuracy_score(target, pred_RF)
         # )
-        ML_scores["Gradient Boosting accuracy"].append(
-            balanced_accuracy_score(target, pred_GBT)
-        )
+        # ML_scores["Gradient Boosting accuracy"].append(
+        #     balanced_accuracy_score(target, pred_GBT)
+        # )
 
         ML_scores["task"].append(task)
         ML_scores["run"].append(run)
@@ -805,9 +805,9 @@ def run_classification(
             "run": list(),
             "dFC method": list(),
             "Logistic regression accuracy": list(),
-            # "KNN accuracy": list(),
+            "KNN accuracy": list(),
             # "Random Forest accuracy": list(),
-            "Gradient Boosting accuracy": list(),
+            # "Gradient Boosting accuracy": list(),
         }
 
         ML_RESULT = {}
