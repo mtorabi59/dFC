@@ -671,11 +671,8 @@ def plot_paradigm_clustering_score(
             f"{input_dir}/{result_file}", allow_pickle="TRUE"
         ).item()
         paradigm_clustering_RESULTS["dFC method"].append(
-            result_file[result_file.find("task_paradigm_clstr_RESULTS_") + 27 : -4]
+            paradigm_clustering_RESULTS_new["dFC_method"]
         )
-        # paradigm_clustering_RESULTS["dFC method"].append(
-        #     paradigm_clustering_RESULTS_new["dFC_method"]
-        # )
         paradigm_clustering_RESULTS["ARI score"].append(
             paradigm_clustering_RESULTS_new["ARI"]
         )
@@ -758,10 +755,7 @@ def plot_paradigm_clstr_centroids(
             f"{input_dir}/{result_file}", allow_pickle="TRUE"
         ).item()
 
-        # measure_name = paradigm_clustering_RESULTS_new["dFC_method"]
-        measure_name = result_file[
-            result_file.find("task_paradigm_clstr_RESULTS_") + 28 : -4
-        ]
+        measure_name = paradigm_clustering_RESULTS_new["dFC_method"]
         centroids_mats = paradigm_clustering_RESULTS_new["centroids"]
 
         centroids_dict = {}
