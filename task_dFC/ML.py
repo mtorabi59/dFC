@@ -3,10 +3,12 @@ import json
 import os
 
 import numpy as np
+from scipy.spatial import procrustes
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.manifold import SpectralEmbedding
 from sklearn.metrics import adjusted_rand_score, balanced_accuracy_score, silhouette_score
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.neighbors import KNeighborsClassifier
@@ -245,6 +247,101 @@ def load_task_data(roi_root, subj, task, run=None, session=None):
     return task_data
 
 
+def embed_dFC_features(
+    train_subjects,
+    test_subjects,
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    subj_label_train,
+    subj_label_test,
+    embedding="PCA",
+    n_components=30,
+    n_neighbors_LE=90,
+):
+    """
+    Embed the dFC features into a lower dimensional space using PCA or LE. For LE, it assumes that the samples of the same subject are contiguous.
+
+    for LE, first the LE is applied on each subj separately and then the procrustes transformation is applied to align the embeddings of different subjects.
+    All the subjects are transformed into the space of the subject with the highest silhouette score.
+    """
+    if embedding == "PCA":
+        pca = PCA(n_components=n_components, svd_solver="full", whiten=False)
+        pca.fit(X_train)
+        X_train_embed = pca.transform(X_train)
+        X_test_embed = pca.transform(X_test)
+    elif embedding == "LE":
+        # first embed the dFC features of each subject into a lower dimensional space using LE separately
+        embed_dict = {}
+        for subject in train_subjects:
+            # assert the samples of the same subject are contiguous
+            assert np.all(
+                np.diff(np.where(subj_label_train == subject)[0]) == 1
+            ), f"Indices of {subject} are not consecutive"
+            X_subj = X_train[subj_label_train == subject, :]
+            y_subj = y_train[subj_label_train == subject]
+            LE = SpectralEmbedding(
+                n_components=n_components,
+                n_neighbors=n_neighbors_LE,
+            )
+            X_subj_embed = LE.fit_transform(X_subj)
+            SI = silhouette_score(X_subj_embed, y_subj)
+            embed_dict[subject] = {"X_subj_embed": X_subj_embed, "SI": SI}
+
+        # find the best transformation based on the SI score
+        best_SI = -1
+        best_subject = None
+        for subject in embed_dict:
+            if embed_dict[subject]["SI"] > best_SI:
+                best_SI = embed_dict[subject]["SI"]
+                best_subject = subject
+
+        # apply procrustes transformation to align the embeddings of different subjects
+        # use the embeddings of the subject with the highest SI score as the reference
+        X_train_embed = None
+        for subject in train_subjects:
+            X_subj_embed = embed_dict[subject]["X_subj_embed"]
+            # procrustes transformation
+            if subject == best_subject:
+                X_subj_embed_transformed = X_subj_embed
+            else:
+                _, X_subj_embed_transformed, _ = procrustes(
+                    embed_dict[best_subject]["X_subj_embed"], X_subj_embed
+                )
+            if X_train_embed is None:
+                X_train_embed = X_subj_embed_transformed
+            else:
+                X_train_embed = np.concatenate(
+                    (X_train_embed, X_subj_embed_transformed), axis=0
+                )
+
+        # apply the same transformation to the test set
+        X_test_embed = None
+        for subject in test_subjects:
+            # assert the samples of the same subject are contiguous
+            assert np.all(
+                np.diff(np.where(subj_label_test == subject)[0]) == 1
+            ), f"Indices of {subject} are not consecutive"
+            X_subj = X_test[subj_label_test == subject, :]
+            LE = SpectralEmbedding(
+                n_components=n_components,
+                n_neighbors=n_neighbors_LE,
+            )
+            X_subj_embed = LE.fit_transform(X_subj)
+            _, X_subj_embed_transformed, _ = procrustes(
+                embed_dict[best_subject]["X_subj_embed"], X_subj_embed
+            )
+            if X_test_embed is None:
+                X_test_embed = X_subj_embed_transformed
+            else:
+                X_test_embed = np.concatenate(
+                    (X_test_embed, X_subj_embed_transformed), axis=0
+                )
+
+    return X_train_embed, X_test_embed
+
+
 def dFC_feature_extraction(
     task,
     train_subjects,
@@ -385,22 +482,13 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test):
     return RESULT
 
 
-def KNN_classify(X_train, y_train, X_test, y_test, explained_var_threshold=0.95):
+def KNN_classify(X_train, y_train, X_test, y_test):
     """
     KNN classification
     """
-    # find num_PCs
-    pca = PCA(svd_solver="full", whiten=False)
-    pca.fit(X_train)
-    num_PCs = (
-        np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
-        + 1
-    )
-    num_PCs = min(num_PCs, 100)
     # create a pipeline with a knn model to find the best n_neighbors
     knn = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         KNeighborsClassifier(),
     )
     # create a dictionary of all values we want to test for n_neighbors
@@ -414,13 +502,10 @@ def KNN_classify(X_train, y_train, X_test, y_test, explained_var_threshold=0.95)
 
     neigh = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         KNeighborsClassifier(n_neighbors=n_neighbors),
     ).fit(X_train, y_train)
 
     RESULT = {
-        "KNN_pca": pca,
-        "KNN_num_PCs": num_PCs,
         "KNN_cv_results": knn_gscv.cv_results_,
         "KNN_model": neigh,
         "KNN_train_score": neigh.score(X_train, y_train),
@@ -430,25 +515,13 @@ def KNN_classify(X_train, y_train, X_test, y_test, explained_var_threshold=0.95)
     return RESULT
 
 
-def random_forest_classify(
-    X_train, y_train, X_test, y_test, explained_var_threshold=0.95
-):
+def random_forest_classify(X_train, y_train, X_test, y_test):
     """
     Random Forest classification
     """
-    # find num_PCs
-    pca = PCA(svd_solver="full", whiten=False)
-    pca.fit(X_train)
-    num_PCs = (
-        np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
-        + 1
-    )
-    num_PCs = min(num_PCs, 100)
-
     # create a pipeline with a random forest model to find the best n_estimators
     rf = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         RandomForestClassifier(),
     )
     # create a dictionary of all values we want to test for n_estimators
@@ -466,13 +539,10 @@ def random_forest_classify(
 
     rf = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth),
     ).fit(X_train, y_train)
 
     RESULT = {
-        "RF_pca": pca,
-        "RF_num_PCs": num_PCs,
         "RF_cv_results": rf_gscv.cv_results_,
         "RF_model": rf,
         "RF_train_score": rf.score(X_train, y_train),
@@ -482,25 +552,13 @@ def random_forest_classify(
     return RESULT
 
 
-def gradient_boosting_classify(
-    X_train, y_train, X_test, y_test, explained_var_threshold=0.95
-):
+def gradient_boosting_classify(X_train, y_train, X_test, y_test):
     """
     Gradient Boosting classification
     """
-    # find num_PCs
-    pca = PCA(svd_solver="full", whiten=False)
-    pca.fit(X_train)
-    num_PCs = (
-        np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
-        + 1
-    )
-    num_PCs = min(num_PCs, 100)
-
     # create a pipeline with a gradient boosting model to find the best n_estimators
     gb = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         GradientBoostingClassifier(),
     )
     # create a dictionary of all values we want to test for n_estimators
@@ -520,15 +578,12 @@ def gradient_boosting_classify(
 
     gb = make_pipeline(
         StandardScaler(),
-        PCA(n_components=num_PCs, svd_solver="full", whiten=False),
         GradientBoostingClassifier(
             n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate
         ),
     ).fit(X_train, y_train)
 
     RESULT = {
-        "GB_pca": pca,
-        "GB_num_PCs": num_PCs,
         "GB_cv_results": gb_gscv.cv_results_,
         "GB_model": gb,
         "GB_train_score": gb.score(X_train, y_train),
@@ -548,7 +603,6 @@ def task_presence_classification(
     dynamic_pred="no",
     normalize_dFC=True,
     train_test_ratio=0.8,
-    explained_var_threshold=0.95,
 ):
     """
     perform task presence classification using logistic regression, KNN, Random Forest, Gradient Boosting
@@ -591,6 +645,21 @@ def task_presence_classification(
         )
     )
 
+    # embed dFC features
+    X_train, X_test = embed_dFC_features(
+        train_subjects=train_subjects,
+        test_subjects=test_subjects,
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        subj_label_train=subj_label_train,
+        subj_label_test=subj_label_test,
+        embedding="LE",
+        n_components=30,
+        n_neighbors_LE=90,
+    )
+
     # task presence classification
 
     print("task presence classification ...")
@@ -599,18 +668,16 @@ def task_presence_classification(
     log_reg_RESULT = logistic_regression_classify(X_train, y_train, X_test, y_test)
 
     # KNN
-    KNN_RESULT = KNN_classify(
-        X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
-    )
+    KNN_RESULT = KNN_classify(X_train, y_train, X_test, y_test)
 
     # # Random Forest
     # RF_RESULT = random_forest_classify(
-    #     X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
+    #     X_train, y_train, X_test, y_test
     # )
 
     # # Gradient Boosting
     # GBT_RESULT = gradient_boosting_classify(
-    #     X_train, y_train, X_test, y_test, explained_var_threshold=explained_var_threshold
+    #     X_train, y_train, X_test, y_test
     # )
 
     ML_RESULT = {}
@@ -683,7 +750,6 @@ def task_presence_clustering(
     run=None,
     session=None,
     normalize_dFC=True,
-    explained_var_threshold=0.95,
 ):
     if run is None:
         print(f"=============== {task} ===============")
@@ -712,44 +778,46 @@ def task_presence_clustering(
         normalize_dFC=normalize_dFC,
     )
 
+    # embed dFC features
+    X, _ = embed_dFC_features(
+        train_subjects=SUBJECTS,
+        test_subjects=[],
+        X_train=X,
+        X_test=None,
+        y_train=y,
+        y_test=None,
+        subj_label_train=subj_label,
+        subj_label_test=None,
+        embedding="LE",
+        n_components=30,
+        n_neighbors_LE=90,
+    )
+
     # clustering
-    # apply kmeans clustering with PCA to dFC features
+    # apply kmeans clustering to dFC features
 
     n_clusters = 2  # corresponding to task and rest
 
     scaler = StandardScaler()
     X_normalized = scaler.fit_transform(X)
-    # PCA
-    # find number of components that explain 95% of variance
-    pca = PCA(svd_solver="full", whiten=False)
-    pca.fit(X_normalized)
-    n_components = (
-        np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[0][0]
-        + 1
-    )
-    n_components = min(n_components, 100)
-    pca = PCA(n_components=n_components, svd_solver="full", whiten=False)
-    X_pca = pca.fit_transform(X_normalized)
     kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
-    labels_pred = kmeans.fit_predict(X_pca)
+    labels_pred = kmeans.fit_predict(X_normalized)
 
     # ARI score
     print(f"ARI score: {adjusted_rand_score(y, labels_pred)}")
 
-    # visualize clustering centroids
-    centroids = kmeans.cluster_centers_
-    centroids = pca.inverse_transform(centroids)
-    centroids = scaler.inverse_transform(centroids)
-    n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
-    centroids_mat = dFC_vec2mat(centroids, n_regions)
+    # # visualize clustering centroids
+    # centroids = kmeans.cluster_centers_
+    # centroids = pca.inverse_transform(centroids)
+    # centroids = scaler.inverse_transform(centroids)
+    # n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
+    # centroids_mat = dFC_vec2mat(centroids, n_regions)
 
     clustering_RESULTS = {
         "StandardScaler": scaler,
-        "num_PCs": n_components,
-        "PCA": pca,
         "kmeans": kmeans,
         "ARI": adjusted_rand_score(y, labels_pred),
-        "centroids": centroids_mat,
+        # "centroids": centroids_mat,
     }
 
     clustering_scores = {
@@ -759,7 +827,6 @@ def task_presence_clustering(
         "dFC method": list(),
         "Kmeans ARI": list(),
         "SI": list(),
-        "SI_pca": list(),
     }
     for subj in SUBJECTS:
         clustering_scores["subj_id"].append(subj)
@@ -767,15 +834,12 @@ def task_presence_clustering(
         target = y[subj_label == subj]
 
         features_normalized = scaler.transform(features)
-        features_pca = pca.transform(features_normalized)
-        pred_kmeans = kmeans.predict(features_pca)
+        pred_kmeans = kmeans.predict(features_normalized)
 
         clustering_scores["Kmeans ARI"].append(adjusted_rand_score(target, pred_kmeans))
 
         # silhouette score in terms of separability of original labels, not the clustering labels
-        # using both original features and PCA features
         clustering_scores["SI"].append(silhouette_score(features, target))
-        clustering_scores["SI_pca"].append(silhouette_score(features_pca, target))
 
         clustering_scores["task"].append(task)
         clustering_scores["run"].append(run)
@@ -862,7 +926,6 @@ def run_clustering(
             "dFC method": list(),
             "Kmeans ARI": list(),
             "SI": list(),
-            "SI_pca": list(),
         }
 
         clustering_RESULTS = {}
@@ -905,7 +968,6 @@ def task_paradigm_clustering(
     dFC_root,
     output_root,
     normalize_dFC=True,
-    explained_var_threshold=0.95,
 ):
     for session in SESSIONS:
         # find SUBJECTS common to all tasks
@@ -923,20 +985,23 @@ def task_paradigm_clustering(
 
         X = None
         y = None
+        subj_label = None
         measure_name = None
         for task_id, task in enumerate(TASKS):
             for run in RUNS[task]:
-                X_new, _, _, _, _, _, measure_name_new = dFC_feature_extraction(
-                    task=task,
-                    train_subjects=SUBJECTS,
-                    test_subjects=[],
-                    dFC_id=dFC_id,
-                    roi_root=roi_root,
-                    dFC_root=dFC_root,
-                    run=run,
-                    session=session,
-                    dynamic_pred="no",
-                    normalize_dFC=normalize_dFC,
+                X_new, _, _, _, subj_label_new, _, measure_name_new = (
+                    dFC_feature_extraction(
+                        task=task,
+                        train_subjects=SUBJECTS,
+                        test_subjects=[],
+                        dFC_id=dFC_id,
+                        roi_root=roi_root,
+                        dFC_root=dFC_root,
+                        run=run,
+                        session=session,
+                        dynamic_pred="no",
+                        normalize_dFC=normalize_dFC,
+                    )
                 )
 
                 if measure_name is not None:
@@ -950,55 +1015,63 @@ def task_paradigm_clustering(
                 if X is None and y is None:
                     X = X_new
                     y = y_new
+                    subj_label = subj_label_new
                 else:
                     X = np.concatenate((X, X_new), axis=0)
                     y = np.concatenate((y, y_new), axis=0)
+                    subj_label = np.concatenate((subj_label, subj_label_new), axis=0)
 
         assert X.shape[0] == y.shape[0], "Number of samples do not match."
+        assert X.shape[0] == subj_label.shape[0], "Number of samples do not match."
+
+        # rearrange the order of the samples so that the samples of the same subject are together
+        idx = np.argsort(subj_label)
+        X = X[idx, :]
+        y = y[idx]
+        subj_label = subj_label[idx]
+
+        # embed dFC features
+        X, _ = embed_dFC_features(
+            train_subjects=SUBJECTS,
+            test_subjects=[],
+            X_train=X,
+            X_test=None,
+            y_train=y,
+            y_test=None,
+            subj_label_train=subj_label,
+            subj_label_test=None,
+            embedding="LE",
+            n_components=30,
+            n_neighbors_LE=90,
+        )
 
         # clustering
-        # apply kmeans clustering with PCA to dFC features
+        # apply kmeans clustering to dFC features
 
         n_clusters = len(TASKS)  # corresponding to task paradigms
 
         scaler = StandardScaler()
         X_normalized = scaler.fit_transform(X)
-        # PCA
-        # find number of components that explain 95% of variance
-        pca = PCA(svd_solver="full", whiten=False)
-        pca.fit(X_normalized)
-        n_components = (
-            np.where(np.cumsum(pca.explained_variance_ratio_) > explained_var_threshold)[
-                0
-            ][0]
-            + 1
-        )
-        n_components = min(n_components, 100)
-        pca = PCA(n_components=n_components, svd_solver="full", whiten=False)
-        X_pca = pca.fit_transform(X_normalized)
         kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
-        labels_pred = kmeans.fit_predict(X_pca)
+        labels_pred = kmeans.fit_predict(X_normalized)
 
         # ARI score
         print(f"ARI score: {adjusted_rand_score(y, labels_pred)}")
 
-        # visualize clustering centroids
-        centroids = kmeans.cluster_centers_
-        centroids = pca.inverse_transform(centroids)
-        centroids = scaler.inverse_transform(centroids)
-        n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
-        centroids_mat = dFC_vec2mat(centroids, n_regions)
+        # # visualize clustering centroids
+        # centroids = kmeans.cluster_centers_
+        # centroids = pca.inverse_transform(centroids)
+        # centroids = scaler.inverse_transform(centroids)
+        # n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
+        # centroids_mat = dFC_vec2mat(centroids, n_regions)
 
         task_paradigm_clstr_RESULTS = {
             "dFC_method": measure_name,
             "StandardScaler": scaler,
-            "num_PCs": n_components,
-            "PCA": pca,
             "kmeans": kmeans,
             "ARI": adjusted_rand_score(y, labels_pred),
-            "SI": silhouette_score(X, y),
-            "SI_pca": silhouette_score(X_pca, y),
-            "centroids": centroids_mat,
+            "SI": silhouette_score(X_normalized, y),
+            # "centroids": centroids_mat,
             "task_paradigms": TASKS,
         }
 
