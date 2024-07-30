@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import traceback
 
 import numpy as np
 from scipy.spatial import procrustes
@@ -258,7 +259,7 @@ def embed_dFC_features(
     subj_label_test,
     embedding="PCA",
     n_components=30,
-    n_neighbors_LE=90,
+    n_neighbors_LE=100,
 ):
     """
     Embed the dFC features into a lower dimensional space using PCA or LE. For LE, it assumes that the samples of the same subject are contiguous.
@@ -657,7 +658,7 @@ def task_presence_classification(
         subj_label_test=subj_label_test,
         embedding="LE",
         n_components=30,
-        n_neighbors_LE=90,
+        n_neighbors_LE=100,
     )
 
     # task presence classification
@@ -790,7 +791,7 @@ def task_presence_clustering(
         subj_label_test=None,
         embedding="LE",
         n_components=30,
-        n_neighbors_LE=90,
+        n_neighbors_LE=100,
     )
 
     # clustering
@@ -1042,7 +1043,7 @@ def task_paradigm_clustering(
             subj_label_test=None,
             embedding="LE",
             n_components=30,
-            n_neighbors_LE=90,
+            n_neighbors_LE=100,
         )
 
         # clustering
@@ -1174,6 +1175,7 @@ if __name__ == "__main__":
         )
     except Exception as e:
         print(f"Error in classification for dFC ID {dFC_id}: {e}")
+        traceback.print_exc()
     print(f"Task presence classification finished for dFC ID {dFC_id}.")
     print(f"Task presence clustering started for dFC ID {dFC_id} ...")
     try:
@@ -1189,6 +1191,7 @@ if __name__ == "__main__":
         )
     except Exception as e:
         print(f"Error in clustering for dFC ID {dFC_id}: {e}")
+        traceback.print_exc()
 
     print(f"Task presence clustering finished for dFC ID {dFC_id}.")
 
@@ -1206,6 +1209,7 @@ if __name__ == "__main__":
         )
     except Exception as e:
         print(f"Error in task paradigm clustering for dFC ID {dFC_id}: {e}")
+        traceback.print_exc()
 
     print(f"Task paradigm clustering finished for dFC ID {dFC_id}.")
     print(f"Task presence prediction finished for dFC ID {dFC_id}.")
