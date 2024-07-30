@@ -259,7 +259,7 @@ def embed_dFC_features(
     subj_label_test,
     embedding="PCA",
     n_components=30,
-    n_neighbors_LE=110,
+    n_neighbors_LE=150,
 ):
     """
     Embed the dFC features into a lower dimensional space using PCA or LE. For LE, it assumes that the samples of the same subject are contiguous.
@@ -687,7 +687,7 @@ def task_presence_classification(
         subj_label_test=subj_label_test,
         embedding="LE",
         n_components=30,
-        n_neighbors_LE=110,
+        n_neighbors_LE=150,
     )
 
     # task presence classification
@@ -820,7 +820,7 @@ def task_presence_clustering(
         subj_label_test=None,
         embedding="LE",
         n_components=30,
-        n_neighbors_LE=110,
+        n_neighbors_LE=150,
     )
 
     # clustering
@@ -1072,7 +1072,7 @@ def task_paradigm_clustering(
             subj_label_test=None,
             embedding="LE",
             n_components=30,
-            n_neighbors_LE=110,
+            n_neighbors_LE=150,
         )
 
         # clustering
