@@ -259,7 +259,7 @@ def embed_dFC_features(
     subj_label_test,
     embedding="PCA",
     n_components=30,
-    n_neighbors_LE=100,
+    n_neighbors_LE=110,
 ):
     """
     Embed the dFC features into a lower dimensional space using PCA or LE. For LE, it assumes that the samples of the same subject are contiguous.
@@ -307,8 +307,37 @@ def embed_dFC_features(
             if subject == best_subject:
                 X_subj_embed_transformed = X_subj_embed
             else:
+                # for the procrustes transformation, the number of samples should be the same
+                if (
+                    X_subj_embed.shape[0]
+                    > embed_dict[best_subject]["X_subj_embed"].shape[0]
+                ):
+                    # add zero rows to the embedding of the best subject
+                    X_best_subj_embed = np.concatenate(
+                        (
+                            embed_dict[best_subject]["X_subj_embed"],
+                            np.zeros(
+                                (
+                                    X_subj_embed.shape[0]
+                                    - embed_dict[best_subject]["X_subj_embed"].shape[0],
+                                    n_components,
+                                )
+                            ),
+                        ),
+                        axis=0,
+                    )
+                elif (
+                    X_subj_embed.shape[0]
+                    < embed_dict[best_subject]["X_subj_embed"].shape[0]
+                ):
+                    # remove extra rows from the embedding of the best subject
+                    X_best_subj_embed = embed_dict[best_subject]["X_subj_embed"][
+                        : X_subj_embed.shape[0], :
+                    ]
+                else:
+                    X_best_subj_embed = embed_dict[best_subject]["X_subj_embed"]
                 _, X_subj_embed_transformed, _ = procrustes(
-                    embed_dict[best_subject]["X_subj_embed"], X_subj_embed
+                    X_best_subj_embed, X_subj_embed
                 )
             if X_train_embed is None:
                 X_train_embed = X_subj_embed_transformed
@@ -658,7 +687,7 @@ def task_presence_classification(
         subj_label_test=subj_label_test,
         embedding="LE",
         n_components=30,
-        n_neighbors_LE=100,
+        n_neighbors_LE=110,
     )
 
     # task presence classification
@@ -791,7 +820,7 @@ def task_presence_clustering(
         subj_label_test=None,
         embedding="LE",
         n_components=30,
-        n_neighbors_LE=100,
+        n_neighbors_LE=110,
     )
 
     # clustering
@@ -1043,7 +1072,7 @@ def task_paradigm_clustering(
             subj_label_test=None,
             embedding="LE",
             n_components=30,
-            n_neighbors_LE=100,
+            n_neighbors_LE=110,
         )
 
         # clustering
