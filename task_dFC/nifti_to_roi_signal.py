@@ -21,6 +21,8 @@ def run_roi_signal_extraction(
     output_root,
     session=None,
     RUNS=[None],
+    trial_type_label="trial_type",
+    rest_labels=[],
 ):
     """
     Extract ROI signals and task labels for a given subject and task
@@ -131,6 +133,8 @@ def run_roi_signal_extraction(
             num_time_mri=num_time_mri,
             event_types=None,
             oversampling=oversampling,
+            trial_type_label=trial_type_label,
+            rest_labels=rest_labels,
             return_0_1=False,
         )
         # fill task labels with task's index
@@ -226,6 +230,9 @@ if __name__ == "__main__":
     else:
         output_root = dataset_info["roi_root"]
 
+    trial_type_label = dataset_info["trial_type_label"]
+    rest_labels = dataset_info["rest_labels"]
+
     for session in SESSIONS:
         for task in TASKS:
             run_roi_signal_extraction(
@@ -237,6 +244,8 @@ if __name__ == "__main__":
                 output_root=output_root,
                 session=session,
                 RUNS=RUNS[task],
+                trial_type_label=trial_type_label,
+                rest_labels=rest_labels,
             )
 
     print(

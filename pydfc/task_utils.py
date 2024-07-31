@@ -19,19 +19,29 @@ from .dfc_utils import TR_intersection, rank_norm, visualize_conn_mat
 
 
 def events_time_to_labels(
-    events, TR_mri, num_time_mri, event_types=None, oversampling=50, return_0_1=False
+    events,
+    TR_mri,
+    num_time_mri,
+    event_types=None,
+    oversampling=50,
+    trial_type_label="trial_type",
+    rest_labels=["rest", "Rest"],
+    return_0_1=False,
 ):
     """
     event_types is a list of event types to be considered. If None, it will found based on events.
     Assigns the longest event in each TR to that TR (in the interval from last TR to current TR).
     It assumes that the first time point is TR0 which corresponds to [0 sec, TR sec] interval.
     oversampling: number of samples per TR_mri to improve the time resolution of tasks
+
+    if trial_type_label is None, we use event type "unknown" as the trial type
     """
 
     # find which column is the "onset" in the first row
     onset_idx = np.where(events[0, :] == "onset")[0][0]
     duration_idx = np.where(events[0, :] == "duration")[0][0]
-    trial_type_idx = np.where(events[0, :] == "trial_type")[0][0]
+    if trial_type_label is not None:
+        trial_type_idx = np.where(events[0, :] == trial_type_label)[0][0]
 
     assert (
         events[0, onset_idx] == "onset"
@@ -39,19 +49,21 @@ def events_time_to_labels(
     assert (
         events[0, duration_idx] == "duration"
     ), "Something went wrong with the events file! The duration column was not found!"
-    assert (
-        events[0, trial_type_idx] == "trial_type"
-    ), "Something went wrong with the events file! The trial_type column was not found!"
+    if trial_type_label is not None:
+        assert (
+            events[0, trial_type_idx] == trial_type_label
+        ), "Something went wrong with the events file! The trial_type column was not found!"
 
     if event_types is None:
-        event_types = list(np.unique(events[1:, trial_type_idx]))
-        # if rest is already there, remove it
-        if "rest" in event_types:
-            warnings.warn("rest is already in the event types")
-            event_types.remove("rest")
-        if "Rest" in event_types:
-            warnings.warn("Rest is already in the event types")
-            event_types.remove("Rest")
+        if trial_type_label is None:
+            event_types = ["unknown"]
+        else:
+            event_types = list(np.unique(events[1:, trial_type_idx]))
+            # remove all the rest labels
+            for rest_label in rest_labels:
+                if rest_label in event_types:
+                    event_types.remove(rest_label)
+        # add the rest label to the beginning for consistency
         event_types = ["rest"] + event_types
 
     Fs = float(1 / TR_mri) * oversampling
@@ -62,18 +74,20 @@ def events_time_to_labels(
         if i == 0:
             continue
 
-        if events[i, trial_type_idx] in event_types:
-            if ("rest" in events[i, trial_type_idx]) or (
-                "Rest" in events[i, trial_type_idx]
-            ):
+        if trial_type_label is None:
+            trial_type = "unknown"
+        else:
+            trial_type = events[i, trial_type_idx]
+
+        if trial_type in event_types:
+            # the only rest label that is left in event types is "rest" but we don't want to consider it
+            if trial_type == "rest":
                 continue
             start_time = float(events[i, onset_idx])
             end_time = float(events[i, onset_idx]) + float(events[i, duration_idx])
             start_timepoint = int(np.rint(start_time * Fs))
             end_timepoint = int(np.rint(end_time * Fs))
-            event_labels[start_timepoint:end_timepoint] = event_types.index(
-                events[i, trial_type_idx]
-            )
+            event_labels[start_timepoint:end_timepoint] = event_types.index(trial_type)
 
     if return_0_1:
         event_labels = np.multiply(event_labels != 0, 1)
