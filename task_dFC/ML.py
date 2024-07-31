@@ -314,7 +314,7 @@ def embed_dFC_features(
             y_subj = y_train[subj_label_train == subject]
             LE = SpectralEmbedding(
                 n_components=n_components,
-                n_neighbors=n_neighbors_LE,
+                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
             )
             X_subj_embed = LE.fit_transform(X_subj)
             SI = silhouette_score(X_subj_embed, y_subj)
@@ -361,7 +361,7 @@ def embed_dFC_features(
             X_subj = X_test[subj_label_test == subject, :]
             LE = SpectralEmbedding(
                 n_components=n_components,
-                n_neighbors=n_neighbors_LE,
+                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
             )
             X_subj_embed = LE.fit_transform(X_subj)
             # procrustes transformation
