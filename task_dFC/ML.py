@@ -248,6 +248,36 @@ def load_task_data(roi_root, subj, task, run=None, session=None):
     return task_data
 
 
+def precheck_for_procruste(X_best, X_subj):
+    """
+    Check if the two matrices have the same number of rows. if not, make them the same.
+    """
+    # for the procrustes transformation, the number of samples should be the same
+    if X_subj.shape[0] > X_best.shape[0]:
+        # add zero rows to the embedding of the best subject
+        X_best_new = np.concatenate(
+            (
+                X_best,
+                np.zeros(
+                    (
+                        X_subj.shape[0] - X_best.shape[0],
+                        X_best.shape[1],
+                    )
+                ),
+            ),
+            axis=0,
+        )
+    elif X_subj.shape[0] < X_best.shape[0]:
+        # remove extra rows from the embedding of the best subject
+        X_best_new = X_best[: X_subj.shape[0], :]
+    else:
+        X_best_new = X_best
+
+    X_best_new = X_best_new.copy()
+
+    return X_best_new
+
+
 def embed_dFC_features(
     train_subjects,
     test_subjects,
@@ -259,7 +289,7 @@ def embed_dFC_features(
     subj_label_test,
     embedding="PCA",
     n_components=30,
-    n_neighbors_LE=150,
+    n_neighbors_LE=125,
 ):
     """
     Embed the dFC features into a lower dimensional space using PCA or LE. For LE, it assumes that the samples of the same subject are contiguous.
@@ -308,34 +338,9 @@ def embed_dFC_features(
                 X_subj_embed_transformed = X_subj_embed
             else:
                 # for the procrustes transformation, the number of samples should be the same
-                if (
-                    X_subj_embed.shape[0]
-                    > embed_dict[best_subject]["X_subj_embed"].shape[0]
-                ):
-                    # add zero rows to the embedding of the best subject
-                    X_best_subj_embed = np.concatenate(
-                        (
-                            embed_dict[best_subject]["X_subj_embed"],
-                            np.zeros(
-                                (
-                                    X_subj_embed.shape[0]
-                                    - embed_dict[best_subject]["X_subj_embed"].shape[0],
-                                    n_components,
-                                )
-                            ),
-                        ),
-                        axis=0,
-                    )
-                elif (
-                    X_subj_embed.shape[0]
-                    < embed_dict[best_subject]["X_subj_embed"].shape[0]
-                ):
-                    # remove extra rows from the embedding of the best subject
-                    X_best_subj_embed = embed_dict[best_subject]["X_subj_embed"][
-                        : X_subj_embed.shape[0], :
-                    ]
-                else:
-                    X_best_subj_embed = embed_dict[best_subject]["X_subj_embed"]
+                X_best_subj_embed = precheck_for_procruste(
+                    embed_dict[best_subject]["X_subj_embed"], X_subj_embed
+                )
                 _, X_subj_embed_transformed, _ = procrustes(
                     X_best_subj_embed, X_subj_embed
                 )
@@ -359,9 +364,12 @@ def embed_dFC_features(
                 n_neighbors=n_neighbors_LE,
             )
             X_subj_embed = LE.fit_transform(X_subj)
-            _, X_subj_embed_transformed, _ = procrustes(
+            # procrustes transformation
+            # for the procrustes transformation, the number of samples should be the same
+            X_best_subj_embed = precheck_for_procruste(
                 embed_dict[best_subject]["X_subj_embed"], X_subj_embed
             )
+            _, X_subj_embed_transformed, _ = procrustes(X_best_subj_embed, X_subj_embed)
             if X_test_embed is None:
                 X_test_embed = X_subj_embed_transformed
             else:
@@ -487,7 +495,7 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test):
     Logistic regression classification
     """
     # create a pipeline with a logistic regression model to find the best C
-    logistic_reg = make_pipeline(StandardScaler(), LogisticRegression())
+    logistic_reg = make_pipeline(StandardScaler(), LogisticRegression(penalty="l1"))
     # create a dictionary of all values we want to test for C
     param_grid = {"logisticregression__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
     # use gridsearch to test all values for C
@@ -499,7 +507,7 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test):
 
     log_reg = make_pipeline(
         StandardScaler(),
-        LogisticRegression(C=C),
+        LogisticRegression(penalty="l1", C=C),
     ).fit(X_train, y_train)
 
     RESULT = {
@@ -687,7 +695,7 @@ def task_presence_classification(
         subj_label_test=subj_label_test,
         embedding="LE",
         n_components=30,
-        n_neighbors_LE=150,
+        n_neighbors_LE=125,
     )
 
     # task presence classification
@@ -820,7 +828,7 @@ def task_presence_clustering(
         subj_label_test=None,
         embedding="LE",
         n_components=30,
-        n_neighbors_LE=150,
+        n_neighbors_LE=125,
     )
 
     # clustering
@@ -1072,7 +1080,7 @@ def task_paradigm_clustering(
             subj_label_test=None,
             embedding="LE",
             n_components=30,
-            n_neighbors_LE=150,
+            n_neighbors_LE=125,
         )
 
         # clustering
