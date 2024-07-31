@@ -495,7 +495,9 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test):
     Logistic regression classification
     """
     # create a pipeline with a logistic regression model to find the best C
-    logistic_reg = make_pipeline(StandardScaler(), LogisticRegression(penalty="l1"))
+    logistic_reg = make_pipeline(
+        StandardScaler(), LogisticRegression(penalty="l1", solver="saga")
+    )
     # create a dictionary of all values we want to test for C
     param_grid = {"logisticregression__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
     # use gridsearch to test all values for C
@@ -507,7 +509,7 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test):
 
     log_reg = make_pipeline(
         StandardScaler(),
-        LogisticRegression(penalty="l1", C=C),
+        LogisticRegression(penalty="l1", C=C, solver="saga"),
     ).fit(X_train, y_train)
 
     RESULT = {
