@@ -84,52 +84,57 @@ def run_roi_signal_extraction(
         num_time_mri = time_series.n_time
         ################################# EXTRACT TASK LABELS #########################
         oversampling = 50  # more samples per TR than the func data to have a better event_labels time resolution
-        if task == "task-restingstate":
-            events = []
-            event_types = ["rest"]
-            event_labels = np.zeros((int(num_time_mri * oversampling), 1))
-            task_labels = np.zeros((int(num_time_mri * oversampling), 1))
-            Fs_task = float(1 / TR_mri) * oversampling
-        else:
-            ALL_EVENTS_FILES = os.listdir(task_events_root)
+
+        ALL_EVENTS_FILES = os.listdir(task_events_root)
+        ALL_EVENTS_FILES = [
+            file_i
+            for file_i in ALL_EVENTS_FILES
+            if (f"{subj}_" in file_i)
+            and (f"_{task}_" in file_i)
+            and ("events.tsv" in file_i)
+        ]
+        if not run is None:
             ALL_EVENTS_FILES = [
-                file_i
-                for file_i in ALL_EVENTS_FILES
-                if (f"{subj}_" in file_i)
-                and (f"_{task}_" in file_i)
-                and ("events.tsv" in file_i)
+                file_i for file_i in ALL_EVENTS_FILES if f"_{run}_" in file_i
             ]
-            if not run is None:
-                ALL_EVENTS_FILES = [
-                    file_i for file_i in ALL_EVENTS_FILES if f"_{run}_" in file_i
-                ]
-            if not session is None:
-                ALL_EVENTS_FILES = [
-                    file_i for file_i in ALL_EVENTS_FILES if f"_{session}_" in file_i
-                ]
-            if not len(ALL_EVENTS_FILES) == 1:
+        if not session is None:
+            ALL_EVENTS_FILES = [
+                file_i for file_i in ALL_EVENTS_FILES if f"_{session}_" in file_i
+            ]
+
+        if not len(ALL_EVENTS_FILES) == 1:
+            # in some cases the event file is common for all subjects and can be found in f"{main_root}/bids"
+            ALL_EVENTS_FILES_COMMON = os.listdir(f"{main_root}/bids/")
+            ALL_EVENTS_FILES_COMMON = [
+                file_i
+                for file_i in ALL_EVENTS_FILES_COMMON
+                if (f"{task}_" in file_i) and ("events.tsv" in file_i)
+            ]
+            if len(ALL_EVENTS_FILES_COMMON) == 1:
+                events_file = f"{main_root}/bids/{ALL_EVENTS_FILES_COMMON[0]}"
+            else:
                 # if the events file is not found, exclude the subject
                 if run is None:
                     print(f"Events file not found for {subj} {session_str} {task}")
                 else:
                     print(f"Events file not found for {subj} {session_str} {task} {run}")
                 return
-            # load the tsv events file
+        else:
             events_file = f"{task_events_root}/{ALL_EVENTS_FILES[0]}"
-            events = np.genfromtxt(events_file, delimiter="\t", dtype=str)
-            # get the event labels
-            event_labels, Fs_task, event_types = task_utils.events_time_to_labels(
-                events=events,
-                TR_mri=TR_mri,
-                num_time_mri=num_time_mri,
-                event_types=None,
-                oversampling=oversampling,
-                return_0_1=False,
-            )
-            # fill task labels with task's index
-            task_labels = np.ones((int(num_time_mri * oversampling), 1)) * TASKS.index(
-                task
-            )
+
+        # load the tsv events file
+        events = np.genfromtxt(events_file, delimiter="\t", dtype=str)
+        # get the event labels
+        event_labels, Fs_task, event_types = task_utils.events_time_to_labels(
+            events=events,
+            TR_mri=TR_mri,
+            num_time_mri=num_time_mri,
+            event_types=None,
+            oversampling=oversampling,
+            return_0_1=False,
+        )
+        # fill task labels with task's index
+        task_labels = np.ones((int(num_time_mri * oversampling), 1)) * TASKS.index(task)
         ################################# SAVE #################################
         # save the ROI time series and task data
         task_data = {
