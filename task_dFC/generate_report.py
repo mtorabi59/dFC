@@ -591,6 +591,7 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
     if run is not None:
         dataframe = dataframe[dataframe["run"] == run]
 
+    # plot ARI score
     plt.figure(figsize=(10, 5))
     g = sns.pointplot(
         data=dataframe[dataframe["task"] == task],
@@ -616,7 +617,7 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
 
     if run is None:
         plt.savefig(
-            f"{output_dir}/clustering_results_{task}.{save_fig_format}",
+            f"{output_dir}/clustering_results_ARI_{task}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -624,7 +625,49 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
         )
     else:
         plt.savefig(
-            f"{output_dir}/clustering_results_{task}_{run}.{save_fig_format}",
+            f"{output_dir}/clustering_results_ARI_{task}_{run}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+
+    plt.close()
+
+    # plot SI score
+    plt.figure(figsize=(10, 5))
+    g = sns.pointplot(
+        data=dataframe[dataframe["task"] == task],
+        x="dFC method",
+        y="SI",
+        errorbar="sd",
+        linestyle="none",
+        dodge=True,
+        capsize=0.1,
+    )
+
+    if show_title:
+        g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
+    # save the figure
+    if session is None:
+        output_dir = f"{output_root}/group_results/clustering"
+    else:
+        output_dir = f"{output_root}/group_results/clustering/{session}"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    if run is None:
+        plt.savefig(
+            f"{output_dir}/clustering_results_SI_{task}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+    else:
+        plt.savefig(
+            f"{output_dir}/clustering_results_SI_{task}_{run}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -665,6 +708,7 @@ def plot_paradigm_clustering_score(
     paradigm_clustering_RESULTS = {
         "dFC method": [],
         "ARI score": [],
+        "SI score": [],
     }
     for result_file in ALL_PARADIGM_CLUSTERING_RESULTS:
         paradigm_clustering_RESULTS_new = np.load(
@@ -676,6 +720,9 @@ def plot_paradigm_clustering_score(
         paradigm_clustering_RESULTS["ARI score"].append(
             paradigm_clustering_RESULTS_new["ARI"]
         )
+        paradigm_clustering_RESULTS["SI score"].append(
+            paradigm_clustering_RESULTS_new["SI"]
+        )
 
     sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.0})
 
@@ -683,6 +730,7 @@ def plot_paradigm_clustering_score(
 
     dataframe = pd.DataFrame(paradigm_clustering_RESULTS)
 
+    # plot ARI score
     plt.figure(figsize=(10, 5))
     g = sns.pointplot(
         data=dataframe,
@@ -709,7 +757,43 @@ def plot_paradigm_clustering_score(
         os.makedirs(output_dir)
 
     plt.savefig(
-        f"{output_dir}/paradigm_clustering_results.{save_fig_format}",
+        f"{output_dir}/paradigm_clustering_results_ARI.{save_fig_format}",
+        dpi=fig_dpi,
+        bbox_inches=fig_bbox_inches,
+        pad_inches=fig_pad,
+        format=save_fig_format,
+    )
+
+    plt.close()
+
+    # plot SI score
+    plt.figure(figsize=(10, 5))
+    g = sns.pointplot(
+        data=dataframe,
+        x="dFC method",
+        y="SI score",
+        linestyle="none",
+        dodge=True,
+        capsize=0.1,
+    )
+
+    if show_title:
+        g.set_title(
+            "Task Paradigm Clustering Performance",
+            fontdict={"fontsize": 10, "fontweight": "bold"},
+        )
+
+    # save the figure
+    if session is None:
+        output_dir = f"{output_root}/group_results/paradigm_clustering"
+    else:
+        output_dir = f"{output_root}/group_results/paradigm_clustering/{session}"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    plt.savefig(
+        f"{output_dir}/paradigm_clustering_results_SI.{save_fig_format}",
         dpi=fig_dpi,
         bbox_inches=fig_bbox_inches,
         pad_inches=fig_pad,
@@ -719,154 +803,154 @@ def plot_paradigm_clustering_score(
     plt.close()
 
 
-def plot_paradigm_clstr_centroids(
-    ML_root,
-    output_root,
-    session=None,
-):
-    """ """
-    # the paradigm_clustering_RESULTS files are saved as task_paradigm_clstr_RESULTS_{dFC_id}.npy
-    # find all the paradigm_clustering_RESULTS files in the directory
-    if session is None:
-        input_dir = f"{ML_root}"
-    else:
-        input_dir = f"{ML_root}/{session}"
+# def plot_paradigm_clstr_centroids(
+#     ML_root,
+#     output_root,
+#     session=None,
+# ):
+#     """ """
+#     # the paradigm_clustering_RESULTS files are saved as task_paradigm_clstr_RESULTS_{dFC_id}.npy
+#     # find all the paradigm_clustering_RESULTS files in the directory
+#     if session is None:
+#         input_dir = f"{ML_root}"
+#     else:
+#         input_dir = f"{ML_root}/{session}"
 
-    if session is None:
-        output_dir = f"{output_root}/group_results/paradigm_clustering_centroids"
-    else:
-        output_dir = (
-            f"{output_root}/group_results/paradigm_clustering_centroids/{session}"
-        )
+#     if session is None:
+#         output_dir = f"{output_root}/group_results/paradigm_clustering_centroids"
+#     else:
+#         output_dir = (
+#             f"{output_root}/group_results/paradigm_clustering_centroids/{session}"
+#         )
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+#     if not os.path.exists(output_dir):
+#         os.makedirs(output_dir)
 
-    ALL_PARADIGM_CLUSTERING_RESULTS = os.listdir(input_dir)
-    ALL_PARADIGM_CLUSTERING_RESULTS = [
-        result_file
-        for result_file in ALL_PARADIGM_CLUSTERING_RESULTS
-        if "task_paradigm_clstr_RESULTS_" in result_file
-    ]
-    ALL_PARADIGM_CLUSTERING_RESULTS.sort()
+#     ALL_PARADIGM_CLUSTERING_RESULTS = os.listdir(input_dir)
+#     ALL_PARADIGM_CLUSTERING_RESULTS = [
+#         result_file
+#         for result_file in ALL_PARADIGM_CLUSTERING_RESULTS
+#         if "task_paradigm_clstr_RESULTS_" in result_file
+#     ]
+#     ALL_PARADIGM_CLUSTERING_RESULTS.sort()
 
-    for result_file in ALL_PARADIGM_CLUSTERING_RESULTS:
-        paradigm_clustering_RESULTS_new = np.load(
-            f"{input_dir}/{result_file}", allow_pickle="TRUE"
-        ).item()
+#     for result_file in ALL_PARADIGM_CLUSTERING_RESULTS:
+#         paradigm_clustering_RESULTS_new = np.load(
+#             f"{input_dir}/{result_file}", allow_pickle="TRUE"
+#         ).item()
 
-        measure_name = paradigm_clustering_RESULTS_new["dFC_method"]
-        centroids_mats = paradigm_clustering_RESULTS_new["centroids"]
+#         measure_name = paradigm_clustering_RESULTS_new["dFC_method"]
+#         centroids_mats = paradigm_clustering_RESULTS_new["centroids"]
 
-        centroids_dict = {}
-        for i, centroid_mat in enumerate(centroids_mats):
-            centroids_dict[f"Cluster {i + 1}"] = centroid_mat
+#         centroids_dict = {}
+#         for i, centroid_mat in enumerate(centroids_mats):
+#             centroids_dict[f"Cluster {i + 1}"] = centroid_mat
 
-        visualize_conn_mat_dict(
-            data=centroids_dict,
-            title=f"Task Paradigm Centroids {measure_name}",
-            cmap="seismic",
-            normalize=True,
-            disp_diag=False,
-            save_image=True,
-            output_root=f"{output_dir}/",
-            center_0=True,
-            # node_networks=None,
-        )
+#         visualize_conn_mat_dict(
+#             data=centroids_dict,
+#             title=f"Task Paradigm Centroids {measure_name}",
+#             cmap="seismic",
+#             normalize=True,
+#             disp_diag=False,
+#             save_image=True,
+#             output_root=f"{output_dir}/",
+#             center_0=True,
+#             # node_networks=None,
+#         )
 
 
-def plot_dFC_clustering(
-    dFC_root,
-    subj,
-    task,
-    start_time,
-    end_time,
-    output_root,
-    run=None,
-    session=None,
-    normalize_dFC=True,
-):
-    task_data = load_task_data(roi_root, subj, task, run, session)
-    TR_mri = task_data["TR_mri"]
+# def plot_dFC_clustering(
+#     dFC_root,
+#     subj,
+#     task,
+#     start_time,
+#     end_time,
+#     output_root,
+#     run=None,
+#     session=None,
+#     normalize_dFC=True,
+# ):
+#     task_data = load_task_data(roi_root, subj, task, run, session)
+#     TR_mri = task_data["TR_mri"]
 
-    for dFC_id in range(
-        0, 20
-    ):  # change this to the number of dFCs you have or right a function that finds available dFC ids
-        try:
-            dFC = load_dFC(dFC_root, subj, task, dFC_id, run, session)
-        except Exception:
-            pass
+#     for dFC_id in range(
+#         0, 20
+#     ):  # change this to the number of dFCs you have or right a function that finds available dFC ids
+#         try:
+#             dFC = load_dFC(dFC_root, subj, task, dFC_id, run, session)
+#         except Exception:
+#             pass
 
-        dFC_mat = dFC.get_dFC_mat()
-        TR_array = dFC.TR_array
-        if normalize_dFC:
-            dFC_mat = rank_norm(dFC_mat)
-        dFC_vecs = dFC_mat2vec(dFC_mat)
+#         dFC_mat = dFC.get_dFC_mat()
+#         TR_array = dFC.TR_array
+#         if normalize_dFC:
+#             dFC_mat = rank_norm(dFC_mat)
+#         dFC_vecs = dFC_mat2vec(dFC_mat)
 
-        if session is None:
-            clustering_RESULTS = np.load(
-                f"{ML_root}/clustering_RESULTS_{dFC_id}.npy", allow_pickle="TRUE"
-            ).item()
-        else:
-            clustering_RESULTS = np.load(
-                f"{ML_root}/{session}/clustering_RESULTS_{dFC_id}.npy",
-                allow_pickle="TRUE",
-            ).item()
+#         if session is None:
+#             clustering_RESULTS = np.load(
+#                 f"{ML_root}/clustering_RESULTS_{dFC_id}.npy", allow_pickle="TRUE"
+#             ).item()
+#         else:
+#             clustering_RESULTS = np.load(
+#                 f"{ML_root}/{session}/clustering_RESULTS_{dFC_id}.npy",
+#                 allow_pickle="TRUE",
+#             ).item()
 
-        if run is None:
-            scaler = clustering_RESULTS[task]["StandardScaler"]
-            pca = clustering_RESULTS[task]["PCA"]
-            kmeans = clustering_RESULTS[task]["kmeans"]
-        else:
-            scaler = clustering_RESULTS[task][run]["StandardScaler"]
-            pca = clustering_RESULTS[task][run]["PCA"]
-            kmeans = clustering_RESULTS[task][run]["kmeans"]
+#         if run is None:
+#             scaler = clustering_RESULTS[task]["StandardScaler"]
+#             pca = clustering_RESULTS[task]["PCA"]
+#             kmeans = clustering_RESULTS[task]["kmeans"]
+#         else:
+#             scaler = clustering_RESULTS[task][run]["StandardScaler"]
+#             pca = clustering_RESULTS[task][run]["PCA"]
+#             kmeans = clustering_RESULTS[task][run]["kmeans"]
 
-        dFC_vecs_normalized = scaler.transform(dFC_vecs)
-        dFC_vecs_pca = pca.transform(dFC_vecs_normalized)
-        cluster_labels = kmeans.predict(dFC_vecs_pca)
+#         dFC_vecs_normalized = scaler.transform(dFC_vecs)
+#         dFC_vecs_pca = pca.transform(dFC_vecs_normalized)
+#         cluster_labels = kmeans.predict(dFC_vecs_pca)
 
-        start_TR = int(start_time / TR_mri)
-        end_TR = int(end_time / TR_mri)
+#         start_TR = int(start_time / TR_mri)
+#         end_TR = int(end_time / TR_mri)
 
-        start_TR_idx = np.where(np.array(TR_array) >= start_TR)[0][0]
-        end_TR_idx = np.where(np.array(TR_array) <= end_TR)[0][-1]
+#         start_TR_idx = np.where(np.array(TR_array) >= start_TR)[0][0]
+#         end_TR_idx = np.where(np.array(TR_array) <= end_TR)[0][-1]
 
-        fig_width = int(2.5 * (end_time - start_time) / 2)
-        fig_width = min(fig_width, 500)
-        plt.figure(figsize=(fig_width, 5))
-        time = TR_array[start_TR_idx:end_TR_idx] * TR_mri
-        plt.plot(
-            time[start_TR:end_TR], cluster_labels[start_TR_idx:end_TR_idx], linewidth=4
-        )
-        # put vertical lines at the start of each TR
-        for t in time:
-            plt.axvline(x=t, color="r", linestyle="--")
-            # plt.text(t, 0.5, f"TR {int(t/TR_mri)}", fontsize=8, color='black', ha='center')
-        plt.title(f"Cluster labels of {dFC.measure.measure_name}")
-        plt.xlabel("Time (s)")
+#         fig_width = int(2.5 * (end_time - start_time) / 2)
+#         fig_width = min(fig_width, 500)
+#         plt.figure(figsize=(fig_width, 5))
+#         time = TR_array[start_TR_idx:end_TR_idx] * TR_mri
+#         plt.plot(
+#             time[start_TR:end_TR], cluster_labels[start_TR_idx:end_TR_idx], linewidth=4
+#         )
+#         # put vertical lines at the start of each TR
+#         for t in time:
+#             plt.axvline(x=t, color="r", linestyle="--")
+#             # plt.text(t, 0.5, f"TR {int(t/TR_mri)}", fontsize=8, color='black', ha='center')
+#         plt.title(f"Cluster labels of {dFC.measure.measure_name}")
+#         plt.xlabel("Time (s)")
 
-        # save the figure
-        output_dir = f"{output_root}/subject_results/{subj}/dFC_clustering"
-        if session is not None:
-            output_dir = f"{output_dir}/{session}"
-        output_dir = f"{output_dir}/{task}"
-        if run is not None:
-            output_dir = f"{output_dir}/{run}"
-        output_dir = f"{output_dir}/"
+#         # save the figure
+#         output_dir = f"{output_root}/subject_results/{subj}/dFC_clustering"
+#         if session is not None:
+#             output_dir = f"{output_dir}/{session}"
+#         output_dir = f"{output_dir}/{task}"
+#         if run is not None:
+#             output_dir = f"{output_dir}/{run}"
+#         output_dir = f"{output_dir}/"
 
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+#         if not os.path.exists(output_dir):
+#             os.makedirs(output_dir)
 
-        plt.savefig(
-            f"{output_dir}/dFC_clustering_{dFC.measure.measure_name}.{save_fig_format}",
-            dpi=fig_dpi,
-            bbox_inches=fig_bbox_inches,
-            pad_inches=fig_pad,
-            format=save_fig_format,
-        )
+#         plt.savefig(
+#             f"{output_dir}/dFC_clustering_{dFC.measure.measure_name}.{save_fig_format}",
+#             dpi=fig_dpi,
+#             bbox_inches=fig_bbox_inches,
+#             pad_inches=fig_pad,
+#             format=save_fig_format,
+#         )
 
-        plt.close()
+#         plt.close()
 
 
 def plot_task_presence_features(
@@ -1042,28 +1126,28 @@ def create_html_report_subj_results(
                             )
                             file.write("<br>\n")
 
-                # display dFC clustering
-                img_height = 100
-                # for dFC matrices find all png files in the directory
-                dFC_clustering_dir = f"{subj_dir}/dFC_clustering/{session_task_run_dir}"
-                if os.path.exists(dFC_clustering_dir):
-                    for file_name in os.listdir(dFC_clustering_dir):
-                        if file_name.endswith(".png"):
-                            file.write(
-                                f"<h3>{file_name[file_name.find('dFC_clustering_')+15:file_name.find('.png')]}</h3>\n"
-                            )
-                            dFC_clustering_img = f"{dFC_clustering_dir}/{file_name}"
-                            # get the original size of the image
-                            img = plt.imread(dFC_clustering_img)
-                            height, width, _ = img.shape
-                            # change the width so that height equals img_height
-                            width = int(width * img_height / height)
-                            # replace the path to the image with a relative path
-                            dFC_clustering_img = dFC_clustering_img.replace(subj_dir, ".")
-                            file.write(
-                                f"<img src='{dFC_clustering_img}' alt='{file_name}' width='{width}' height='{img_height}'>\n"
-                            )
-                            file.write("<br>\n")
+                # # display dFC clustering
+                # img_height = 100
+                # # for dFC matrices find all png files in the directory
+                # dFC_clustering_dir = f"{subj_dir}/dFC_clustering/{session_task_run_dir}"
+                # if os.path.exists(dFC_clustering_dir):
+                #     for file_name in os.listdir(dFC_clustering_dir):
+                #         if file_name.endswith(".png"):
+                #             file.write(
+                #                 f"<h3>{file_name[file_name.find('dFC_clustering_')+15:file_name.find('.png')]}</h3>\n"
+                #             )
+                #             dFC_clustering_img = f"{dFC_clustering_dir}/{file_name}"
+                #             # get the original size of the image
+                #             img = plt.imread(dFC_clustering_img)
+                #             height, width, _ = img.shape
+                #             # change the width so that height equals img_height
+                #             width = int(width * img_height / height)
+                #             # replace the path to the image with a relative path
+                #             dFC_clustering_img = dFC_clustering_img.replace(subj_dir, ".")
+                #             file.write(
+                #                 f"<img src='{dFC_clustering_img}' alt='{file_name}' width='{width}' height='{img_height}'>\n"
+                #             )
+                #             file.write("<br>\n")
     file.write("</body>\n")
     file.write("</html>\n")
     file.close()
@@ -1189,12 +1273,31 @@ def create_html_report_group_results(
                 else:
                     clustering_dir = f"{group_dir}/clustering"
 
-                # display clustering results
+                # display clustering ARI results
                 if run is None:
-                    clustering_img = f"{clustering_dir}/clustering_results_{task}.png"
+                    clustering_img = f"{clustering_dir}/clustering_results_ARI_{task}.png"
                 else:
                     clustering_img = (
-                        f"{clustering_dir}/clustering_results_{task}_{run}.png"
+                        f"{clustering_dir}/clustering_results_ARI_{task}_{run}.png"
+                    )
+                img = plt.imread(clustering_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                clustering_img = clustering_img.replace(group_dir, ".")
+                file.write(
+                    f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
+                )
+
+                file.write("<br>\n")
+
+                # display clustering SI results
+                if run is None:
+                    clustering_img = f"{clustering_dir}/clustering_results_SI_{task}.png"
+                else:
+                    clustering_img = (
+                        f"{clustering_dir}/clustering_results_SI_{task}_{run}.png"
                     )
                 img = plt.imread(clustering_img)
                 height, width, _ = img.shape
@@ -1218,11 +1321,11 @@ def create_html_report_group_results(
         else:
             paradigm_clustering_dir = f"{group_dir}/paradigm_clustering"
 
-        # display paradigm clustering scores
+        # display paradigm clustering ARI scores
         img_height = 300
-        file.write("<h2>Paradigm Clustering Scores</h2>\n")
+        file.write("<h2>Paradigm Clustering ARI Scores</h2>\n")
         paradigm_clustering_img = (
-            f"{paradigm_clustering_dir}/paradigm_clustering_results.png"
+            f"{paradigm_clustering_dir}/paradigm_clustering_results_ARI.png"
         )
         img = plt.imread(paradigm_clustering_img)
         height, width, _ = img.shape
@@ -1236,35 +1339,53 @@ def create_html_report_group_results(
 
         file.write("<br>\n")
 
-        # display paradigm clustering centroids
+        # display paradigm clustering SI scores
         img_height = 300
-        file.write("<h2>Paradigm Clustering Centroids</h2>\n")
-        # find all png files in the directory
-        paradigm_clustering_centroids_dir = f"{group_dir}/paradigm_clustering_centroids"
-        for file_name in os.listdir(paradigm_clustering_centroids_dir):
-            if file_name.endswith(".png"):
-                measure_name = file_name[
-                    file_name.find("Task_Paradigm_Centroids_") + 24 : -4
-                ]
-                file.write(f"<h3>{measure_name}</h3>\n")
-                paradigm_clustering_centroids_img = (
-                    f"{paradigm_clustering_centroids_dir}/{file_name}"
-                )
-                # get the original size of the image
-                img = plt.imread(paradigm_clustering_centroids_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                paradigm_clustering_centroids_img = (
-                    paradigm_clustering_centroids_img.replace(group_dir, ".")
-                )
-                file.write(
-                    f"<img src='{paradigm_clustering_centroids_img}' alt='Paradigm clustering centroids' width='{width}' height='{img_height}'>\n"
-                )
-                file.write("<br>\n")
+        file.write("<h2>Paradigm Clustering SI Scores</h2>\n")
+        paradigm_clustering_img = (
+            f"{paradigm_clustering_dir}/paradigm_clustering_results_SI.png"
+        )
+        img = plt.imread(paradigm_clustering_img)
+        height, width, _ = img.shape
+        # change the width so that height equals img_height
+        width = int(width * img_height / height)
+        # replace the path to the image with a relative path
+        paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
+        file.write(
+            f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
+        )
 
         file.write("<br>\n")
+
+        # # display paradigm clustering centroids
+        # img_height = 300
+        # file.write("<h2>Paradigm Clustering Centroids</h2>\n")
+        # # find all png files in the directory
+        # paradigm_clustering_centroids_dir = f"{group_dir}/paradigm_clustering_centroids"
+        # for file_name in os.listdir(paradigm_clustering_centroids_dir):
+        #     if file_name.endswith(".png"):
+        #         measure_name = file_name[
+        #             file_name.find("Task_Paradigm_Centroids_") + 24 : -4
+        #         ]
+        #         file.write(f"<h3>{measure_name}</h3>\n")
+        #         paradigm_clustering_centroids_img = (
+        #             f"{paradigm_clustering_centroids_dir}/{file_name}"
+        #         )
+        #         # get the original size of the image
+        #         img = plt.imread(paradigm_clustering_centroids_img)
+        #         height, width, _ = img.shape
+        #         # change the width so that height equals img_height
+        #         width = int(width * img_height / height)
+        #         # replace the path to the image with a relative path
+        #         paradigm_clustering_centroids_img = (
+        #             paradigm_clustering_centroids_img.replace(group_dir, ".")
+        #         )
+        #         file.write(
+        #             f"<img src='{paradigm_clustering_centroids_img}' alt='Paradigm clustering centroids' width='{width}' height='{img_height}'>\n"
+        #         )
+        #         file.write("<br>\n")
+
+        # file.write("<br>\n")
 
     file.write("</body>\n")
     file.write("</html>\n")
@@ -1409,20 +1530,20 @@ if __name__ == "__main__":
                     except Exception as e:
                         print(f"Error in plotting task presence: {e}")
 
-                    try:
-                        plot_dFC_clustering(
-                            dFC_root=dFC_root,
-                            subj=subj,
-                            task=task,
-                            start_time=start_time,
-                            end_time=end_time,
-                            output_root=reports_root,
-                            run=run,
-                            session=session,
-                            normalize_dFC=True,
-                        )
-                    except Exception as e:
-                        print(f"Error in plotting dFC clustering: {e}")
+                    # try:
+                    #     plot_dFC_clustering(
+                    #         dFC_root=dFC_root,
+                    #         subj=subj,
+                    #         task=task,
+                    #         start_time=start_time,
+                    #         end_time=end_time,
+                    #         output_root=reports_root,
+                    #         run=run,
+                    #         session=session,
+                    #         normalize_dFC=True,
+                    #     )
+                    # except Exception as e:
+                    #     print(f"Error in plotting dFC clustering: {e}")
         # create html report
         try:
             create_html_report_subj_results(
@@ -1470,14 +1591,14 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Error in plotting paradigm clustering scores: {e}")
 
-        try:
-            plot_paradigm_clstr_centroids(
-                ML_root=ML_root,
-                output_root=reports_root,
-                session=session,
-            )
-        except Exception as e:
-            print(f"Error in plotting paradigm clustering centroids: {e}")
+        # try:
+        #     plot_paradigm_clstr_centroids(
+        #         ML_root=ML_root,
+        #         output_root=reports_root,
+        #         session=session,
+        #     )
+        # except Exception as e:
+        #     print(f"Error in plotting paradigm clustering centroids: {e}")
 
         for task in TASKS:
             for run in RUNS[task]:
