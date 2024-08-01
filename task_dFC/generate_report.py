@@ -1218,14 +1218,14 @@ def create_html_report_group_results(
                     classification_dir = f"{group_dir}/classification"
 
                 # display Random Forest classification results
-                file.write("<h3>Gradient Boosting</h3>\n")
+                file.write("<h3>KNN</h3>\n")
                 if run is None:
                     classification_img = (
-                        f"{classification_dir}/ML_results_classify_GBT_{task}.png"
+                        f"{classification_dir}/ML_results_classify_KNN_{task}.png"
                     )
                 else:
                     classification_img = (
-                        f"{classification_dir}/ML_results_classify_GBT_{task}_{run}.png"
+                        f"{classification_dir}/ML_results_classify_KNN_{task}_{run}.png"
                     )
                 img = plt.imread(classification_img)
                 height, width, _ = img.shape
@@ -1609,10 +1609,10 @@ if __name__ == "__main__":
                         task=task,
                         run=run,
                         session=session,
-                        ML_algorithm="Gradient Boosting",
+                        ML_algorithm="KNN",
                     )
                 except Exception as e:
-                    print(f"Error in plotting ML results for GBT: {e}")
+                    print(f"Error in plotting ML results for KNN: {e}")
                 try:
                     plot_ML_results(
                         ML_root=ML_root,
