@@ -386,10 +386,16 @@ def embed_dFC_features(
                         (X_test_embed, X_subj_embed_transformed), axis=0
                     )
         elif LE_embedding_method == "concat+embed":
-            LE = SpectralEmbedding(n_components=n_components, n_neighbors=n_neighbors_LE)
-            X_train_embed = LE.fit_transform(X_train)
+            # since SpectralEmbedding does not have transform method, we need to fit the LE on the whole data
             if X_test is not None:
-                X_test_embed = LE.transform(X_test)
+                X_concat = np.concatenate((X_train, X_test), axis=0)
+            else:
+                X_concat = X_train
+            LE = SpectralEmbedding(n_components=n_components, n_neighbors=n_neighbors_LE)
+            X_concat_embed = LE.fit_transform(X_concat)
+            X_train_embed = X_concat_embed[: X_train.shape[0], :]
+            if X_test is not None:
+                X_test_embed = X_concat_embed[X_train.shape[0] :, :]
             else:
                 X_test_embed = None
 
