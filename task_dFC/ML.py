@@ -12,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.manifold import SpectralEmbedding
 from sklearn.metrics import adjusted_rand_score, balanced_accuracy_score, silhouette_score
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier, kneighbors_graph
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -278,6 +278,245 @@ def precheck_for_procruste(X_best, X_subj):
     return X_best_new
 
 
+def generalized_procrustes(X_list):
+    """
+    Generalized Procrustes Analysis
+
+    returns the mean X to be used as the reference for procrustes transformation
+    """
+    # initialize Procrustes distance
+    current_distance = 0
+
+    # initialize a mean X
+    mean_X = np.array(X_list[0])
+
+    num_X = len(X_list)
+
+    # create array for new Xs, add
+    new_Xs = np.zeros(np.array(X_list).shape)
+
+    while True:
+        # add the mean X as first element of array
+        new_Xs[0] = mean_X
+
+        # superimpose all shapes to current mean
+        for i in range(1, num_X):
+            _, new_X, _ = procrustes(mean_X, X_list[i])
+            new_Xs[i] = new_X
+
+        # calculate new mean
+        new_mean = np.mean(new_Xs, axis=0)
+
+        _, _, new_distance = procrustes(new_mean, mean_X)
+
+        # if the distance did not change, break the cycle
+        if np.abs(new_distance - current_distance) < 1e-6:
+            break
+
+        # align the new_mean to old mean
+        _, new_mean, _ = procrustes(mean_X, new_mean)
+
+        # update mean and distance
+        mean_X = new_mean
+        current_distance = new_distance
+
+    return mean_X
+
+
+def LE_transform(X, n_components, n_neighbors, distance_metric="euclidean"):
+    """
+    Apply Laplacian Eigenmaps (LE) to transform data into a lower dimensional space.
+    """
+    affinity_matrix = kneighbors_graph(
+        X,
+        n_neighbors=n_neighbors,
+        mode="connectivity",
+        include_self=False,
+        metric=distance_metric,
+    )
+    affinity_matrix = affinity_matrix.toarray()
+    affinity_matrix = np.divide(affinity_matrix + affinity_matrix.T, 2)
+    LE = SpectralEmbedding(
+        n_components=n_components, affinity="precomputed", n_neighbors=n_neighbors
+    )
+    X_embed = LE.fit_transform(X=affinity_matrix)
+    return X_embed
+
+
+def LE_embed_procustes(
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    subj_label_train,
+    subj_label_test,
+    train_subjects,
+    test_subjects,
+    n_components=30,
+    n_neighbors_LE=125,
+    procruste_method="best_SI",
+):
+    if procruste_method == "best_SI":
+        # first embed the dFC features of each subject into a lower dimensional space using LE separately
+        embed_dict = {}
+        for subject in train_subjects:
+            # assert the samples of the same subject are contiguous
+            assert np.all(
+                np.diff(np.where(subj_label_train == subject)[0]) == 1
+            ), f"Indices of {subject} are not consecutive"
+            X_subj = X_train[subj_label_train == subject, :]
+            y_subj = y_train[subj_label_train == subject]
+            X_subj_embed = LE_transform(
+                X=X_subj,
+                n_components=n_components,
+                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
+                distance_metric="correlation",
+            )
+            SI = silhouette_score(X_subj_embed, y_subj)
+            embed_dict[subject] = {"X_subj_embed": X_subj_embed, "SI": SI}
+
+        # find the best transformation based on the SI score
+        best_SI = -1
+        best_subject = None
+        for subject in embed_dict:
+            if embed_dict[subject]["SI"] > best_SI:
+                best_SI = embed_dict[subject]["SI"]
+                best_subject = subject
+
+        # apply procrustes transformation to align the embeddings of different subjects
+        # use the embeddings of the subject with the highest SI score as the reference
+        X_train_embed = None
+        for subject in train_subjects:
+            X_subj_embed = embed_dict[subject]["X_subj_embed"]
+            # procrustes transformation
+            if subject == best_subject:
+                X_subj_embed_transformed = X_subj_embed
+            else:
+                # for the procrustes transformation, the number of samples should be the same
+                X_best_subj_embed = precheck_for_procruste(
+                    embed_dict[best_subject]["X_subj_embed"], X_subj_embed
+                )
+                _, X_subj_embed_transformed, _ = procrustes(
+                    X_best_subj_embed, X_subj_embed
+                )
+            if X_train_embed is None:
+                X_train_embed = X_subj_embed_transformed
+            else:
+                X_train_embed = np.concatenate(
+                    (X_train_embed, X_subj_embed_transformed), axis=0
+                )
+
+        # apply the same transformation to the test set
+        X_test_embed = None
+        for subject in test_subjects:
+            # assert the samples of the same subject are contiguous
+            assert np.all(
+                np.diff(np.where(subj_label_test == subject)[0]) == 1
+            ), f"Indices of {subject} are not consecutive"
+            X_subj = X_test[subj_label_test == subject, :]
+            X_subj_embed = LE_transform(
+                X=X_subj,
+                n_components=n_components,
+                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
+                distance_metric="correlation",
+            )
+            # procrustes transformation
+            # for the procrustes transformation, the number of samples should be the same
+            X_best_subj_embed = precheck_for_procruste(
+                embed_dict[best_subject]["X_subj_embed"], X_subj_embed
+            )
+            _, X_subj_embed_transformed, _ = procrustes(X_best_subj_embed, X_subj_embed)
+            if X_test_embed is None:
+                X_test_embed = X_subj_embed_transformed
+            else:
+                X_test_embed = np.concatenate(
+                    (X_test_embed, X_subj_embed_transformed), axis=0
+                )
+
+    elif procruste_method == "generalized":
+        # in this method we use generalized procrustes analysis to align the embeddings of different subjects
+        # first embed the dFC features of each subject into a lower dimensional space using LE separately
+        embed_dict = {}
+        for subject in train_subjects:
+            # assert the samples of the same subject are contiguous
+            assert np.all(
+                np.diff(np.where(subj_label_train == subject)[0]) == 1
+            ), f"Indices of {subject} are not consecutive"
+            X_subj = X_train[subj_label_train == subject, :]
+            X_subj_embed = LE_transform(
+                X=X_subj,
+                n_components=n_components,
+                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
+                distance_metric="correlation",
+            )
+            embed_dict[subject] = X_subj_embed
+
+        # then find the max number of samples among all subjects
+        max_samples = 0
+        for subject in train_subjects:
+            if embed_dict[subject].shape[0] > max_samples:
+                max_samples = embed_dict[subject].shape[0]
+
+        # find the mean embedding of all subjects to use as the reference for procrustes transformation
+        X_train_list = []
+        for subject in train_subjects:
+            X_subj_embed = embed_dict[subject]
+            # add zero rows to the embedding of the subject with less samples
+            if X_subj_embed.shape[0] < max_samples:
+                X_subj_embed_new = np.concatenate(
+                    (
+                        X_subj_embed,
+                        np.zeros(
+                            (
+                                max_samples - X_subj_embed.shape[0],
+                                X_subj_embed.shape[1],
+                            )
+                        ),
+                    ),
+                    axis=0,
+                )
+            else:
+                X_subj_embed_new = X_subj_embed
+            X_train_list.append(X_subj_embed_new)
+        mean_X_train = generalized_procrustes(X_train_list)
+
+        X_train_embed = None
+        for subject in train_subjects:
+            X_subj_embed = embed_dict[subject]
+            mean_X_train_new_size = precheck_for_procruste(mean_X_train, X_subj_embed)
+            _, X_subj_embed_transformed, _ = procrustes(
+                mean_X_train_new_size, X_subj_embed
+            )
+            if X_train_embed is None:
+                X_train_embed = X_subj_embed_transformed
+            else:
+                X_train_embed = np.concatenate(
+                    (X_train_embed, X_subj_embed_transformed), axis=0
+                )
+
+        X_test_embed = None
+        for subject in test_subjects:
+            X_subj = X_test[subj_label_test == subject, :]
+            X_subj_embed = LE_transform(
+                X=X_subj,
+                n_components=n_components,
+                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
+                distance_metric="correlation",
+            )
+            mean_X_train_new_size = precheck_for_procruste(mean_X_train, X_subj_embed)
+            _, X_subj_embed_transformed, _ = procrustes(
+                mean_X_train_new_size, X_subj_embed
+            )
+            if X_test_embed is None:
+                X_test_embed = X_subj_embed_transformed
+            else:
+                X_test_embed = np.concatenate(
+                    (X_test_embed, X_subj_embed_transformed), axis=0
+                )
+
+    return X_train_embed, X_test_embed
+
+
 def embed_dFC_features(
     train_subjects,
     test_subjects,
@@ -310,89 +549,31 @@ def embed_dFC_features(
             X_test_embed = None
     elif embedding == "LE":
         if LE_embedding_method == "embed+procrustes":
-            # first embed the dFC features of each subject into a lower dimensional space using LE separately
-            embed_dict = {}
-            for subject in train_subjects:
-                # assert the samples of the same subject are contiguous
-                assert np.all(
-                    np.diff(np.where(subj_label_train == subject)[0]) == 1
-                ), f"Indices of {subject} are not consecutive"
-                X_subj = X_train[subj_label_train == subject, :]
-                y_subj = y_train[subj_label_train == subject]
-                LE = SpectralEmbedding(
-                    n_components=n_components,
-                    n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
-                )
-                X_subj_embed = LE.fit_transform(X_subj)
-                SI = silhouette_score(X_subj_embed, y_subj)
-                embed_dict[subject] = {"X_subj_embed": X_subj_embed, "SI": SI}
-
-            # find the best transformation based on the SI score
-            best_SI = -1
-            best_subject = None
-            for subject in embed_dict:
-                if embed_dict[subject]["SI"] > best_SI:
-                    best_SI = embed_dict[subject]["SI"]
-                    best_subject = subject
-
-            # apply procrustes transformation to align the embeddings of different subjects
-            # use the embeddings of the subject with the highest SI score as the reference
-            X_train_embed = None
-            for subject in train_subjects:
-                X_subj_embed = embed_dict[subject]["X_subj_embed"]
-                # procrustes transformation
-                if subject == best_subject:
-                    X_subj_embed_transformed = X_subj_embed
-                else:
-                    # for the procrustes transformation, the number of samples should be the same
-                    X_best_subj_embed = precheck_for_procruste(
-                        embed_dict[best_subject]["X_subj_embed"], X_subj_embed
-                    )
-                    _, X_subj_embed_transformed, _ = procrustes(
-                        X_best_subj_embed, X_subj_embed
-                    )
-                if X_train_embed is None:
-                    X_train_embed = X_subj_embed_transformed
-                else:
-                    X_train_embed = np.concatenate(
-                        (X_train_embed, X_subj_embed_transformed), axis=0
-                    )
-
-            # apply the same transformation to the test set
-            X_test_embed = None
-            for subject in test_subjects:
-                # assert the samples of the same subject are contiguous
-                assert np.all(
-                    np.diff(np.where(subj_label_test == subject)[0]) == 1
-                ), f"Indices of {subject} are not consecutive"
-                X_subj = X_test[subj_label_test == subject, :]
-                LE = SpectralEmbedding(
-                    n_components=n_components,
-                    n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
-                )
-                X_subj_embed = LE.fit_transform(X_subj)
-                # procrustes transformation
-                # for the procrustes transformation, the number of samples should be the same
-                X_best_subj_embed = precheck_for_procruste(
-                    embed_dict[best_subject]["X_subj_embed"], X_subj_embed
-                )
-                _, X_subj_embed_transformed, _ = procrustes(
-                    X_best_subj_embed, X_subj_embed
-                )
-                if X_test_embed is None:
-                    X_test_embed = X_subj_embed_transformed
-                else:
-                    X_test_embed = np.concatenate(
-                        (X_test_embed, X_subj_embed_transformed), axis=0
-                    )
+            X_train_embed, X_test_embed = LE_embed_procustes(
+                X_train=X_train,
+                X_test=X_test,
+                y_train=y_train,
+                y_test=y_test,
+                subj_label_train=subj_label_train,
+                subj_label_test=subj_label_test,
+                train_subjects=train_subjects,
+                test_subjects=test_subjects,
+                n_components=n_components,
+                n_neighbors_LE=n_neighbors_LE,
+                procruste_method="generalized",
+            )
         elif LE_embedding_method == "concat+embed":
             # since SpectralEmbedding does not have transform method, we need to fit the LE on the whole data
             if X_test is not None:
                 X_concat = np.concatenate((X_train, X_test), axis=0)
             else:
                 X_concat = X_train
-            LE = SpectralEmbedding(n_components=n_components, n_neighbors=n_neighbors_LE)
-            X_concat_embed = LE.fit_transform(X_concat)
+            X_concat_embed = LE_transform(
+                X=X_concat,
+                n_components=n_components,
+                n_neighbors=min(n_neighbors_LE, X_concat.shape[0]),
+                distance_metric="correlation",
+            )
             X_train_embed = X_concat_embed[: X_train.shape[0], :]
             if X_test is not None:
                 X_test_embed = X_concat_embed[X_train.shape[0] :, :]
@@ -720,7 +901,7 @@ def task_presence_classification(
         embedding="LE",
         n_components=30,
         n_neighbors_LE=125,
-        LE_embedding_method="concat+embed",
+        LE_embedding_method="embed+procrustes",
     )
 
     # task presence classification
@@ -854,7 +1035,7 @@ def task_presence_clustering(
         embedding="LE",
         n_components=30,
         n_neighbors_LE=125,
-        LE_embedding_method="concat+embed",
+        LE_embedding_method="embed+procrustes",
     )
 
     # clustering
@@ -1107,7 +1288,7 @@ def task_paradigm_clustering(
             embedding="LE",
             n_components=30,
             n_neighbors_LE=125,
-            LE_embedding_method="concat+embed",
+            LE_embedding_method="embed+procrustes",
         )
 
         # clustering
