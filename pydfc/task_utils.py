@@ -314,7 +314,7 @@ def extract_task_presence(
 ################################# Task Features ####################################
 
 
-def relative_task_on(task_presence):
+def calc_relative_task_on(task_presence):
     """
     task_presence: 0, 1 array
     return: relative_task_on
@@ -322,7 +322,7 @@ def relative_task_on(task_presence):
     return np.sum(task_presence) / len(task_presence)
 
 
-def task_duration(task_presence, TR_mri):
+def calc_task_duration(task_presence, TR_mri):
     """
     task_presence: 0, 1 array
     return: avg_task_duration, var_task_duration
@@ -339,7 +339,7 @@ def task_duration(task_presence, TR_mri):
     return np.mean(task_durations), np.var(task_durations)
 
 
-def rest_duration(task_presence, TR_mri):
+def calc_rest_duration(task_presence, TR_mri):
     """
     task_presence: 0, 1 array
     return: avg_rest_duration, var_rest_duration
@@ -361,7 +361,7 @@ def rest_duration(task_presence, TR_mri):
     return np.mean(rest_durations), np.var(rest_durations)
 
 
-def transition_freq(task_presence):
+def calc_transition_freq(task_presence):
     """
     task_presence: 0, 1 array
     return: num_of_transitions, relative_transition_freq

@@ -353,17 +353,17 @@ def calculate_subj_lvl_task_presence_characteristics(
         binary=True,
         binarizing_method="mean",
     )
-    relative_task_on = task_utils.relative_task_on(task_presence)
+    relative_task_on = task_utils.calc_relative_task_on(task_presence)
     # task duration
-    avg_task_duration, var_task_duration = task_utils.task_duration(
+    avg_task_duration, var_task_duration = task_utils.calc_task_duration(
         task_presence, task_data["TR_mri"]
     )
     # rest duration
-    avg_rest_duration, var_rest_duration = task_utils.rest_duration(
+    avg_rest_duration, var_rest_duration = task_utils.calc_rest_duration(
         task_presence, task_data["TR_mri"]
     )
     # freq of transitions
-    num_of_transitions, relative_transition_freq = task_utils.transition_freq(
+    num_of_transitions, relative_transition_freq = task_utils.calc_transition_freq(
         task_presence
     )
 
