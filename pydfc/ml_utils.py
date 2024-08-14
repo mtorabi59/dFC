@@ -9,14 +9,15 @@ import os
 
 import numpy as np
 from scipy.spatial import procrustes
+from scipy.stats import zscore
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.manifold import SpectralEmbedding
 from sklearn.metrics import adjusted_rand_score, balanced_accuracy_score, silhouette_score
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from sklearn.neighbors import KNeighborsClassifier, kneighbors_graph
+from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors, kneighbors_graph
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -449,6 +450,132 @@ def generalized_procrustes(X_list):
     return mean_X
 
 
+def twonn(X, discard_ratio=0.1):
+    """
+    Calculates intrinsic dimension of the provided data points with the TWO-NN algorithm.
+
+    -----------
+    Parameters:
+
+    X : 2d array-like
+        (n_samples, n_features)
+    discard_fraction : float between 0 and 1
+        Fraction of largest distances to discard (heuristic from the paper)
+
+    Returns:
+
+    d : float
+        Intrinsic dimension of the dataset according to TWO-NN.
+    """
+
+    num_samples = X.shape[0]
+
+    NN = NearestNeighbors(n_neighbors=30)
+    NN.fit(X)
+    distances, _ = NN.kneighbors(return_distance=True)
+
+    mu = np.zeros((num_samples))
+    for i in range(num_samples):
+        # find the two nearest neighbors that have different distances and the distance is not 0
+        r1, r2 = None, None
+        for j in range(distances.shape[1]):
+            if distances[i, j] != 0:
+                if r1 is None:
+                    r1 = distances[i, j]
+                elif distances[i, j] != r1:
+                    r2 = distances[i, j]
+                    break
+        if r1 is not None and r2 is not None:
+            mu[i] = r2 / r1
+        else:
+            mu[i] = np.nan
+
+    # discard NaN values
+    mu = mu[~np.isnan(mu)]
+    # large distances will cause the estimation to be biased, discard them
+    mu = mu[np.argsort(mu)[: int((1 - discard_ratio) * num_samples)]]
+
+    # CDF
+    CDF = np.arange(1, 1 + len(mu)) / num_samples
+    # Fit the formula: log(1 - CDF) = d * log(mu)
+    lr = LinearRegression(fit_intercept=False)
+    lr.fit(np.log(mu).reshape(-1, 1), -np.log(1 - CDF).reshape(-1, 1))
+    d = lr.coef_[0][0]
+
+    return d
+
+
+def SI_ID(X, y, search_range=range(2, 50, 5), n_neighbors_LE=125):
+    """
+    Find the intrinsic dimension of the data based on the silhouette score.
+    """
+
+    SI_score = {}
+    for n_components in search_range:
+        X_train_embed, _ = embed_dFC_features(
+            train_subjects=["subj"],
+            test_subjects=[],
+            X_train=X,
+            X_test=None,
+            y_train=y,
+            y_test=None,
+            subj_label_train=np.array(["subj"] * len(y)),
+            subj_label_test=None,
+            embedding="LE",
+            n_components=n_components,
+            n_neighbors_LE=n_neighbors_LE,
+            LE_embedding_method="embed+procrustes",
+        )
+
+        SI_score[n_components] = silhouette_score(X_train_embed, y)
+
+    # find the intrinsic dimension based on the silhouette score
+    intrinsic_dim = max(SI_score, key=SI_score.get)
+
+    return intrinsic_dim
+
+
+def find_intrinsic_dim(
+    X,
+    y,
+    subj_label,
+    subjects,
+    method="SI",
+    n_neighbors_LE=125,
+    search_range_SI=range(2, 50, 5),
+):
+    """
+    Find the number of components to use for embedding the data using LE.
+    Find the average intrinsic dimension across all subjects.
+
+    method: "SI" or "twonn"
+
+    Returns:
+    intrinsic_dim: number of components to use for embedding
+    """
+    if method == "SI":
+        intrinsic_dim_all = list()
+        for subject in subjects:
+            X_subj = X[subj_label == subject, :]
+            y_subj = y[subj_label == subject]
+            intrinsic_dim_all.append(
+                SI_ID(
+                    X_subj,
+                    y_subj,
+                    search_range=search_range_SI,
+                    n_neighbors_LE=n_neighbors_LE,
+                )
+            )
+        intrinsic_dim = int(np.mean(intrinsic_dim_all))
+    elif method == "twonn":
+        intrinsic_dim_all = list()
+        for subject in subjects:
+            X_subj = X[subj_label == subject, :]
+            intrinsic_dim_all.append(twonn(X_subj, discard_ratio=0.1))
+        intrinsic_dim = int(np.mean(intrinsic_dim_all))
+    return intrinsic_dim
+
+
 def LE_transform(X, n_components, n_neighbors, distance_metric="euclidean"):
     """
     Apply Laplacian Eigenmaps (LE) to transform data into a lower dimensional space.
@@ -653,9 +780,9 @@ def embed_dFC_features(
     subj_label_train,
     subj_label_test,
     embedding="PCA",
-    n_components=30,
+    n_components="auto",
     n_neighbors_LE=125,
-    LE_embedding_method="concat+embed",
+    LE_embedding_method="embed+procrustes",
 ):
     """
     Embed the dFC features into a lower dimensional space using PCA or LE. For LE, it assumes that the samples of the same subject are contiguous.
@@ -666,7 +793,11 @@ def embed_dFC_features(
     LE_embedding_method: "concat+embed" or "embed+procrustes"
     """
     if embedding == "PCA":
-        pca = PCA(n_components=n_components, svd_solver="full", whiten=False)
+        # if n_components is not specified, use 95% of the variance
+        if n_components == "auto":
+            pca = PCA(n_components=0.95, svd_solver="full", whiten=False)
+        else:
+            pca = PCA(n_components=n_components, svd_solver="full", whiten=False)
         pca.fit(X_train)
         X_train_embed = pca.transform(X_train)
         if X_test is not None:
@@ -674,6 +805,18 @@ def embed_dFC_features(
         else:
             X_test_embed = None
     elif embedding == "LE":
+        # if n_components is not specified, find the intrinsic dimension of the data using training set and based on the silhouette score
+        if n_components == "auto":
+            n_components = find_intrinsic_dim(
+                X=X_train,
+                y=y_train,
+                subj_label=subj_label_train,
+                subjects=train_subjects,
+                method="SI",
+                n_neighbors_LE=n_neighbors_LE,
+                search_range_SI=range(2, 50, 5),
+            )
+
         if LE_embedding_method == "embed+procrustes":
             X_train_embed, X_test_embed = LE_embed_procustes(
                 X_train=X_train,
@@ -918,7 +1061,7 @@ def task_presence_classification(
         subj_label_train=subj_label_train,
         subj_label_test=subj_label_test,
         embedding="LE",
-        n_components=30,
+        n_components="auto",
         n_neighbors_LE=125,
         LE_embedding_method="embed+procrustes",
     )
@@ -1055,7 +1198,7 @@ def task_presence_clustering(
         subj_label_train=subj_label,
         subj_label_test=None,
         embedding="LE",
-        n_components=30,
+        n_components="auto",
         n_neighbors_LE=125,
         LE_embedding_method="embed+procrustes",
     )
@@ -1156,6 +1299,9 @@ def task_paradigm_clustering(
                 normalize_dFC=normalize_dFC,
             )
 
+            # normalize the features
+            X_new = zscore(X_new, axis=0)
+
             if measure_name is not None:
                 assert measure_name == measure_name_new, "dFC measure is not consistent."
             else:
@@ -1191,7 +1337,7 @@ def task_paradigm_clustering(
         subj_label_train=subj_label,
         subj_label_test=None,
         embedding="LE",
-        n_components=30,
+        n_components="auto",
         n_neighbors_LE=125,
         LE_embedding_method="embed+procrustes",
     )
