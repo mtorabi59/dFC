@@ -507,6 +507,8 @@ def plot_ML_results(
         capsize=0.1,
     )
     g.axhline(0.5, color="r", linestyle="--")
+    # set the y-axis upper limit to 1, but not set the lower limit
+    g.set(ylim=(None, 1))
     if show_title:
         g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
 
@@ -603,6 +605,8 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
         capsize=0.1,
     )
     g.axhline(0.0, color="r", linestyle="--")
+    # set the y-axis upper limit to 1, but not set the lower limit
+    g.set(ylim=(None, 1))
     if show_title:
         g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
 
@@ -645,7 +649,8 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
         dodge=True,
         capsize=0.1,
     )
-
+    # set the y-axis upper limit to 1, but not set the lower limit
+    g.set(ylim=(None, 1))
     if show_title:
         g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
     # save the figure
@@ -741,6 +746,8 @@ def plot_paradigm_clustering_score(
         capsize=0.1,
     )
     g.axhline(0.0, color="r", linestyle="--")
+    # set the y-axis upper limit to 1, but not set the lower limit
+    g.set(ylim=(None, 1))
     if show_title:
         g.set_title(
             "Task Paradigm Clustering Performance",
@@ -776,7 +783,8 @@ def plot_paradigm_clustering_score(
         dodge=True,
         capsize=0.1,
     )
-
+    # set the y-axis upper limit to 1, but not set the lower limit
+    g.set(ylim=(None, 1))
     if show_title:
         g.set_title(
             "Task Paradigm Clustering Performance",

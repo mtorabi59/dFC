@@ -6,6 +6,7 @@ Created on Aug 8 2024
 @author: Mohammad Torabi
 """
 import os
+import warnings
 
 import numpy as np
 from scipy.spatial import procrustes
@@ -579,10 +580,23 @@ def find_intrinsic_dim(
 def LE_transform(X, n_components, n_neighbors, distance_metric="euclidean"):
     """
     Apply Laplacian Eigenmaps (LE) to transform data into a lower dimensional space.
+
+    if n_neighbors >= n_samples, n_neighbors will be changed to the lower limit n_neighbors
     """
+    min_n_neighbors = 70
+
+    if n_neighbors >= X.shape[0]:
+        n_neighbors_to_be_used = min_n_neighbors
+        # raise a warning
+        warnings.warn(
+            "n_neighbors is larger than the number of samples. n_neighbors is set to the minimum value of 70."
+        )
+    else:
+        n_neighbors_to_be_used = n_neighbors
+
     affinity_matrix = kneighbors_graph(
         X,
-        n_neighbors=n_neighbors,
+        n_neighbors=n_neighbors_to_be_used,
         mode="connectivity",
         include_self=False,
         metric=distance_metric,
@@ -590,7 +604,9 @@ def LE_transform(X, n_components, n_neighbors, distance_metric="euclidean"):
     affinity_matrix = affinity_matrix.toarray()
     affinity_matrix = np.divide(affinity_matrix + affinity_matrix.T, 2)
     LE = SpectralEmbedding(
-        n_components=n_components, affinity="precomputed", n_neighbors=n_neighbors
+        n_components=n_components,
+        affinity="precomputed",
+        n_neighbors=n_neighbors_to_be_used,
     )
     X_embed = LE.fit_transform(X=affinity_matrix)
     return X_embed
@@ -622,7 +638,7 @@ def LE_embed_procustes(
             X_subj_embed = LE_transform(
                 X=X_subj,
                 n_components=n_components,
-                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
+                n_neighbors=n_neighbors_LE,
                 distance_metric="correlation",
             )
             SI = silhouette_score(X_subj_embed, y_subj)
@@ -670,7 +686,7 @@ def LE_embed_procustes(
             X_subj_embed = LE_transform(
                 X=X_subj,
                 n_components=n_components,
-                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
+                n_neighbors=n_neighbors_LE,
                 distance_metric="correlation",
             )
             # procrustes transformation
@@ -699,7 +715,7 @@ def LE_embed_procustes(
             X_subj_embed = LE_transform(
                 X=X_subj,
                 n_components=n_components,
-                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
+                n_neighbors=n_neighbors_LE,
                 distance_metric="correlation",
             )
             embed_dict[subject] = X_subj_embed
@@ -753,7 +769,7 @@ def LE_embed_procustes(
             X_subj_embed = LE_transform(
                 X=X_subj,
                 n_components=n_components,
-                n_neighbors=min(n_neighbors_LE, X_subj.shape[0]),
+                n_neighbors=n_neighbors_LE,
                 distance_metric="correlation",
             )
             mean_X_train_new_size = precheck_for_procruste(mean_X_train, X_subj_embed)
@@ -840,7 +856,7 @@ def embed_dFC_features(
             X_concat_embed = LE_transform(
                 X=X_concat,
                 n_components=n_components,
-                n_neighbors=min(n_neighbors_LE, X_concat.shape[0]),
+                n_neighbors=n_neighbors_LE,
                 distance_metric="correlation",
             )
             X_train_embed = X_concat_embed[: X_train.shape[0], :]
