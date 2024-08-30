@@ -412,43 +412,61 @@ def generalized_procrustes(X_list):
 
     returns the mean X to be used as the reference for procrustes transformation
     """
-    # initialize Procrustes distance
-    current_distance = 0
+    for iter_num in range(100):
 
-    # initialize a mean X
-    mean_X = np.array(X_list[0])
+        try:
+            # initialize Procrustes distance
+            current_distance = 0
 
-    num_X = len(X_list)
+            num_X = len(X_list)
 
-    # create array for new Xs, add
-    new_Xs = np.zeros(np.array(X_list).shape)
+            # initialize a mean X by randomly selecting
+            # one of the Xs using np.random.choice
+            mean_X = X_list[np.random.choice(num_X)]
 
-    while True:
-        # add the mean X as first element of array
-        new_Xs[0] = mean_X
+            # create array for new Xs, add
+            new_Xs = np.zeros(np.array(X_list).shape)
 
-        # superimpose all shapes to current mean
-        for i in range(1, num_X):
-            _, new_X, _ = procrustes(mean_X, X_list[i])
-            new_Xs[i] = new_X
+            counter = 0
+            flag = False
+            while True:
+                counter += 1
+                if counter > 1e6:
+                    # if the algorithm does not converge, break the cycle
+                    # to avoid infinite loop
+                    flag = True
+                    break
 
-        # calculate new mean
-        new_mean = np.mean(new_Xs, axis=0)
+                # add the mean X as first element of array
+                new_Xs[0] = mean_X
 
-        _, _, new_distance = procrustes(new_mean, mean_X)
+                # superimpose all shapes to current mean
+                for i in range(1, num_X):
+                    _, new_X, _ = procrustes(mean_X, X_list[i])
+                    new_Xs[i] = new_X
 
-        # if the distance did not change, break the cycle
-        if np.abs(new_distance - current_distance) < 1e-6:
-            break
+                # calculate new mean
+                new_mean = np.mean(new_Xs, axis=0)
 
-        # align the new_mean to old mean
-        _, new_mean, _ = procrustes(mean_X, new_mean)
+                _, _, new_distance = procrustes(new_mean, mean_X)
 
-        # update mean and distance
-        mean_X = new_mean
-        current_distance = new_distance
+                # if the distance did not change, break the cycle
+                if np.abs(new_distance - current_distance) < 1e-6:
+                    break
 
-    return mean_X
+                # align the new_mean to old mean
+                _, new_mean, _ = procrustes(mean_X, new_mean)
+
+                # update mean and distance
+                mean_X = new_mean
+                current_distance = new_distance
+
+            if not flag:
+                return mean_X
+        except:
+            continue
+
+    raise ValueError("Generalized Procrustes Analysis did not converge.")
 
 
 def twonn(X, discard_ratio=0.1):
@@ -477,7 +495,8 @@ def twonn(X, discard_ratio=0.1):
 
     mu = np.zeros((num_samples))
     for i in range(num_samples):
-        # find the two nearest neighbors that have different distances and the distance is not 0
+        # find the two nearest neighbors that have
+        # different distances and the distance is not 0
         r1, r2 = None, None
         for j in range(distances.shape[1]):
             if distances[i, j] != 0:
