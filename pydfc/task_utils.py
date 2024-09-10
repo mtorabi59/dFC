@@ -336,6 +336,9 @@ def calc_task_duration(task_presence, TR_mri):
             task_durations.append((end - start) * TR_mri)
             start = None
     task_durations = np.array(task_durations)
+    # find mean and variance of task durations with division error handling
+    if len(task_durations) == 0:
+        return 0, 0
     return np.mean(task_durations), np.var(task_durations)
 
 
@@ -358,6 +361,9 @@ def calc_rest_duration(task_presence, TR_mri):
         end = len(task_presence)
         rest_durations.append((end - start) * TR_mri)
     rest_durations = np.array(rest_durations)
+    # find mean and variance of rest durations with division error handling
+    if len(rest_durations) == 0:
+        return 0, 0
     return np.mean(rest_durations), np.var(rest_durations)
 
 

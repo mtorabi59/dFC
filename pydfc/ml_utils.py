@@ -128,81 +128,72 @@ def load_task_data(roi_root, subj, task, run=None, session=None):
 ################################# Feature Extraction Functions ####################################
 
 
-def extract_task_features(TASKS, RUNS, SESSIONS, roi_root, dFC_root, output_root):
+def extract_task_features(TASKS, RUNS, session, roi_root, dFC_root):
     """
     Extract task features from the event data."""
-    for session in SESSIONS:
-        task_features = {
-            "task": list(),
-            "run": list(),
-            "relative_task_on": list(),
-            "avg_task_duration": list(),
-            "var_task_duration": list(),
-            "avg_rest_duration": list(),
-            "var_rest_duration": list(),
-            "num_of_transitions": list(),
-            "relative_transition_freq": list(),
-        }
-        for task_id, task in enumerate(TASKS):
+    task_features = {
+        "task": list(),
+        "run": list(),
+        "relative_task_on": list(),
+        "avg_task_duration": list(),
+        "var_task_duration": list(),
+        "avg_rest_duration": list(),
+        "var_rest_duration": list(),
+        "num_of_transitions": list(),
+        "relative_transition_freq": list(),
+    }
+    for task_id, task in enumerate(TASKS):
 
-            if task == "task-restingstate":
-                continue
+        if task == "task-restingstate":
+            continue
 
-            for run in RUNS[task]:
+        for run in RUNS[task]:
 
-                SUBJECTS = find_available_subjects(
-                    dFC_root=dFC_root, task=task, run=run, session=session
+            SUBJECTS = find_available_subjects(
+                dFC_root=dFC_root, task=task, run=run, session=session
+            )
+
+            for subj in SUBJECTS:
+                # event data
+                task_data = load_task_data(
+                    roi_root=roi_root, subj=subj, task=task, run=run, session=session
+                )
+                Fs_task = task_data["Fs_task"]
+                TR_task = 1 / Fs_task
+
+                task_presence = extract_task_presence(
+                    event_labels=task_data["event_labels"],
+                    TR_task=TR_task,
+                    TR_mri=task_data["TR_mri"],
+                    binary=True,
+                    binarizing_method="mean",
                 )
 
-                for subj in SUBJECTS:
-                    # event data
-                    task_data = load_task_data(
-                        roi_root=roi_root, subj=subj, task=task, run=run, session=session
-                    )
-                    Fs_task = task_data["Fs_task"]
-                    TR_task = 1 / Fs_task
+                relative_task_on = calc_relative_task_on(task_presence)
+                # task duration
+                avg_task_duration, var_task_duration = calc_task_duration(
+                    task_presence, task_data["TR_mri"]
+                )
+                # rest duration
+                avg_rest_duration, var_rest_duration = calc_rest_duration(
+                    task_presence, task_data["TR_mri"]
+                )
+                # freq of transitions
+                num_of_transitions, relative_transition_freq = calc_transition_freq(
+                    task_presence
+                )
 
-                    task_presence = extract_task_presence(
-                        event_labels=task_data["event_labels"],
-                        TR_task=TR_task,
-                        TR_mri=task_data["TR_mri"],
-                        binary=True,
-                        binarizing_method="mean",
-                    )
+                task_features["task"].append(task)
+                task_features["run"].append(run)
+                task_features["relative_task_on"].append(relative_task_on)
+                task_features["avg_task_duration"].append(avg_task_duration)
+                task_features["var_task_duration"].append(var_task_duration)
+                task_features["avg_rest_duration"].append(avg_rest_duration)
+                task_features["var_rest_duration"].append(var_rest_duration)
+                task_features["num_of_transitions"].append(num_of_transitions)
+                task_features["relative_transition_freq"].append(relative_transition_freq)
 
-                    relative_task_on = calc_relative_task_on(task_presence)
-                    # task duration
-                    avg_task_duration, var_task_duration = calc_task_duration(
-                        task_presence, task_data["TR_mri"]
-                    )
-                    # rest duration
-                    avg_rest_duration, var_rest_duration = calc_rest_duration(
-                        task_presence, task_data["TR_mri"]
-                    )
-                    # freq of transitions
-                    num_of_transitions, relative_transition_freq = calc_transition_freq(
-                        task_presence
-                    )
-
-                    task_features["task"].append(task)
-                    task_features["run"].append(run)
-                    task_features["relative_task_on"].append(relative_task_on)
-                    task_features["avg_task_duration"].append(avg_task_duration)
-                    task_features["var_task_duration"].append(var_task_duration)
-                    task_features["avg_rest_duration"].append(avg_rest_duration)
-                    task_features["var_rest_duration"].append(var_rest_duration)
-                    task_features["num_of_transitions"].append(num_of_transitions)
-                    task_features["relative_transition_freq"].append(
-                        relative_transition_freq
-                    )
-
-        if session is None:
-            folder = f"{output_root}"
-        else:
-            folder = f"{output_root}/{session}"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        np.save(f"{folder}/task_features.npy", task_features)
+    return task_features
 
 
 def dFC_feature_extraction_subj_lvl(

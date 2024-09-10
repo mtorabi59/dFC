@@ -15,6 +15,39 @@ from pydfc.ml_utils import (
 #######################################################################################
 
 
+def run_task_features_extraction(
+    TASKS,
+    RUNS,
+    SESSIONS,
+    roi_root,
+    dFC_root,
+    output_root,
+):
+    for session in SESSIONS:
+        task_features = extract_task_features(
+            TASKS=TASKS,
+            RUNS=RUNS,
+            session=session,
+            roi_root=roi_root,
+            dFC_root=dFC_root,
+        )
+
+        if session is None:
+            folder = f"{output_root}"
+        else:
+            folder = f"{output_root}/{session}"
+        try:
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        except OSError as err:
+            print(err)
+        try:
+            if not os.path.exists(f"{folder}/task_features.npy"):
+                np.save(f"{folder}/task_features.npy", task_features)
+        except OSError as err:
+            print(err)
+
+
 def run_classification(
     dFC_id,
     TASKS,
@@ -66,8 +99,11 @@ def run_classification(
             folder = f"{output_root}"
         else:
             folder = f"{output_root}/{session}"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        try:
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        except OSError as err:
+            print(err)
         np.save(f"{folder}/ML_RESULT_{dFC_id}.npy", ML_RESULT)
 
         np.save(f"{folder}/ML_scores_classify_{dFC_id}.npy", ML_scores)
@@ -119,8 +155,11 @@ def run_clustering(
             folder = f"{output_root}"
         else:
             folder = f"{output_root}/{session}"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        try:
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        except OSError as err:
+            print(err)
         np.save(f"{folder}/clustering_RESULTS_{dFC_id}.npy", clustering_RESULTS)
 
         np.save(f"{folder}/clustering_scores_{dFC_id}.npy", clustering_scores)
@@ -152,8 +191,11 @@ def run_task_paradigm_clustering(
             folder = f"{output_root}"
         else:
             folder = f"{output_root}/{session}"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        try:
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        except OSError as err:
+            print(err)
 
         np.save(
             f"{folder}/task_paradigm_clstr_RESULTS_{dFC_id}.npy",
@@ -220,14 +262,19 @@ if __name__ == "__main__":
     else:
         ML_root = dataset_info["ML_root"]
 
-    extract_task_features(
-        TASKS=TASKS,
-        RUNS=RUNS,
-        SESSIONS=SESSIONS,
-        roi_root=roi_root,
-        dFC_root=dFC_root,
-        output_root=ML_root,
-    )
+    # The task feature extraction will be executed multiple times in parallel redundantly
+    try:
+        run_task_features_extraction(
+            TASKS=TASKS,
+            RUNS=RUNS,
+            SESSIONS=SESSIONS,
+            roi_root=roi_root,
+            dFC_root=dFC_root,
+            output_root=ML_root,
+        )
+    except Exception as e:
+        print(f"Error in task features extraction: {e}")
+        traceback.print_exc()
     print("Task features extraction finished.")
 
     job_id = int(os.getenv("SGE_TASK_ID"))
