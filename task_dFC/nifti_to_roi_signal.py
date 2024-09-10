@@ -65,6 +65,26 @@ def run_roi_signal_extraction(
             nifti_file = f"{fmriprep_root}/{subj}/{session}/func/{task_file}"
             task_events_root = f"{main_root}/bids/{subj}/{session}/func"
         info_file = f"{task_events_root}/{task_file.replace(bold_suffix, '_bold.json')}"
+
+        # in some cases the info file is common for all subjects and can be found in f"{main_root}/bids"
+        if not os.path.exists(info_file):
+            ALL_COMMON_FILES = os.listdir(f"{main_root}/bids/")
+            ALL_COMMON_FILES = [
+                file_i
+                for file_i in ALL_COMMON_FILES
+                if (f"{task}_" in file_i) and ("_bold.json" in file_i)
+            ]
+            if len(ALL_COMMON_FILES) == 1:
+                info_file = f"{main_root}/bids/{ALL_COMMON_FILES[0]}"
+        if not os.path.exists(info_file):
+            # if the info file is not found, exclude the subject
+            if run is None:
+                print(f"bold.json info file not found for {subj} {session_str} {task}")
+            else:
+                print(
+                    f"bold.json info file not found for {subj} {session_str} {task} {run}"
+                )
+            return
         ################################# LOAD JSON INFO #########################
         # Opening JSON file as a dictionary
         f = open(info_file)
