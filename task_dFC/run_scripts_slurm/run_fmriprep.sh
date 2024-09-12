@@ -18,7 +18,8 @@ SUBJECT_ID=$(sed -n "${SLURM_ARRAY_TASK_ID}p" $SUBJECT_LIST)
 echo "Subject ID: $SUBJECT_ID"
 
 nipoppy run \
--pipeline fmriprep \
+--pipeline fmriprep \
+--dataset-root "$(dirname "$(pwd)")" \
 --participant_id $SUBJECT_ID
 
 deactivate
