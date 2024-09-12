@@ -617,6 +617,7 @@ def LE_transform(X, n_components, n_neighbors, distance_metric="euclidean"):
         n_components=n_components,
         affinity="precomputed",
         n_neighbors=n_neighbors_to_be_used,
+        # eigen_solver="lobpcg",
     )
     X_embed = LE.fit_transform(X=affinity_matrix)
     return X_embed
