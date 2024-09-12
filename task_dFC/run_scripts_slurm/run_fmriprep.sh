@@ -20,6 +20,6 @@ echo "Subject ID: $SUBJECT_ID"
 nipoppy run \
 --pipeline fmriprep \
 --dataset-root "$(dirname "$(pwd)")" \
---participant_id $SUBJECT_ID
+--participant-id $SUBJECT_ID
 
 deactivate
