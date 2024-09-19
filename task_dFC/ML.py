@@ -72,6 +72,7 @@ def run_classification(
             "KNN accuracy": list(),
             # "Random Forest accuracy": list(),
             # "Gradient Boosting accuracy": list(),
+            "embedding": list(),
         }
 
         ML_RESULT = {}
@@ -129,6 +130,7 @@ def run_clustering(
             "dFC method": list(),
             "Kmeans ARI": list(),
             "SI": list(),
+            "embedding": list(),
         }
 
         clustering_RESULTS = {}

@@ -819,6 +819,11 @@ def embed_dFC_features(
 
     LE_embedding_method: "concat+embed" or "embed+procrustes"
     """
+    # make a copy of the data
+    X_train = X_train.copy()
+    if X_test is not None:
+        X_test = X_test.copy()
+
     if embedding == "PCA":
         # if n_components is not specified, use 95% of the variance
         if n_components == "auto":
@@ -1077,54 +1082,7 @@ def task_presence_classification(
         )
     )
 
-    # embed dFC features
-    X_train, X_test = embed_dFC_features(
-        train_subjects=train_subjects,
-        test_subjects=test_subjects,
-        X_train=X_train,
-        X_test=X_test,
-        y_train=y_train,
-        y_test=y_test,
-        subj_label_train=subj_label_train,
-        subj_label_test=subj_label_test,
-        embedding="LE",
-        n_components="auto",
-        n_neighbors_LE=125,
-        LE_embedding_method="embed+procrustes",
-    )
-
-    # task presence classification
-
-    print("task presence classification ...")
-
-    # logistic regression
-    log_reg_RESULT = logistic_regression_classify(X_train, y_train, X_test, y_test)
-
-    # KNN
-    KNN_RESULT = KNN_classify(X_train, y_train, X_test, y_test)
-
-    # # Random Forest
-    # RF_RESULT = random_forest_classify(
-    #     X_train, y_train, X_test, y_test
-    # )
-
-    # # Gradient Boosting
-    # GBT_RESULT = gradient_boosting_classify(
-    #     X_train, y_train, X_test, y_test
-    # )
-
     ML_RESULT = {}
-    for key in log_reg_RESULT:
-        ML_RESULT[key] = log_reg_RESULT[key]
-    for key in KNN_RESULT:
-        ML_RESULT[key] = KNN_RESULT[key]
-    # for key in RF_RESULT:
-    #     ML_RESULT[key] = RF_RESULT[key]
-    # for key in GBT_RESULT:
-    #     ML_RESULT[key] = GBT_RESULT[key]
-
-    # measure pred score on each subj
-
     ML_scores = {
         "subj_id": list(),
         "group": list(),
@@ -1135,42 +1093,94 @@ def task_presence_classification(
         "KNN accuracy": list(),
         # "Random Forest accuracy": list(),
         # "Gradient Boosting accuracy": list(),
+        "embedding": list(),
     }
-    log_reg = log_reg_RESULT["log_reg_model"]
-    KNN = KNN_RESULT["KNN_model"]
-    # RF = RF_RESULT["RF_model"]
-    # GBT = GBT_RESULT["GB_model"]
-
-    for subj in SUBJECTS:
-        ML_scores["subj_id"].append(subj)
-        if subj in train_subjects:
-            ML_scores["group"].append("train")
-            features = X_train[subj_label_train == subj, :]
-            target = y_train[subj_label_train == subj]
-        elif subj in test_subjects:
-            ML_scores["group"].append("test")
-            features = X_test[subj_label_test == subj, :]
-            target = y_test[subj_label_test == subj]
-
-        pred_lr = log_reg.predict(features)
-        pred_KNN = KNN.predict(features)
-        # pred_RF = RF.predict(features)
-        # pred_GBT = GBT.predict(features)
-
-        ML_scores["Logistic regression accuracy"].append(
-            balanced_accuracy_score(target, pred_lr)
+    for embedding in ["PCA", "LE"]:
+        # embed dFC features
+        X_train_embedded, X_test_embedded = embed_dFC_features(
+            train_subjects=train_subjects,
+            test_subjects=test_subjects,
+            X_train=X_train,
+            X_test=X_test,
+            y_train=y_train,
+            y_test=y_test,
+            subj_label_train=subj_label_train,
+            subj_label_test=subj_label_test,
+            embedding=embedding,
+            n_components="auto",
+            n_neighbors_LE=125,
+            LE_embedding_method="embed+procrustes",
         )
-        ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred_KNN))
-        # ML_scores["Random Forest accuracy"].append(
-        #     balanced_accuracy_score(target, pred_RF)
-        # )
-        # ML_scores["Gradient Boosting accuracy"].append(
-        #     balanced_accuracy_score(target, pred_GBT)
+
+        # task presence classification
+
+        print("task presence classification ...")
+
+        # logistic regression
+        log_reg_RESULT = logistic_regression_classify(
+            X_train_embedded, y_train, X_test_embedded, y_test
+        )
+
+        # KNN
+        KNN_RESULT = KNN_classify(X_train_embedded, y_train, X_test_embedded, y_test)
+
+        # # Random Forest
+        # RF_RESULT = random_forest_classify(
+        #     X_train_embedded, y_train, X_test_embedded, y_test
         # )
 
-        ML_scores["task"].append(task)
-        ML_scores["run"].append(run)
-        ML_scores["dFC method"].append(measure_name)
+        # # Gradient Boosting
+        # GBT_RESULT = gradient_boosting_classify(
+        #     X_train_embedded, y_train, X_test_embedded, y_test
+        # )
+
+        ML_RESULT[embedding] = {}
+        for key in log_reg_RESULT:
+            ML_RESULT[embedding][key] = log_reg_RESULT[key]
+        for key in KNN_RESULT:
+            ML_RESULT[embedding][key] = KNN_RESULT[key]
+        # for key in RF_RESULT:
+        #     ML_RESULT[embedding][key] = RF_RESULT[key]
+        # for key in GBT_RESULT:
+        #     ML_RESULT[embedding][key] = GBT_RESULT[key]
+
+        # measure pred score on each subj
+        log_reg = log_reg_RESULT["log_reg_model"]
+        KNN = KNN_RESULT["KNN_model"]
+        # RF = RF_RESULT["RF_model"]
+        # GBT = GBT_RESULT["GB_model"]
+
+        for subj in SUBJECTS:
+            ML_scores["subj_id"].append(subj)
+            if subj in train_subjects:
+                ML_scores["group"].append("train")
+                features = X_train_embedded[subj_label_train == subj, :]
+                target = y_train[subj_label_train == subj]
+            elif subj in test_subjects:
+                ML_scores["group"].append("test")
+                features = X_test_embedded[subj_label_test == subj, :]
+                target = y_test[subj_label_test == subj]
+
+            pred_lr = log_reg.predict(features)
+            pred_KNN = KNN.predict(features)
+            # pred_RF = RF.predict(features)
+            # pred_GBT = GBT.predict(features)
+
+            ML_scores["Logistic regression accuracy"].append(
+                balanced_accuracy_score(target, pred_lr)
+            )
+            ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred_KNN))
+            # ML_scores["Random Forest accuracy"].append(
+            #     balanced_accuracy_score(target, pred_RF)
+            # )
+            # ML_scores["Gradient Boosting accuracy"].append(
+            #     balanced_accuracy_score(target, pred_GBT)
+            # )
+
+            ML_scores["task"].append(task)
+            ML_scores["run"].append(run)
+            ML_scores["dFC method"].append(measure_name)
+            ML_scores["embedding"].append(embedding)
 
     return ML_RESULT, ML_scores
 
@@ -1214,49 +1224,7 @@ def task_presence_clustering(
         normalize_dFC=normalize_dFC,
     )
 
-    # embed dFC features
-    X, _ = embed_dFC_features(
-        train_subjects=SUBJECTS,
-        test_subjects=[],
-        X_train=X,
-        X_test=None,
-        y_train=y,
-        y_test=None,
-        subj_label_train=subj_label,
-        subj_label_test=None,
-        embedding="LE",
-        n_components="auto",
-        n_neighbors_LE=125,
-        LE_embedding_method="embed+procrustes",
-    )
-
-    # clustering
-    # apply kmeans clustering to dFC features
-
-    n_clusters = 2  # corresponding to task and rest
-
-    scaler = StandardScaler()
-    X_normalized = scaler.fit_transform(X)
-    kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
-    labels_pred = kmeans.fit_predict(X_normalized)
-
-    # ARI score
-    print(f"ARI score: {adjusted_rand_score(y, labels_pred)}")
-
-    # # visualize clustering centroids
-    # centroids = kmeans.cluster_centers_
-    # centroids = pca.inverse_transform(centroids)
-    # centroids = scaler.inverse_transform(centroids)
-    # n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
-    # centroids_mat = dFC_vec2mat(centroids, n_regions)
-
-    clustering_RESULTS = {
-        "StandardScaler": scaler,
-        "kmeans": kmeans,
-        "ARI": adjusted_rand_score(y, labels_pred),
-        # "centroids": centroids_mat,
-    }
-
+    clustering_RESULTS = {}
     clustering_scores = {
         "subj_id": list(),
         "task": list(),
@@ -1265,22 +1233,69 @@ def task_presence_clustering(
         "Kmeans ARI": list(),
         "SI": list(),
     }
-    for subj in SUBJECTS:
-        clustering_scores["subj_id"].append(subj)
-        features = X[subj_label == subj, :]
-        target = y[subj_label == subj]
+    for embedding in ["PCA", "LE"]:
+        # embed dFC features
+        X_embedded, _ = embed_dFC_features(
+            train_subjects=SUBJECTS,
+            test_subjects=[],
+            X_train=X,
+            X_test=None,
+            y_train=y,
+            y_test=None,
+            subj_label_train=subj_label,
+            subj_label_test=None,
+            embedding=embedding,
+            n_components="auto",
+            n_neighbors_LE=125,
+            LE_embedding_method="embed+procrustes",
+        )
 
-        features_normalized = scaler.transform(features)
-        pred_kmeans = kmeans.predict(features_normalized)
+        # clustering
+        # apply kmeans clustering to dFC features
 
-        clustering_scores["Kmeans ARI"].append(adjusted_rand_score(target, pred_kmeans))
+        n_clusters = 2  # corresponding to task and rest
 
-        # silhouette score in terms of separability of original labels, not the clustering labels
-        clustering_scores["SI"].append(silhouette_score(features, target))
+        scaler = StandardScaler()
+        X_normalized = scaler.fit_transform(X_embedded)
+        kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
+        labels_pred = kmeans.fit_predict(X_normalized)
 
-        clustering_scores["task"].append(task)
-        clustering_scores["run"].append(run)
-        clustering_scores["dFC method"].append(measure_name)
+        # ARI score
+        print(f"ARI score: {adjusted_rand_score(y, labels_pred)}")
+
+        # # visualize clustering centroids
+        # centroids = kmeans.cluster_centers_
+        # centroids = pca.inverse_transform(centroids)
+        # centroids = scaler.inverse_transform(centroids)
+        # n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
+        # centroids_mat = dFC_vec2mat(centroids, n_regions)
+
+        clustering_RESULTS[embedding] = {
+            "StandardScaler": scaler,
+            "kmeans": kmeans,
+            "ARI": adjusted_rand_score(y, labels_pred),
+            # "centroids": centroids_mat,
+        }
+
+        for subj in SUBJECTS:
+            clustering_scores["subj_id"].append(subj)
+            features = X_embedded[subj_label == subj, :]
+            target = y[subj_label == subj]
+
+            features_normalized = scaler.transform(features)
+            pred_kmeans = kmeans.predict(features_normalized)
+
+            clustering_scores["Kmeans ARI"].append(
+                adjusted_rand_score(target, pred_kmeans)
+            )
+
+            # silhouette score in terms of separability of original labels, not the clustering labels
+            clustering_scores["SI"].append(silhouette_score(features, target))
+
+            clustering_scores["task"].append(task)
+            clustering_scores["run"].append(run)
+            clustering_scores["dFC method"].append(measure_name)
+            clustering_scores["embedding"].append(embedding)
 
     return clustering_RESULTS, clustering_scores
 
@@ -1353,47 +1368,49 @@ def task_paradigm_clustering(
     y = y[idx]
     subj_label = subj_label[idx]
 
-    # embed dFC features
-    X_embed, _ = embed_dFC_features(
-        train_subjects=SUBJECTS,
-        test_subjects=[],
-        X_train=X,
-        X_test=None,
-        y_train=y,
-        y_test=None,
-        subj_label_train=subj_label,
-        subj_label_test=None,
-        embedding="LE",
-        n_components="auto",
-        n_neighbors_LE=125,
-        LE_embedding_method="embed+procrustes",
-    )
+    task_paradigm_clstr_RESULTS = {}
+    for embedding in ["PCA", "LE"]:
+        # embed dFC features
+        X_embed, _ = embed_dFC_features(
+            train_subjects=SUBJECTS,
+            test_subjects=[],
+            X_train=X,
+            X_test=None,
+            y_train=y,
+            y_test=None,
+            subj_label_train=subj_label,
+            subj_label_test=None,
+            embedding=embedding,
+            n_components="auto",
+            n_neighbors_LE=125,
+            LE_embedding_method="embed+procrustes",
+        )
 
-    # clustering
-    # apply kmeans clustering to dFC features
+        # clustering
+        # apply kmeans clustering to dFC features
 
-    n_clusters = len(TASKS)  # corresponding to task paradigms
+        n_clusters = len(TASKS)  # corresponding to task paradigms
 
-    scaler = StandardScaler()
-    X_normalized = scaler.fit_transform(X_embed)
-    kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
-    labels_pred = kmeans.fit_predict(X_normalized)
+        scaler = StandardScaler()
+        X_normalized = scaler.fit_transform(X_embed)
+        kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
+        labels_pred = kmeans.fit_predict(X_normalized)
 
-    # # visualize clustering centroids
-    # centroids = kmeans.cluster_centers_
-    # centroids = pca.inverse_transform(centroids)
-    # centroids = scaler.inverse_transform(centroids)
-    # n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
-    # centroids_mat = dFC_vec2mat(centroids, n_regions)
+        # # visualize clustering centroids
+        # centroids = kmeans.cluster_centers_
+        # centroids = pca.inverse_transform(centroids)
+        # centroids = scaler.inverse_transform(centroids)
+        # n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
+        # centroids_mat = dFC_vec2mat(centroids, n_regions)
 
-    task_paradigm_clstr_RESULTS = {
-        "dFC_method": measure_name,
-        "StandardScaler": scaler,
-        "kmeans": kmeans,
-        "ARI": adjusted_rand_score(y, labels_pred),
-        "SI": silhouette_score(X_normalized, y),
-        # "centroids": centroids_mat,
-        "task_paradigms": TASKS,
-    }
+        task_paradigm_clstr_RESULTS[embedding] = {
+            "dFC_method": measure_name,
+            "StandardScaler": scaler,
+            "kmeans": kmeans,
+            "ARI": adjusted_rand_score(y, labels_pred),
+            "SI": silhouette_score(X_normalized, y),
+            # "centroids": centroids_mat,
+            "task_paradigms": TASKS,
+        }
 
     return task_paradigm_clstr_RESULTS

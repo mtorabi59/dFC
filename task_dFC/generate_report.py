@@ -452,7 +452,13 @@ def plot_dFC_matrices(
 
 
 def plot_ML_results(
-    ML_root, output_root, task, run=None, session=None, ML_algorithm="Random Forest"
+    ML_root,
+    output_root,
+    task,
+    run=None,
+    session=None,
+    ML_algorithm="Random Forest",
+    embedding="PCA",
 ):
     """
     Plot the ML results for a given task, run and session.
@@ -464,6 +470,7 @@ def plot_ML_results(
         run: int, run number
         session: str, session name
         ML_algorithm: str, ML algorithm name (default: Random Forest, other options: Logistic regression, KNN, Gradient Boosting)
+        embedding: str, embedding method (default: PCA, other options: LE)
     """
     # the ML_scores files are saved as ML_scores_classify_{dFC_id}.npy
     # find all the ML_scores files in the directory
@@ -493,10 +500,13 @@ def plot_ML_results(
     if run is not None:
         dataframe = dataframe[dataframe["run"] == run]
 
+    dataframe = dataframe[dataframe["task"] == task]
+    dataframe = dataframe[dataframe["embedding"] == embedding]
+
     plt.figure(figsize=(10, 5))
 
     g = sns.pointplot(
-        data=dataframe[dataframe["task"] == task],
+        data=dataframe,
         x="dFC method",
         y=f"{ML_algorithm} accuracy",
         hue="group",
@@ -532,7 +542,7 @@ def plot_ML_results(
 
     if run is None:
         plt.savefig(
-            f"{output_dir}/ML_results_classify_{ML_algorithm_name}_{task}.{save_fig_format}",
+            f"{output_dir}/ML_results_classify_{ML_algorithm_name}_{task}_{embedding}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -540,7 +550,7 @@ def plot_ML_results(
         )
     else:
         plt.savefig(
-            f"{output_dir}/ML_results_classify_{ML_algorithm_name}_{task}_{run}.{save_fig_format}",
+            f"{output_dir}/ML_results_classify_{ML_algorithm_name}_{task}_{run}_{embedding}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -550,7 +560,9 @@ def plot_ML_results(
     plt.close()
 
 
-def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
+def plot_clustering_results(
+    ML_root, output_root, task, run=None, session=None, embedding="PCA"
+):
     """
     Plot the clustering results for a given task, run and session.
     parameters:
@@ -560,6 +572,7 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
         task: str, task name
         run: int, run number
         session: str, session name
+        embedding: str, embedding method (default: PCA, other options: LE)
     """
     # the clustering_scores files are saved as clustering_scores_{dFC_id}.npy
     # find all the clustering_scores files in the directory
@@ -593,10 +606,13 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
     if run is not None:
         dataframe = dataframe[dataframe["run"] == run]
 
+    dataframe = dataframe[dataframe["task"] == task]
+    dataframe = dataframe[dataframe["embedding"] == embedding]
+
     # plot ARI score
     plt.figure(figsize=(10, 5))
     g = sns.pointplot(
-        data=dataframe[dataframe["task"] == task],
+        data=dataframe,
         x="dFC method",
         y="Kmeans ARI",
         errorbar="sd",
@@ -621,7 +637,7 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
 
     if run is None:
         plt.savefig(
-            f"{output_dir}/clustering_results_ARI_{task}.{save_fig_format}",
+            f"{output_dir}/clustering_results_ARI_{task}_{embedding}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -629,7 +645,7 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
         )
     else:
         plt.savefig(
-            f"{output_dir}/clustering_results_ARI_{task}_{run}.{save_fig_format}",
+            f"{output_dir}/clustering_results_ARI_{task}_{run}_{embedding}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -641,7 +657,7 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
     # plot SI score
     plt.figure(figsize=(10, 5))
     g = sns.pointplot(
-        data=dataframe[dataframe["task"] == task],
+        data=dataframe,
         x="dFC method",
         y="SI",
         errorbar="sd",
@@ -664,7 +680,7 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
 
     if run is None:
         plt.savefig(
-            f"{output_dir}/clustering_results_SI_{task}.{save_fig_format}",
+            f"{output_dir}/clustering_results_SI_{task}_{embedding}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -672,7 +688,7 @@ def plot_clustering_results(ML_root, output_root, task, run=None, session=None):
         )
     else:
         plt.savefig(
-            f"{output_dir}/clustering_results_SI_{task}_{run}.{save_fig_format}",
+            f"{output_dir}/clustering_results_SI_{task}_{run}_{embedding}.{save_fig_format}",
             dpi=fig_dpi,
             bbox_inches=fig_bbox_inches,
             pad_inches=fig_pad,
@@ -686,6 +702,7 @@ def plot_paradigm_clustering_score(
     ML_root,
     output_root,
     session=None,
+    embedding="PCA",
 ):
     """
     Plot the clustering results for a given task, run and session.
@@ -696,6 +713,7 @@ def plot_paradigm_clustering_score(
         task: str, task name
         run: int, run number
         session: str, session name
+        embedding: str, embedding method (default: PCA, other options: LE)
     """
     # the paradigm_clustering_RESULTS files are saved as task_paradigm_clstr_RESULTS_{dFC_id}.npy
     # find all the paradigm_clustering_RESULTS files in the directory
@@ -720,13 +738,13 @@ def plot_paradigm_clustering_score(
             f"{input_dir}/{result_file}", allow_pickle="TRUE"
         ).item()
         paradigm_clustering_RESULTS["dFC method"].append(
-            paradigm_clustering_RESULTS_new["dFC_method"]
+            paradigm_clustering_RESULTS_new[embedding]["dFC_method"]
         )
         paradigm_clustering_RESULTS["ARI score"].append(
-            paradigm_clustering_RESULTS_new["ARI"]
+            paradigm_clustering_RESULTS_new[embedding]["ARI"]
         )
         paradigm_clustering_RESULTS["SI score"].append(
-            paradigm_clustering_RESULTS_new["SI"]
+            paradigm_clustering_RESULTS_new[embedding]["SI"]
         )
 
     sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.0})
@@ -764,7 +782,7 @@ def plot_paradigm_clustering_score(
         os.makedirs(output_dir)
 
     plt.savefig(
-        f"{output_dir}/paradigm_clustering_results_ARI.{save_fig_format}",
+        f"{output_dir}/paradigm_clustering_results_ARI_{embedding}.{save_fig_format}",
         dpi=fig_dpi,
         bbox_inches=fig_bbox_inches,
         pad_inches=fig_pad,
@@ -801,7 +819,7 @@ def plot_paradigm_clustering_score(
         os.makedirs(output_dir)
 
     plt.savefig(
-        f"{output_dir}/paradigm_clustering_results_SI.{save_fig_format}",
+        f"{output_dir}/paradigm_clustering_results_SI_{embedding}.{save_fig_format}",
         dpi=fig_dpi,
         bbox_inches=fig_bbox_inches,
         pad_inches=fig_pad,
@@ -1225,45 +1243,41 @@ def create_html_report_group_results(
                 else:
                     classification_dir = f"{group_dir}/classification"
 
-                # display Random Forest classification results
-                file.write("<h3>KNN</h3>\n")
-                if run is None:
-                    classification_img = (
-                        f"{classification_dir}/ML_results_classify_KNN_{task}.png"
+                for embedding in ["PCA", "LE"]:
+                    file.write(f"<h3>{embedding}</h3>\n")
+                    # display KNN classification results
+                    file.write("<h3>KNN</h3>\n")
+                    if run is None:
+                        classification_img = f"{classification_dir}/ML_results_classify_KNN_{task}_{embedding}.png"
+                    else:
+                        classification_img = f"{classification_dir}/ML_results_classify_KNN_{task}_{run}_{embedding}.png"
+                    img = plt.imread(classification_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    classification_img = classification_img.replace(group_dir, ".")
+                    file.write(
+                        f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
                     )
-                else:
-                    classification_img = (
-                        f"{classification_dir}/ML_results_classify_KNN_{task}_{run}.png"
-                    )
-                img = plt.imread(classification_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                classification_img = classification_img.replace(group_dir, ".")
-                file.write(
-                    f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
-                )
 
-                # display Logistic regression classification results
-                file.write("<h3>Logistic Regression</h3>\n")
-                if run is None:
-                    classification_img = (
-                        f"{classification_dir}/ML_results_classify_LogReg_{task}.png"
+                    # display Logistic regression classification results
+                    file.write("<h3>Logistic Regression</h3>\n")
+                    if run is None:
+                        classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{embedding}.png"
+                    else:
+                        classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{run}_{embedding}.png"
+                    img = plt.imread(classification_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    classification_img = classification_img.replace(group_dir, ".")
+                    file.write(
+                        f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
                     )
-                else:
-                    classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{run}.png"
-                img = plt.imread(classification_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                classification_img = classification_img.replace(group_dir, ".")
-                file.write(
-                    f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
-                )
 
-                file.write("<br>\n")
+                    file.write("<br>\n")
 
     # clustering results
     img_height = 300
@@ -1281,43 +1295,41 @@ def create_html_report_group_results(
                 else:
                     clustering_dir = f"{group_dir}/clustering"
 
-                # display clustering ARI results
-                if run is None:
-                    clustering_img = f"{clustering_dir}/clustering_results_ARI_{task}.png"
-                else:
-                    clustering_img = (
-                        f"{clustering_dir}/clustering_results_ARI_{task}_{run}.png"
+                for embedding in ["PCA", "LE"]:
+                    file.write(f"<h3>{embedding}</h3>\n")
+                    # display clustering ARI results
+                    if run is None:
+                        clustering_img = f"{clustering_dir}/clustering_results_ARI_{task}_{embedding}.png"
+                    else:
+                        clustering_img = f"{clustering_dir}/clustering_results_ARI_{task}_{run}_{embedding}.png"
+                    img = plt.imread(clustering_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    clustering_img = clustering_img.replace(group_dir, ".")
+                    file.write(
+                        f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
                     )
-                img = plt.imread(clustering_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                clustering_img = clustering_img.replace(group_dir, ".")
-                file.write(
-                    f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
-                )
 
-                file.write("<br>\n")
+                    file.write("<br>\n")
 
-                # display clustering SI results
-                if run is None:
-                    clustering_img = f"{clustering_dir}/clustering_results_SI_{task}.png"
-                else:
-                    clustering_img = (
-                        f"{clustering_dir}/clustering_results_SI_{task}_{run}.png"
+                    # display clustering SI results
+                    if run is None:
+                        clustering_img = f"{clustering_dir}/clustering_results_SI_{task}_{embedding}.png"
+                    else:
+                        clustering_img = f"{clustering_dir}/clustering_results_SI_{task}_{run}_{embedding}.png"
+                    img = plt.imread(clustering_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    clustering_img = clustering_img.replace(group_dir, ".")
+                    file.write(
+                        f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
                     )
-                img = plt.imread(clustering_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                clustering_img = clustering_img.replace(group_dir, ".")
-                file.write(
-                    f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
-                )
 
-                file.write("<br>\n")
+                    file.write("<br>\n")
 
     # paradigm clustering results
     file.write("<h1>Paradigm Clustering Results</h1>\n")
@@ -1332,38 +1344,38 @@ def create_html_report_group_results(
         # display paradigm clustering ARI scores
         img_height = 300
         file.write("<h2>Paradigm Clustering ARI Scores</h2>\n")
-        paradigm_clustering_img = (
-            f"{paradigm_clustering_dir}/paradigm_clustering_results_ARI.png"
-        )
-        img = plt.imread(paradigm_clustering_img)
-        height, width, _ = img.shape
-        # change the width so that height equals img_height
-        width = int(width * img_height / height)
-        # replace the path to the image with a relative path
-        paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
-        file.write(
-            f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
-        )
+        for embedding in ["PCA", "LE"]:
+            file.write(f"<h3>{embedding}</h3>\n")
+            paradigm_clustering_img = f"{paradigm_clustering_dir}/paradigm_clustering_results_ARI_{embedding}.png"
+            img = plt.imread(paradigm_clustering_img)
+            height, width, _ = img.shape
+            # change the width so that height equals img_height
+            width = int(width * img_height / height)
+            # replace the path to the image with a relative path
+            paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
+            file.write(
+                f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
+            )
 
-        file.write("<br>\n")
+            file.write("<br>\n")
 
         # display paradigm clustering SI scores
         img_height = 300
         file.write("<h2>Paradigm Clustering SI Scores</h2>\n")
-        paradigm_clustering_img = (
-            f"{paradigm_clustering_dir}/paradigm_clustering_results_SI.png"
-        )
-        img = plt.imread(paradigm_clustering_img)
-        height, width, _ = img.shape
-        # change the width so that height equals img_height
-        width = int(width * img_height / height)
-        # replace the path to the image with a relative path
-        paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
-        file.write(
-            f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
-        )
+        for embedding in ["PCA", "LE"]:
+            file.write(f"<h3>{embedding}</h3>\n")
+            paradigm_clustering_img = f"{paradigm_clustering_dir}/paradigm_clustering_results_SI_{embedding}.png"
+            img = plt.imread(paradigm_clustering_img)
+            height, width, _ = img.shape
+            # change the width so that height equals img_height
+            width = int(width * img_height / height)
+            # replace the path to the image with a relative path
+            paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
+            file.write(
+                f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
+            )
 
-        file.write("<br>\n")
+            file.write("<br>\n")
 
         # # display paradigm clustering centroids
         # img_height = 300
@@ -1590,14 +1602,16 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Error in plotting task presence features: {e}")
 
-        try:
-            plot_paradigm_clustering_score(
-                ML_root=ML_root,
-                output_root=reports_root,
-                session=session,
-            )
-        except Exception as e:
-            print(f"Error in plotting paradigm clustering scores: {e}")
+        for embedding in ["PCA", "LE"]:
+            try:
+                plot_paradigm_clustering_score(
+                    ML_root=ML_root,
+                    output_root=reports_root,
+                    session=session,
+                    embedding=embedding,
+                )
+            except Exception as e:
+                print(f"Error in plotting paradigm clustering scores: {e}")
 
         # try:
         #     plot_paradigm_clstr_centroids(
@@ -1610,38 +1624,33 @@ if __name__ == "__main__":
 
         for task in TASKS:
             for run in RUNS[task]:
-                try:
-                    plot_ML_results(
-                        ML_root=ML_root,
-                        output_root=reports_root,
-                        task=task,
-                        run=run,
-                        session=session,
-                        ML_algorithm="KNN",
-                    )
-                except Exception as e:
-                    print(f"Error in plotting ML results for KNN: {e}")
-                try:
-                    plot_ML_results(
-                        ML_root=ML_root,
-                        output_root=reports_root,
-                        task=task,
-                        run=run,
-                        session=session,
-                        ML_algorithm="Logistic regression",
-                    )
-                except Exception as e:
-                    print(f"Error in plotting ML results for Logistic regression: {e}")
-                try:
-                    plot_clustering_results(
-                        ML_root=ML_root,
-                        output_root=reports_root,
-                        task=task,
-                        run=run,
-                        session=session,
-                    )
-                except Exception as e:
-                    print(f"Error in plotting clustering results: {e}")
+                for embedding in ["PCA", "LE"]:
+                    for ML_algorithm in ["KNN", "Logistic regression"]:
+                        try:
+                            plot_ML_results(
+                                ML_root=ML_root,
+                                output_root=reports_root,
+                                task=task,
+                                run=run,
+                                session=session,
+                                ML_algorithm=ML_algorithm,
+                                embedding=embedding,
+                            )
+                        except Exception as e:
+                            print(
+                                f"Error in plotting ML results for {ML_algorithm} and {embedding}: {e}"
+                            )
+                    try:
+                        plot_clustering_results(
+                            ML_root=ML_root,
+                            output_root=reports_root,
+                            task=task,
+                            run=run,
+                            session=session,
+                            embedding=embedding,
+                        )
+                    except Exception as e:
+                        print(f"Error in plotting clustering results: {e}")
 
     # create html report
     try:
