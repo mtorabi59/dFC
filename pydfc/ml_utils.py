@@ -1232,6 +1232,7 @@ def task_presence_clustering(
         "dFC method": list(),
         "Kmeans ARI": list(),
         "SI": list(),
+        "embedding": list(),
     }
     for embedding in ["PCA", "LE"]:
         # embed dFC features
