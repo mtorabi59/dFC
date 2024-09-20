@@ -1,18 +1,20 @@
 #!/bin/sh
 #
-#$ -cwd
-#$ -o logs/fcs_out.txt
-#$ -e logs/fcs_err.txt
-#$ -l h_vmem=64G
-#$ -q origami.q
+#SBATCH --job-name=fit_fcs_job   # Optional: Name of your job
+#SBATCH --output=logs/fcs_out.txt  # Standard output log
+#SBATCH --error=logs/fcs_err.txt   # Standard error log
+#SBATCH --account=def-jbpoline           # Account
+#SBATCH --time=96:00:00                # Walltime for each task (96 hours)
+#SBATCH --mem=64G                     # Memory request per node
 
 DATASET_INFO="./dataset_info.json"
 METHODS_CONFIG="./methods_config.json"
 
-source /data/origami/dFC/anaconda3/etc/profile.d/conda.sh
-conda activate pydfc
-python "/data/origami/dFC/CODEs/pydfc/dFC/task_dFC/FCS_estimate.py" \
+# Activate  virtual environment
+source "/home/mt00/venvs/pydfc/bin/activate"
+
+python "/home/mt00/pydfc/dFC/task_dFC/FCS_estimate.py" \
 --dataset_info $DATASET_INFO \
 --methods_config $METHODS_CONFIG
 
-conda deactivate
+deactivate

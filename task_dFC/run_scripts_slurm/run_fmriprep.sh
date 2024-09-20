@@ -5,10 +5,9 @@
 #SBATCH --error=logs/fmriprep_err.log   # Standard error log
 #SBATCH --time=24:00:00                # Walltime (24 hours)
 #SBATCH --mem=32G                      # Memory (32 GB)
-#SBATCH --cpus-per-task=1              # Number of CPU cores per task
-#SBATCH --account=rrg-jbpoline           # Account
+#SBATCH --account=def-jbpoline           # Account
 
-source "/home/mt00/projects/rrg-jbpoline/mt00/venvs/nipoppy_env/bin/activate"
+source "/home/mt00/venvs/nipoppy_env/bin/activate"
 
 SUBJECT_LIST="./subj_list.txt"
 

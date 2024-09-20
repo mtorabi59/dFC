@@ -1,18 +1,20 @@
 #!/bin/sh
 #
-#$ -cwd
-#$ -o logs/report_out.txt
-#$ -e logs/report_err.txt
-#$ -l h_vmem=16G
-#$ -q origami.q
+#SBATCH --job-name=report_job   # Optional: Name of your job
+#SBATCH --output=logs/report_out.txt  # Standard output log
+#SBATCH --error=logs/report_err.txt   # Standard error log
+#SBATCH --account=def-jbpoline           # Account
+#SBATCH --time=24:00:00                # Walltime for each task (24 hours)
+#SBATCH --mem=16G                     # Memory request per node
 
 DATASET_INFO="./dataset_info.json"
 SUBJ_LIST="./subj_list.txt"
 
-source /data/origami/dFC/anaconda3/etc/profile.d/conda.sh
-conda activate pydfc
-python "/data/origami/dFC/CODEs/pydfc/dFC/task_dFC/generate_report.py" \
+# Activate  virtual environment
+source "/home/mt00/venvs/pydfc/bin/activate"
+
+python "/home/mt00/pydfc/dFC/task_dFC/generate_report.py" \
 --dataset_info $DATASET_INFO \
 --subj_list $SUBJ_LIST
 
-conda deactivate
+deactivate

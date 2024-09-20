@@ -4,6 +4,7 @@
 #SBATCH --output=logs/simul_out.txt  # Standard output log
 #SBATCH --error=logs/simul_err.txt   # Standard error log
 #SBATCH --account=def-jbpoline           # Account
+#SBATCH --time=24:00:00                # Walltime for each task (24 hours)
 #SBATCH --mem=8G                     # Memory request per node
 #SBATCH --array=1-200                # Task array specification
 
