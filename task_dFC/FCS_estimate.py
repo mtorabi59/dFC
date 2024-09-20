@@ -120,8 +120,10 @@ if __name__ == "__main__":
 
     TASKS = dataset_info["TASKS"]
 
-    job_id = int(os.getenv("SGE_TASK_ID"))
-    TASK_id = job_id - 1  # SGE_TASK_ID starts from 1 not 0
+    job_id = int(os.getenv("SGE_TASK_ID"))  # for SGE
+    if job_id is None:
+        job_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))  # for SLURM
+    TASK_id = job_id - 1  # TASK_ID starts from 1 not 0
     if TASK_id >= len(TASKS):
         print("TASK_id out of TASKS")
         exit()
