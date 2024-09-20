@@ -4,6 +4,8 @@ Created on Wed March 20 2024
 
 @author: mte
 """
+import argparse
+import json
 import os
 import warnings
 
@@ -19,12 +21,6 @@ os.environ["NUMEXPR_NUM_THREADS"] = "16"
 os.environ["OMP_NUM_THREADS"] = "16"
 ################################# Parameters ####################################
 
-# data paths
-dataset = "ds000002"
-# main_root = f"./DATA/{dataset}" # for local
-main_root = f"/data/origami/dFC/DATA/task-based/simulated/{dataset}"  # for server
-output_root = f"{main_root}/derivatives/ROI_timeseries"
-
 # simulation parameters
 sim_length = 250e3  # in m sec
 onset_time = 20.0  # in seconds
@@ -35,6 +31,32 @@ conn_speed = 1.0
 D = 0.001  # noise dispersion
 dt = 0.5  # integration step
 n_subj = 200  # number of subjects
+
+# argparse
+HELPTEXT = """
+Script to simulate task-based data.
+"""
+parser = argparse.ArgumentParser(description=HELPTEXT)
+
+parser.add_argument("--dataset_info", type=str, help="path to dataset info file")
+
+args = parser.parse_args()
+
+dataset_info_file = args.dataset_info
+
+# Read dataset info
+with open(dataset_info_file, "r") as f:
+    dataset_info = json.load(f)
+
+if "{dataset}" in dataset_info["main_root"]:
+    main_root = dataset_info["main_root"].replace("{dataset}", dataset_info["dataset"])
+else:
+    main_root = dataset_info["main_root"]
+
+if "{main_root}" in dataset_info["roi_root"]:
+    output_root = dataset_info["roi_root"].replace("{main_root}", main_root)
+else:
+    output_root = dataset_info["roi_root"]
 
 # create a subject id list
 subj_list = [f"sub-{i:04d}" for i in range(1, n_subj + 1)]

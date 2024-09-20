@@ -2,7 +2,6 @@ import argparse
 import json
 import os
 import warnings
-from re import A
 
 import numpy as np
 

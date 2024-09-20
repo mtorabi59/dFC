@@ -8,11 +8,14 @@
 #SBATCH --mem=8G                     # Memory request per node
 #SBATCH --array=1-200                # Task array specification
 
+DATASET_INFO="./dataset_info.json"
+
 # Activate  virtual environment
 source "/home/mt00/venvs/pydfc/bin/activate"
 
 # Run Python script
-python "/home/mt00/pydfc/dFC/simul_dFC/task_data_simulator.py"
+python "/home/mt00/pydfc/dFC/simul_dFC/task_data_simulator.py" \
+--dataset_info $DATASET_INFO
 
 # Deactivate environment
 deactivate
