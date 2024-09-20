@@ -39,8 +39,10 @@ n_subj = 200  # number of subjects
 # create a subject id list
 subj_list = [f"sub-{i:04d}" for i in range(1, n_subj + 1)]
 
-job_id = int(os.getenv("SGE_TASK_ID"))
-subj_id = subj_list[job_id - 1]  # SGE_TASK_ID starts from 1 not 0
+job_id = int(os.getenv("SGE_TASK_ID"))  # for SGE
+if job_id is None:
+    job_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))  # for SLURM
+subj_id = subj_list[job_id - 1]  # TASK_ID starts from 1 not 0
 
 print(f"subject-level simulation started running ... for subject: {subj_id} ...")
 
