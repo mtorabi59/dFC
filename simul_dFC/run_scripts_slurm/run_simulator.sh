@@ -8,7 +8,7 @@
 #SBATCH --array=1-200                # Task array specification
 
 # Activate  virtual environment
-source "/home/mt00/pydfc/bin/activate"
+source "/home/mt00/venvs/pydfc/bin/activate"
 
 # Run Python script
 python "/home/mt00/pydfc/dFC/simul_dFC/task_data_simulator.py"
