@@ -6,7 +6,7 @@
         "[[NIPOPPY_DPATH_CONTAINERS]]": "/home/mt00/projects/def-jbpoline/container_store/nipoppy/",
         "[[HEUDICONV_HEURISTIC_FILE]]": "",
         "[[DCM2BIDS_CONFIG_FILE]]": "",
-        "[[FREESURFER_LICENSE_FILE]]": "/home/mt00/projects/rrg-jbpoline/mt00/freesurfer/",
+        "[[FREESURFER_LICENSE_FILE]]": "/home/mt00/projects/def-jbpoline/mt00/freesurfer/",
         "[[TEMPLATEFLOW_HOME]]": "/home/mt00/projects/def-jbpoline/templateflow"
     },
     "DICOM_DIR_PARTICIPANT_FIRST": true,
