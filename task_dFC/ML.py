@@ -79,22 +79,28 @@ def run_classification(
         for task_id, task in enumerate(TASKS):
             ML_RESULT[task] = {}
             for run in RUNS[task]:
-                ML_RESULT_new, ML_scores_new = task_presence_classification(
-                    task=task,
-                    dFC_id=dFC_id,
-                    roi_root=roi_root,
-                    dFC_root=dFC_root,
-                    run=run,
-                    session=session,
-                    dynamic_pred=dynamic_pred,
-                    normalize_dFC=normalize_dFC,
-                )
-                if run is None:
-                    ML_RESULT[task] = ML_RESULT_new
-                else:
-                    ML_RESULT[task][run] = ML_RESULT_new
-                for key in ML_scores:
-                    ML_scores[key].extend(ML_scores_new[key])
+                try:
+                    ML_RESULT_new, ML_scores_new = task_presence_classification(
+                        task=task,
+                        dFC_id=dFC_id,
+                        roi_root=roi_root,
+                        dFC_root=dFC_root,
+                        run=run,
+                        session=session,
+                        dynamic_pred=dynamic_pred,
+                        normalize_dFC=normalize_dFC,
+                    )
+                    if run is None:
+                        ML_RESULT[task] = ML_RESULT_new
+                    else:
+                        ML_RESULT[task][run] = ML_RESULT_new
+                    for key in ML_scores:
+                        ML_scores[key].extend(ML_scores_new[key])
+                except Exception as e:
+                    print(
+                        f"Error in task presence classification for {session} {task} {run}: {e}"
+                    )
+                    traceback.print_exc()
 
         if session is None:
             folder = f"{output_root}"
@@ -137,21 +143,29 @@ def run_clustering(
         for task_id, task in enumerate(TASKS):
             clustering_RESULTS[task] = {}
             for run in RUNS[task]:
-                clustering_RESULTS_new, clustering_scores_new = task_presence_clustering(
-                    task=task,
-                    dFC_id=dFC_id,
-                    roi_root=roi_root,
-                    dFC_root=dFC_root,
-                    run=run,
-                    session=session,
-                    normalize_dFC=normalize_dFC,
-                )
-                if run is None:
-                    clustering_RESULTS[task] = clustering_RESULTS_new
-                else:
-                    clustering_RESULTS[task][run] = clustering_RESULTS_new
-                for key in clustering_scores:
-                    clustering_scores[key].extend(clustering_scores_new[key])
+                try:
+                    clustering_RESULTS_new, clustering_scores_new = (
+                        task_presence_clustering(
+                            task=task,
+                            dFC_id=dFC_id,
+                            roi_root=roi_root,
+                            dFC_root=dFC_root,
+                            run=run,
+                            session=session,
+                            normalize_dFC=normalize_dFC,
+                        )
+                    )
+                    if run is None:
+                        clustering_RESULTS[task] = clustering_RESULTS_new
+                    else:
+                        clustering_RESULTS[task][run] = clustering_RESULTS_new
+                    for key in clustering_scores:
+                        clustering_scores[key].extend(clustering_scores_new[key])
+                except Exception as e:
+                    print(
+                        f"Error in task presence clustering for {session} {task} {run}: {e}"
+                    )
+                    traceback.print_exc()
 
         if session is None:
             folder = f"{output_root}"
@@ -179,15 +193,20 @@ def run_task_paradigm_clustering(
 ):
     for session in SESSIONS:
 
-        task_paradigm_clstr_RESULTS = task_paradigm_clustering(
-            dFC_id=dFC_id,
-            TASKS=TASKS,
-            RUNS=RUNS,
-            session=session,
-            roi_root=roi_root,
-            dFC_root=dFC_root,
-            normalize_dFC=normalize_dFC,
-        )
+        try:
+            task_paradigm_clstr_RESULTS = task_paradigm_clustering(
+                dFC_id=dFC_id,
+                TASKS=TASKS,
+                RUNS=RUNS,
+                session=session,
+                roi_root=roi_root,
+                dFC_root=dFC_root,
+                normalize_dFC=normalize_dFC,
+            )
+        except Exception as e:
+            print(f"Error in task paradigm clustering for {session}: {e}")
+            traceback.print_exc()
+            continue
 
         if session is None:
             folder = f"{output_root}"
