@@ -12,7 +12,7 @@ DATASET_INFO="./dataset_info.json"
 
 echo "Number subjects found: `cat $SUBJECT_LIST | wc -l`"
 
-SUBJECT_ID=`sed -n "${SGE_TASK_ID}p" $SUBJECT_LIST`
+SUBJECT_ID=`sed -n "${SLURM_ARRAY_TASK_ID}p" $SUBJECT_LIST`
 echo "Subject ID: $SUBJECT_ID"
 
 # Activate  virtual environment
