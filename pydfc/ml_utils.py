@@ -457,7 +457,7 @@ def generalized_procrustes(X_list):
         except:
             continue
 
-    raise ValueError("Generalized Procrustes Analysis did not converge.")
+    raise RuntimeError("Generalized Procrustes Analysis did not converge.")
 
 
 def twonn(X, discard_ratio=0.1):
@@ -523,20 +523,23 @@ def SI_ID(X, y, search_range=range(2, 50, 5), n_neighbors_LE=125):
 
     SI_score = {}
     for n_components in search_range:
-        X_train_embed, _ = embed_dFC_features(
-            train_subjects=["subj"],
-            test_subjects=[],
-            X_train=X,
-            X_test=None,
-            y_train=y,
-            y_test=None,
-            subj_label_train=np.array(["subj"] * len(y)),
-            subj_label_test=None,
-            embedding="LE",
-            n_components=n_components,
-            n_neighbors_LE=n_neighbors_LE,
-            LE_embedding_method="embed+procrustes",
-        )
+        try:
+            X_train_embed, _ = embed_dFC_features(
+                train_subjects=["subj"],
+                test_subjects=[],
+                X_train=X,
+                X_test=None,
+                y_train=y,
+                y_test=None,
+                subj_label_train=np.array(["subj"] * len(y)),
+                subj_label_test=None,
+                embedding="LE",
+                n_components=n_components,
+                n_neighbors_LE=n_neighbors_LE,
+                LE_embedding_method="embed+procrustes",
+            )
+        except:
+            continue
 
         SI_score[n_components] = silhouette_score(X_train_embed, y)
 
@@ -1082,7 +1085,7 @@ def task_presence_classification(
         )
     )
 
-    ML_RESULT = {}
+    ML_RESULT = {"PCA": {}, "LE": {}}
     ML_scores = {
         "subj_id": list(),
         "group": list(),
@@ -1097,20 +1100,23 @@ def task_presence_classification(
     }
     for embedding in ["PCA", "LE"]:
         # embed dFC features
-        X_train_embedded, X_test_embedded = embed_dFC_features(
-            train_subjects=train_subjects,
-            test_subjects=test_subjects,
-            X_train=X_train,
-            X_test=X_test,
-            y_train=y_train,
-            y_test=y_test,
-            subj_label_train=subj_label_train,
-            subj_label_test=subj_label_test,
-            embedding=embedding,
-            n_components="auto",
-            n_neighbors_LE=125,
-            LE_embedding_method="embed+procrustes",
-        )
+        try:
+            X_train_embedded, X_test_embedded = embed_dFC_features(
+                train_subjects=train_subjects,
+                test_subjects=test_subjects,
+                X_train=X_train,
+                X_test=X_test,
+                y_train=y_train,
+                y_test=y_test,
+                subj_label_train=subj_label_train,
+                subj_label_test=subj_label_test,
+                embedding=embedding,
+                n_components="auto",
+                n_neighbors_LE=125,
+                LE_embedding_method="embed+procrustes",
+            )
+        except:
+            continue
 
         # task presence classification
 
@@ -1134,7 +1140,6 @@ def task_presence_classification(
         #     X_train_embedded, y_train, X_test_embedded, y_test
         # )
 
-        ML_RESULT[embedding] = {}
         for key in log_reg_RESULT:
             ML_RESULT[embedding][key] = log_reg_RESULT[key]
         for key in KNN_RESULT:
@@ -1224,7 +1229,7 @@ def task_presence_clustering(
         normalize_dFC=normalize_dFC,
     )
 
-    clustering_RESULTS = {}
+    clustering_RESULTS = {"PCA": {}, "LE": {}}
     clustering_scores = {
         "subj_id": list(),
         "task": list(),
@@ -1236,20 +1241,23 @@ def task_presence_clustering(
     }
     for embedding in ["PCA", "LE"]:
         # embed dFC features
-        X_embedded, _ = embed_dFC_features(
-            train_subjects=SUBJECTS,
-            test_subjects=[],
-            X_train=X,
-            X_test=None,
-            y_train=y,
-            y_test=None,
-            subj_label_train=subj_label,
-            subj_label_test=None,
-            embedding=embedding,
-            n_components="auto",
-            n_neighbors_LE=125,
-            LE_embedding_method="embed+procrustes",
-        )
+        try:
+            X_embedded, _ = embed_dFC_features(
+                train_subjects=SUBJECTS,
+                test_subjects=[],
+                X_train=X,
+                X_test=None,
+                y_train=y,
+                y_test=None,
+                subj_label_train=subj_label,
+                subj_label_test=None,
+                embedding=embedding,
+                n_components="auto",
+                n_neighbors_LE=125,
+                LE_embedding_method="embed+procrustes",
+            )
+        except:
+            continue
 
         # clustering
         # apply kmeans clustering to dFC features
@@ -1369,23 +1377,26 @@ def task_paradigm_clustering(
     y = y[idx]
     subj_label = subj_label[idx]
 
-    task_paradigm_clstr_RESULTS = {}
+    task_paradigm_clstr_RESULTS = {"PCA": {}, "LE": {}}
     for embedding in ["PCA", "LE"]:
         # embed dFC features
-        X_embed, _ = embed_dFC_features(
-            train_subjects=SUBJECTS,
-            test_subjects=[],
-            X_train=X,
-            X_test=None,
-            y_train=y,
-            y_test=None,
-            subj_label_train=subj_label,
-            subj_label_test=None,
-            embedding=embedding,
-            n_components="auto",
-            n_neighbors_LE=125,
-            LE_embedding_method="embed+procrustes",
-        )
+        try:
+            X_embed, _ = embed_dFC_features(
+                train_subjects=SUBJECTS,
+                test_subjects=[],
+                X_train=X,
+                X_test=None,
+                y_train=y,
+                y_test=None,
+                subj_label_train=subj_label,
+                subj_label_test=None,
+                embedding=embedding,
+                n_components="auto",
+                n_neighbors_LE=125,
+                LE_embedding_method="embed+procrustes",
+            )
+        except:
+            continue
 
         # clustering
         # apply kmeans clustering to dFC features
