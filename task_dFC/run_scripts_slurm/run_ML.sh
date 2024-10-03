@@ -5,7 +5,7 @@
 #SBATCH --error=logs/ML_err.txt   # Standard error log
 #SBATCH --account=def-jbpoline           # Account
 #SBATCH --time=72:00:00                # Walltime for each task (72 hours)
-#SBATCH --mem=64G                     # Memory request per node
+#SBATCH --mem=70G                     # Memory request per node
 
 DATASET_INFO="./dataset_info.json"
 

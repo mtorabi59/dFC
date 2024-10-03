@@ -3,10 +3,10 @@
     "VISIT_IDS": [],
     "SESSION_IDS": [],
     "SUBSTITUTIONS": {
-        "[[NIPOPPY_DPATH_CONTAINERS]]": "/home/mt00/projects/def-jbpoline/container_store/nipoppy/",
+        "[[NIPOPPY_DPATH_CONTAINERS]]": "/home/mt00/projects/def-jbpoline/container_store/nipoppy",
         "[[HEUDICONV_HEURISTIC_FILE]]": "",
         "[[DCM2BIDS_CONFIG_FILE]]": "",
-        "[[FREESURFER_LICENSE_FILE]]": "/home/mt00/projects/def-jbpoline/mt00/freesurfer/",
+        "[[FREESURFER_LICENSE_FILE]]": "/home/mt00/projects/def-jbpoline/mt00/freesurfer/license.txt",
         "[[TEMPLATEFLOW_HOME]]": "/home/mt00/projects/def-jbpoline/templateflow"
     },
     "DICOM_DIR_PARTICIPANT_FIRST": true,
