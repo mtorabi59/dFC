@@ -3,7 +3,7 @@
 #SBATCH --job-name=ML_job   # Optional: Name of your job
 #SBATCH --output=logs/ML_out.txt  # Standard output log
 #SBATCH --error=logs/ML_err.txt   # Standard error log
-#SBATCH --account=def-jbpoline           # Account
+#SBATCH --account=rrg-jbpoline           # Account
 #SBATCH --time=72:00:00                # Walltime for each task (72 hours)
 #SBATCH --mem=70G                     # Memory request per node
 

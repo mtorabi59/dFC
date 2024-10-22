@@ -3,7 +3,7 @@
 #SBATCH --job-name=report_job   # Optional: Name of your job
 #SBATCH --output=logs/report_out.txt  # Standard output log
 #SBATCH --error=logs/report_err.txt   # Standard error log
-#SBATCH --account=def-jbpoline           # Account
+#SBATCH --account=rrg-jbpoline           # Account
 #SBATCH --time=24:00:00                # Walltime for each task (24 hours)
 #SBATCH --mem=16G                     # Memory request per node
 

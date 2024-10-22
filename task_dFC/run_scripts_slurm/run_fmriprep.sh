@@ -6,7 +6,7 @@
 #SBATCH --time=7-00:00:00                # Walltime (7 days)
 #SBATCH --mem=64G                      # Memory (64 GB)
 #SBATCH --cpus-per-task=8              # Number of CPU cores (increase based on availability)
-#SBATCH --account=def-jbpoline           # Account
+#SBATCH --account=rrg-jbpoline           # Account
 #SBATCH --tmp=100G                     # Allocate 100GB of temporary space
 
 module load apptainer
