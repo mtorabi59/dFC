@@ -4,7 +4,7 @@
 #SBATCH --output=logs/fmriprep_out.log  # Standard output log
 #SBATCH --error=logs/fmriprep_err.log   # Standard error log
 #SBATCH --time=7-00:00:00                # Walltime (7 days)
-#SBATCH --mem=64G                      # Memory (64 GB)
+#SBATCH --mem=32G                      # Memory (32 GB)
 #SBATCH --cpus-per-task=8              # Number of CPU cores (increase based on availability)
 #SBATCH --account=rrg-jbpoline           # Account
 
@@ -20,8 +20,8 @@ SUBJECT_ID=$(sed -n "${SLURM_ARRAY_TASK_ID}p" $SUBJECT_LIST)
 echo "Subject ID: $SUBJECT_ID"
 
 nipoppy run \
+"$(dirname "$(pwd)")" \
 --pipeline fmriprep \
---dataset-root "$(dirname "$(pwd)")" \
 --participant-id $SUBJECT_ID
 
 deactivate
