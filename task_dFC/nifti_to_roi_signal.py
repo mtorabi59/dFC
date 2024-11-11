@@ -241,6 +241,10 @@ if __name__ == "__main__":
 
     if "{main_root}" in dataset_info["fmriprep_root"]:
         fmriprep_root = dataset_info["fmriprep_root"].replace("{main_root}", main_root)
+    elif "{dataset}" in dataset_info["fmriprep_root"]:
+        fmriprep_root = dataset_info["fmriprep_root"].replace(
+            "{dataset}", dataset_info["dataset"]
+        )
     else:
         fmriprep_root = dataset_info["fmriprep_root"]
 
