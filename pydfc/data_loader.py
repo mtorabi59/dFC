@@ -167,9 +167,12 @@ def nifti2array(nifti_file, confound_strategy="none", standardize=False, n_rois=
         'no_motion_no_gsr': motion parameters are used
                             and global signal regression
                             is applied.
+        'simple': nilearn's simple preprocessing with
+                            full motion and basic wm_csf
+                            and high_pass
     """
     from nilearn import datasets
-    from nilearn.interfaces.fmriprep import load_confounds
+    from nilearn.interfaces.fmriprep import load_confounds, load_confounds_strategy
     from nilearn.maskers import NiftiLabelsMasker
     from nilearn.plotting import find_parcellation_cut_coords
 
@@ -219,6 +222,13 @@ def nifti2array(nifti_file, confound_strategy="none", standardize=False, n_rois=
             motion="basic",
             wm_csf="basic",
             global_signal="basic",
+        )
+        time_series = masker.fit_transform(
+            nifti_file, confounds=confounds_simple, sample_mask=sample_mask
+        )
+    elif confound_strategy == "simple":
+        confounds_simple, sample_mask = load_confounds_strategy(
+            nifti_file, denoise_strategy="simple"
         )
         time_series = masker.fit_transform(
             nifti_file, confounds=confounds_simple, sample_mask=sample_mask

@@ -97,7 +97,7 @@ def run_roi_signal_extraction(
             n_rois=100,
             Fs=1 / TR_mri,
             subj_id=subj,
-            confound_strategy="no_motion",
+            confound_strategy="simple",
             standardize="zscore",
             TS_name="BOLD",
             session=task,
