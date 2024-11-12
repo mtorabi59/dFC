@@ -14,7 +14,7 @@ from pydfc import data_loader, task_utils
 def run_roi_signal_extraction(
     subj,
     task,
-    main_root,
+    bids_root,
     fmriprep_root,
     bold_suffix,
     output_root,
@@ -59,22 +59,22 @@ def run_roi_signal_extraction(
             task_file = [file_i for file_i in ALL_TASK_FILES if f"_{run}_" in file_i][0]
         if session is None:
             nifti_file = f"{fmriprep_root}/{subj}/func/{task_file}"
-            task_events_root = f"{main_root}/bids/{subj}/func"
+            task_events_root = f"{bids_root}/{subj}/func"
         else:
             nifti_file = f"{fmriprep_root}/{subj}/{session}/func/{task_file}"
-            task_events_root = f"{main_root}/bids/{subj}/{session}/func"
+            task_events_root = f"{bids_root}/{subj}/{session}/func"
         info_file = f"{task_events_root}/{task_file.replace(bold_suffix, '_bold.json')}"
 
-        # in some cases the info file is common for all subjects and can be found in f"{main_root}/bids"
+        # in some cases the info file is common for all subjects and can be found in f"{bids_root}"
         if not os.path.exists(info_file):
-            ALL_COMMON_FILES = os.listdir(f"{main_root}/bids/")
+            ALL_COMMON_FILES = os.listdir(f"{bids_root}/")
             ALL_COMMON_FILES = [
                 file_i
                 for file_i in ALL_COMMON_FILES
                 if (f"{task}_" in file_i) and ("_bold.json" in file_i)
             ]
             if len(ALL_COMMON_FILES) == 1:
-                info_file = f"{main_root}/bids/{ALL_COMMON_FILES[0]}"
+                info_file = f"{bids_root}/{ALL_COMMON_FILES[0]}"
         if not os.path.exists(info_file):
             # if the info file is not found, exclude the subject
             if run is None:
@@ -124,15 +124,15 @@ def run_roi_signal_extraction(
             ]
 
         if not len(ALL_EVENTS_FILES) == 1:
-            # in some cases the event file is common for all subjects and can be found in f"{main_root}/bids"
-            ALL_EVENTS_FILES_COMMON = os.listdir(f"{main_root}/bids/")
+            # in some cases the event file is common for all subjects and can be found in f"{bids_root}"
+            ALL_EVENTS_FILES_COMMON = os.listdir(f"{bids_root}/")
             ALL_EVENTS_FILES_COMMON = [
                 file_i
                 for file_i in ALL_EVENTS_FILES_COMMON
                 if (f"{task}_" in file_i) and ("events.tsv" in file_i)
             ]
             if len(ALL_EVENTS_FILES_COMMON) == 1:
-                events_file = f"{main_root}/bids/{ALL_EVENTS_FILES_COMMON[0]}"
+                events_file = f"{bids_root}/{ALL_EVENTS_FILES_COMMON[0]}"
             else:
                 # if the events file is not found, exclude the subject
                 if run is None:
@@ -239,6 +239,15 @@ if __name__ == "__main__":
     else:
         main_root = dataset_info["main_root"]
 
+    if "{main_root}" in dataset_info["bids_root"]:
+        bids_root = dataset_info["bids_root"].replace("{main_root}", main_root)
+    elif "{dataset}" in dataset_info["bids_root"]:
+        bids_root = dataset_info["bids_root"].replace(
+            "{dataset}", dataset_info["dataset"]
+        )
+    else:
+        bids_root = dataset_info["bids_root"]
+
     if "{main_root}" in dataset_info["fmriprep_root"]:
         fmriprep_root = dataset_info["fmriprep_root"].replace("{main_root}", main_root)
     elif "{dataset}" in dataset_info["fmriprep_root"]:
@@ -261,7 +270,7 @@ if __name__ == "__main__":
             run_roi_signal_extraction(
                 subj=participant_id,
                 task=task,
-                main_root=main_root,
+                bids_root=bids_root,
                 fmriprep_root=fmriprep_root,
                 bold_suffix=dataset_info["bold_suffix"],
                 output_root=output_root,
