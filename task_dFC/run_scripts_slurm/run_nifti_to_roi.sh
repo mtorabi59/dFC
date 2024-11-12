@@ -5,7 +5,7 @@
 #SBATCH --error=logs/roi_err.txt   # Standard error log
 #SBATCH --account=rrg-jbpoline           # Account
 #SBATCH --time=24:00:00                # Walltime for each task (24 hours)
-#SBATCH --mem=32G                     # Memory request per node
+#SBATCH --mem=64G                     # Memory request per node
 
 SUBJECT_LIST="./subj_list.txt"
 DATASET_INFO="./dataset_info.json"
