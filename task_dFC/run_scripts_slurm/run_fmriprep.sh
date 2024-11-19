@@ -3,8 +3,8 @@
 #SBATCH --job-name=fmriprep_job       # Name of the job
 #SBATCH --output=logs/fmriprep_out.log  # Standard output log
 #SBATCH --error=logs/fmriprep_err.log   # Standard error log
-#SBATCH --time=7-00:00:00                # Walltime (7 days)
-#SBATCH --mem-per-cpu=16G                      # Memory (32 GB)
+#SBATCH --time=2-00:00:00                # Walltime (2 day)
+#SBATCH --mem-per-cpu=16G                # Memory (16 GB) per cpu
 #SBATCH --cpus-per-task=8              # Number of CPU cores (increase based on availability)
 #SBATCH --account=rrg-jbpoline           # Account
 
