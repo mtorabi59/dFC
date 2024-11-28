@@ -1674,7 +1674,7 @@ if __name__ == "__main__":
                             task=task,
                             bold_suffix=dataset_info["bold_suffix"],
                             trial_type_label=dataset_info["trial_type_label"],
-                            rest_label=dataset_info["rest_labels"],
+                            rest_labels=dataset_info["rest_labels"],
                             output_root=reports_root,
                             run=run,
                             session=session,
