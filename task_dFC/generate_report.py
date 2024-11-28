@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from nilearn import image, plotting
+from nilearn import image, masking, plotting
+from nilearn.glm.first_level import FirstLevelModel
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -88,6 +89,33 @@ def load_task_data(roi_root, subj, task, run=None, session=None):
     return task_data
 
 
+def get_func_data(fmriprep_root, subj, task, bold_suffix, run=None, session=None):
+    if session is None:
+        ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/func/")
+    else:
+        ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/{session}/func/")
+
+    ALL_TASK_FILES = [
+        file_i
+        for file_i in ALL_TASK_FILES
+        if (bold_suffix in file_i) and (f"_{task}_" in file_i)
+    ]
+
+    if not len(ALL_TASK_FILES) >= 1:
+        return None
+
+    if run is None:
+        task_file = ALL_TASK_FILES[0]
+    else:
+        task_file = [file_i for file_i in ALL_TASK_FILES if f"_{run}_" in file_i][0]
+    if session is None:
+        func_file = f"{fmriprep_root}/{subj}/func/{task_file}"
+    else:
+        func_file = f"{fmriprep_root}/{subj}/{session}/func/{task_file}"
+
+    return func_file
+
+
 # def plot_anatomical(
 #     fmriprep_root,
 #     subj,
@@ -124,6 +152,115 @@ def load_task_data(roi_root, subj, task, run=None, session=None):
 #     # functional image in 3D assigned in mean_func_img
 #     mean_func_img = image.mean_img(func_file)
 #     display = plotting.plot_anat(mean_func_img, title="plot_func")
+
+
+def get_events_df(events, trial_type_label="trial_type", rest_labels=["rest", "Rest"]):
+    # find which column is the "onset" in the first row
+    onset_idx = np.where(events[0, :] == "onset")[0][0]
+    duration_idx = np.where(events[0, :] == "duration")[0][0]
+    if trial_type_label is not None:
+        trial_type_idx = np.where(events[0, :] == trial_type_label)[0][0]
+
+    # assign the time between active onsets to 'rest'
+    events_new = []
+    events_new.append(events[0, [onset_idx, duration_idx, trial_type_idx]])
+    prev_onset = 0.0
+    for i in range(1, events.shape[0]):
+
+        if events[i, trial_type_idx] in rest_labels:
+            continue
+
+        current_onset = float(events[i, onset_idx])
+        current_duration = float(events[i, duration_idx])
+        rest_duration = current_onset - prev_onset
+        if rest_duration > 0.0:
+            events_new.append([prev_onset, rest_duration, "rest"])
+        events_new.append([current_onset, current_duration, "active"])
+        prev_onset = current_onset + current_duration
+
+    events_new = np.array(events_new)
+
+    # convert to pandas dataframe
+    events_df = pd.DataFrame(
+        events_new[1:, :], columns=["onset", "duration", "trial_type"]
+    )
+
+    return events_df
+
+
+def plot_glm(
+    fmriprep_root,
+    roi_root,
+    subj,
+    task,
+    bold_suffix,
+    trial_type_label,
+    rest_labels,
+    output_root,
+    run=None,
+    session=None,
+):
+
+    func_file = get_func_data(
+        fmriprep_root=fmriprep_root,
+        subj=subj,
+        task=task,
+        bold_suffix=bold_suffix,
+        run=run,
+        session=session,
+    )
+    task_data = load_task_data(roi_root, subj, task, run, session)
+    TR_mri = task_data["TR_mri"]
+
+    events_df = get_events_df(
+        events=task_data["events"],
+        trial_type_label=trial_type_label,
+        rest_labels=rest_labels,
+    )
+
+    # Make an average
+    mean_img = image.mean_img(func_file)
+    mask = masking.compute_epi_mask(mean_img)
+
+    # Clean and smooth data
+    fmri_img = image.clean_img(func_file, standardize=False)
+    fmri_img = image.smooth_img(fmri_img, 5.0)
+
+    fmri_glm = FirstLevelModel(
+        t_r=TR_mri,
+        drift_model="cosine",
+        signal_scaling=False,
+        mask_img=mask,
+        minimize_memory=False,
+    )
+
+    fmri_glm = fmri_glm.fit(fmri_img, events_df)
+
+    z_map = fmri_glm.compute_contrast("active - rest")
+
+    plotting.plot_stat_map(z_map, bg_img=mean_img, threshold=3.1)
+
+    # save the figure
+    output_dir = f"{output_root}/subject_results/{subj}/GLM"
+    if session is not None:
+        output_dir = f"{output_dir}/{session}"
+    output_dir = f"{output_dir}/{task}"
+    if run is not None:
+        output_dir = f"{output_dir}/{run}"
+    output_dir = f"{output_dir}/"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    plt.savefig(
+        f"{output_dir}/glm.{save_fig_format}",
+        dpi=fig_dpi,
+        bbox_inches=fig_bbox_inches,
+        pad_inches=fig_pad,
+        format=save_fig_format,
+    )
+
+    plt.close()
 
 
 def plot_roi_signals(
@@ -1086,6 +1223,19 @@ def create_html_report_subj_results(
 
                 img_height = 100
 
+                # display GLM
+                glm_img = f"{subj_dir}/GLM/{session_task_run_dir}/glm.png"
+                img = plt.imread(glm_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                glm_img = glm_img.replace(subj_dir, ".")
+                file.write(
+                    f"<img src='{glm_img}' alt='GLM' width='{width}' height='{img_height}'>\n"
+                )
+                file.write("<br>\n")
+
                 # display ROI signals
                 ROI_signals_img = (
                     f"{subj_dir}/ROI_signals/{session_task_run_dir}/ROI_signals.png"
@@ -1459,6 +1609,15 @@ if __name__ == "__main__":
     else:
         main_root = dataset_info["main_root"]
 
+    if "{main_root}" in dataset_info["fmriprep_root"]:
+        fmriprep_root = dataset_info["fmriprep_root"].replace("{main_root}", main_root)
+    elif "{dataset}" in dataset_info["fmriprep_root"]:
+        fmriprep_root = dataset_info["fmriprep_root"].replace(
+            "{dataset}", dataset_info["dataset"]
+        )
+    else:
+        fmriprep_root = dataset_info["fmriprep_root"]
+
     if "{main_root}" in dataset_info["roi_root"]:
         roi_root = dataset_info["roi_root"].replace("{main_root}", main_root)
     else:
@@ -1506,6 +1665,22 @@ if __name__ == "__main__":
                         )
                     except Exception as e:
                         print(f"Error in plotting dFC matrices: {e}")
+
+                    try:
+                        plot_glm(
+                            fmriprep_root=fmriprep_root,
+                            roi_root=roi_root,
+                            subj=subj,
+                            task=task,
+                            bold_suffix=dataset_info["bold_suffix"],
+                            trial_type_label=dataset_info["trial_type_label"],
+                            rest_label=dataset_info["rest_labels"],
+                            output_root=reports_root,
+                            run=run,
+                            session=session,
+                        )
+                    except Exception as e:
+                        print(f"Error in plotting GLM: {e}")
 
                     try:
                         plot_roi_signals(
