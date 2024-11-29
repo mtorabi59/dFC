@@ -75,18 +75,22 @@ def run_FCS_estimate(
 
     for MEASURE_id, measure in enumerate(MEASURES_lst):
 
-        print("MEASURE: " + measure.measure_name)
-        print("FCS estimation started...")
+        try:
+            print("MEASURE: " + measure.measure_name)
+            print("FCS estimation started...")
 
-        if measure.is_state_based:
-            measure.estimate_FCS(time_series=BOLD)
+            if measure.is_state_based:
+                measure.estimate_FCS(time_series=BOLD)
 
-        print("FCS estimation done.")
+            print("FCS estimation done.")
 
-        # Save
-        if not os.path.exists(f"{output_dir}"):
-            os.makedirs(f"{output_dir}")
-        np.save(f"{output_dir}/MEASURE_{file_suffix}_{MEASURE_id}.npy", measure)
+            # Save
+            if not os.path.exists(f"{output_dir}"):
+                os.makedirs(f"{output_dir}")
+            np.save(f"{output_dir}/MEASURE_{file_suffix}_{MEASURE_id}.npy", measure)
+        except Exception as e:
+            print(f"Error in MEASURE: {measure.measure_name}")
+            print(e)
 
     print(f"Measurement required {time.time() - tic:0.3f} seconds.")
     np.save(f"{output_dir}/multi-analysis_{file_suffix}.npy", MA)
