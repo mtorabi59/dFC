@@ -3,7 +3,6 @@
 #SBATCH --job-name=fit_fcs_job   # Optional: Name of your job
 #SBATCH --output=logs/fcs_out.txt  # Standard output log
 #SBATCH --error=logs/fcs_err.txt   # Standard error log
-#SBATCH --account=rrg-jbpoline           # Account
 #SBATCH --time=96:00:00                # Walltime for each task (96 hours)
 #SBATCH --mem=64G                     # Memory request per node
 

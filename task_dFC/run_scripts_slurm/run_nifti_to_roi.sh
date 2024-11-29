@@ -3,7 +3,6 @@
 #SBATCH --job-name=extract_roi_job   # Optional: Name of your job
 #SBATCH --output=logs/roi_out.txt  # Standard output log
 #SBATCH --error=logs/roi_err.txt   # Standard error log
-#SBATCH --account=rrg-jbpoline           # Account
 #SBATCH --time=24:00:00                # Walltime for each task (24 hours)
 #SBATCH --mem=64G                     # Memory request per node
 

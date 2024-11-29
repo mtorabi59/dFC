@@ -6,7 +6,6 @@
 #SBATCH --time=2-00:00:00                # Walltime (2 day)
 #SBATCH --mem-per-cpu=16G                # Memory (16 GB) per cpu
 #SBATCH --cpus-per-task=8              # Number of CPU cores (increase based on availability)
-#SBATCH --account=rrg-jbpoline           # Account
 
 module load apptainer
 

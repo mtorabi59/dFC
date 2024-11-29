@@ -3,7 +3,6 @@
 #SBATCH --job-name=assess_dfc_job   # Optional: Name of your job
 #SBATCH --output=logs/dfc_out.txt  # Standard output log
 #SBATCH --error=logs/dfc_err.txt   # Standard error log
-#SBATCH --account=rrg-jbpoline           # Account
 #SBATCH --time=24:00:00                # Walltime for each task (24 hours)
 #SBATCH --mem=32G                     # Memory request per node
 
