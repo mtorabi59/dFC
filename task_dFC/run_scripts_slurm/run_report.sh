@@ -4,7 +4,7 @@
 #SBATCH --output=logs/report_out.txt  # Standard output log
 #SBATCH --error=logs/report_err.txt   # Standard error log
 #SBATCH --time=24:00:00                # Walltime for each task (24 hours)
-#SBATCH --mem=16G                     # Memory request per node
+#SBATCH --mem=32G                     # Memory request per node
 
 DATASET_INFO="./dataset_info.json"
 SUBJ_LIST="./subj_list.txt"
