@@ -163,12 +163,12 @@ def get_events_df(events, trial_type_label="trial_type", rest_labels=["rest", "R
 
     # assign the time between active onsets to 'rest'
     events_new = []
-    events_new.append(events[0, [onset_idx, duration_idx, trial_type_idx]])
     prev_onset = 0.0
     for i in range(1, events.shape[0]):
 
-        if events[i, trial_type_idx] in rest_labels:
-            continue
+        if trial_type_label is not None:
+            if events[i, trial_type_idx] in rest_labels:
+                continue
 
         current_onset = float(events[i, onset_idx])
         current_duration = float(events[i, duration_idx])
@@ -181,9 +181,7 @@ def get_events_df(events, trial_type_label="trial_type", rest_labels=["rest", "R
     events_new = np.array(events_new)
 
     # convert to pandas dataframe
-    events_df = pd.DataFrame(
-        events_new[1:, :], columns=["onset", "duration", "trial_type"]
-    )
+    events_df = pd.DataFrame(events_new, columns=["onset", "duration", "trial_type"])
 
     return events_df
 
