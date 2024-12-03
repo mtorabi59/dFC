@@ -149,16 +149,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=HELPTEXT)
 
     parser.add_argument("--dataset_info", type=str, help="path to dataset info file")
+    parser.add_argument("--methods_config", type=str, help="methods config file")
     parser.add_argument("--participant_id", type=str, help="participant id")
 
     args = parser.parse_args()
 
     dataset_info_file = args.dataset_info
+    methods_config_file = args.methods_config
     participant_id = args.participant_id
 
     # Read dataset info
     with open(dataset_info_file, "r") as f:
         dataset_info = json.load(f)
+
+    # Read methods config
+    with open(methods_config_file, "r") as f:
+        methods_config = json.load(f)
 
     print(
         f"subject-level dFC assessment CODE started running ... for subject: {participant_id} ..."
@@ -203,6 +209,8 @@ if __name__ == "__main__":
         RUNS = None
     if RUNS is None:
         RUNS = {task: [None] for task in TASKS}
+
+    params_multi_analysis = methods_config["params_multi_analysis"]
 
     for session in SESSIONS:
         for task in TASKS:

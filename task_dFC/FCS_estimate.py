@@ -6,7 +6,7 @@ import warnings
 
 import numpy as np
 
-from pydfc import MultiAnalysis, data_loader
+from pydfc import data_loader, multi_analysis_utils
 
 warnings.simplefilter("ignore")
 
@@ -21,7 +21,6 @@ def run_FCS_estimate(
     params_methods,
     MEASURES_name_lst,
     alter_hparams,
-    params_multi_analysis,
     task,
     roi_root,
     output_root,
@@ -60,11 +59,7 @@ def run_FCS_estimate(
     )
     ################################ Measures of dFC #################################
 
-    MA = MultiAnalysis(
-        analysis_name=f"task-based-dFC-{file_suffix}", **params_multi_analysis
-    )
-
-    MEASURES_lst = MA.measures_initializer(
+    MEASURES_lst = multi_analysis_utils.measures_initializer(
         MEASURES_name_lst, params_methods, alter_hparams
     )
 
@@ -93,7 +88,6 @@ def run_FCS_estimate(
             print(e)
 
     print(f"Measurement required {time.time() - tic:0.3f} seconds.")
-    np.save(f"{output_dir}/multi-analysis_{file_suffix}.npy", MA)
 
 
 ########################################################################################
@@ -173,7 +167,6 @@ if __name__ == "__main__":
     params_methods = methods_config["params_methods"]
     MEASURES_name_lst = methods_config["MEASURES_name_lst"]
     alter_hparams = methods_config["alter_hparams"]
-    params_multi_analysis = methods_config["params_multi_analysis"]
 
     for session in SESSIONS:
         for run in RUNS[task]:
@@ -181,7 +174,6 @@ if __name__ == "__main__":
                 params_methods=params_methods,
                 MEASURES_name_lst=MEASURES_name_lst,
                 alter_hparams=alter_hparams,
-                params_multi_analysis=params_multi_analysis,
                 task=task,
                 roi_root=roi_root,
                 output_root=fitted_measures_root,
