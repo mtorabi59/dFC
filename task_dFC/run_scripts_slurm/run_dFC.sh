@@ -8,6 +8,7 @@
 
 SUBJECT_LIST="./subj_list.txt"
 DATASET_INFO="./dataset_info.json"
+METHODS_CONFIG="./methods_config.json"
 
 echo "Number subjects found: `cat $SUBJECT_LIST | wc -l`"
 
@@ -19,6 +20,7 @@ source "/home/mt00/venvs/pydfc/bin/activate"
 
 python "/home/mt00/pydfc/dFC/task_dFC/dFC_assessment.py" \
 --dataset_info $DATASET_INFO \
+--methods_config $METHODS_CONFIG \
 --participant_id $SUBJECT_ID
 
 deactivate
