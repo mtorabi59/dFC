@@ -128,9 +128,14 @@ def load_task_data(roi_root, subj, task, run=None, session=None):
 ################################# Feature Extraction Functions ####################################
 
 
-def extract_task_features(TASKS, RUNS, session, roi_root, dFC_root):
+def extract_task_features(TASKS, RUNS, session, roi_root, dFC_root, no_hrf=False):
     """
-    Extract task features from the event data."""
+    Extract task features from the event data.
+
+    if no_hrf is True, the task presence will be binarized without convolving with HRF.
+    Therefore the task features will be extracted based on the event labels and
+    without the effect of HRF.
+    """
     task_features = {
         "task": list(),
         "run": list(),
@@ -167,6 +172,7 @@ def extract_task_features(TASKS, RUNS, session, roi_root, dFC_root):
                     TR_mri=task_data["TR_mri"],
                     binary=True,
                     binarizing_method="mean",
+                    no_hrf=no_hrf,
                 )
 
                 relative_task_on = calc_relative_task_on(task_presence)

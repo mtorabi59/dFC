@@ -25,18 +25,31 @@ def run_task_features_extraction(
     output_root,
 ):
     for session in SESSIONS:
+
+        # Extract task features without HRF effect
         task_features = extract_task_features(
             TASKS=TASKS,
             RUNS=RUNS,
             session=session,
             roi_root=roi_root,
             dFC_root=dFC_root,
+            no_hrf=True,
+        )
+
+        # Extract task features with HRF effect
+        task_features_hrf = extract_task_features(
+            TASKS=TASKS,
+            RUNS=RUNS,
+            session=session,
+            roi_root=roi_root,
+            dFC_root=dFC_root,
+            no_hrf=False,
         )
 
         if session is None:
-            folder = f"{output_root}"
+            folder = f"{output_root}/task_features"
         else:
-            folder = f"{output_root}/{session}"
+            folder = f"{output_root}/task_features/{session}"
         try:
             if not os.path.exists(folder):
                 os.makedirs(folder)
@@ -45,6 +58,8 @@ def run_task_features_extraction(
         try:
             if not os.path.exists(f"{folder}/task_features.npy"):
                 np.save(f"{folder}/task_features.npy", task_features)
+            if not os.path.exists(f"{folder}/task_features_hrf.npy"):
+                np.save(f"{folder}/task_features_hrf.npy", task_features_hrf)
         except OSError as err:
             print(err)
 
@@ -104,9 +119,9 @@ def run_classification(
                     traceback.print_exc()
 
         if session is None:
-            folder = f"{output_root}"
+            folder = f"{output_root}/classification"
         else:
-            folder = f"{output_root}/{session}"
+            folder = f"{output_root}/classification/{session}"
         try:
             if not os.path.exists(folder):
                 os.makedirs(folder)
@@ -169,9 +184,9 @@ def run_clustering(
                     traceback.print_exc()
 
         if session is None:
-            folder = f"{output_root}"
+            folder = f"{output_root}/clustering"
         else:
-            folder = f"{output_root}/{session}"
+            folder = f"{output_root}/clustering/{session}"
         try:
             if not os.path.exists(folder):
                 os.makedirs(folder)
@@ -210,9 +225,9 @@ def run_task_paradigm_clustering(
             continue
 
         if session is None:
-            folder = f"{output_root}"
+            folder = f"{output_root}/task_paradigm_clstr"
         else:
-            folder = f"{output_root}/{session}"
+            folder = f"{output_root}/task_paradigm_clstr/{session}"
         try:
             if not os.path.exists(folder):
                 os.makedirs(folder)
@@ -264,7 +279,7 @@ def run_clustering_for_visual(
                     if session is None:
                         folder = f"{output_root}/centroids"
                     else:
-                        folder = f"{output_root}/{session}/centroids"
+                        folder = f"{output_root}/centroids/{session}"
                     if not os.path.exists(folder):
                         os.makedirs(folder)
 

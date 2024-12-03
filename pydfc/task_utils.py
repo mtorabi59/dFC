@@ -260,7 +260,13 @@ def downsample_events_hrf(events_hrf, TR_mri, TR_task, method="uniform"):
 
 
 def extract_task_presence(
-    event_labels, TR_task, TR_mri, TR_array=None, binary=True, binarizing_method="median"
+    event_labels,
+    TR_task,
+    TR_mri,
+    TR_array=None,
+    binary=True,
+    binarizing_method="median",
+    no_hrf=False,
 ):
     """
     event_labels: event labels including 0 and event ids at the time each event happens
@@ -272,14 +278,19 @@ def extract_task_presence(
     It also downsamples the task presence to the time points of the dFC data
     if binary is True, the task presence is binarized using the mean of the task presence
     binarizing_method: 'median' or 'mean'
+
+    if no_hrf is True, the task presence is not convolved with HRF
     """
 
     # event_labels_all_task is all conditions together, rest vs. task times
     event_labels_all_task = np.multiply(event_labels != 0, 1)
 
-    event_labels_all_task_hrf = event_labels_conv_hrf(
-        event_labels=event_labels_all_task, TR_mri=TR_mri, TR_task=TR_task
-    )
+    if no_hrf:
+        event_labels_all_task_hrf = event_labels_all_task
+    else:
+        event_labels_all_task_hrf = event_labels_conv_hrf(
+            event_labels=event_labels_all_task, TR_mri=TR_mri, TR_task=TR_task
+        )
 
     # keep the task signal of events_hrf_0_1_ds
     if event_labels_all_task_hrf.shape[1] == 1:

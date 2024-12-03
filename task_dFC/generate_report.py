@@ -610,9 +610,9 @@ def plot_ML_results(
     # the ML_scores files are saved as ML_scores_classify_{dFC_id}.npy
     # find all the ML_scores files in the directory
     if session is None:
-        input_dir = f"{ML_root}"
+        input_dir = f"{ML_root}/classification"
     else:
-        input_dir = f"{ML_root}/{session}"
+        input_dir = f"{ML_root}/classification/{session}"
     ALL_ML_SCORES = os.listdir(input_dir)
     ALL_ML_SCORES = [
         score_file for score_file in ALL_ML_SCORES if "ML_scores_classify" in score_file
@@ -712,9 +712,9 @@ def plot_clustering_results(
     # the clustering_scores files are saved as clustering_scores_{dFC_id}.npy
     # find all the clustering_scores files in the directory
     if session is None:
-        input_dir = f"{ML_root}"
+        input_dir = f"{ML_root}/clustering"
     else:
-        input_dir = f"{ML_root}/{session}"
+        input_dir = f"{ML_root}/clustering/{session}"
     ALL_CLUSTERING_SCORES = os.listdir(input_dir)
     ALL_CLUSTERING_SCORES = [
         score_file
@@ -853,9 +853,9 @@ def plot_paradigm_clustering_score(
     # the paradigm_clustering_RESULTS files are saved as task_paradigm_clstr_RESULTS_{dFC_id}.npy
     # find all the paradigm_clustering_RESULTS files in the directory
     if session is None:
-        input_dir = f"{ML_root}"
+        input_dir = f"{ML_root}/task_paradigm_clstr"
     else:
-        input_dir = f"{ML_root}/{session}"
+        input_dir = f"{ML_root}/task_paradigm_clstr/{session}"
     ALL_PARADIGM_CLUSTERING_RESULTS = os.listdir(input_dir)
     ALL_PARADIGM_CLUSTERING_RESULTS = [
         result_file
@@ -964,18 +964,18 @@ def plot_paradigm_clustering_score(
     plt.close()
 
 
-def plot_clstr_visual_centroids(
+def plot_visual_clstr_centroids(
     ML_root,
     output_root,
     session=None,
 ):
     """ """
-    # the paradigm_clustering_RESULTS files are saved as task_paradigm_clstr_RESULTS_{dFC_id}.npy
-    # find all the paradigm_clustering_RESULTS files in the directory
+    # the centroids files are saved as centroids_{session}_{task}_{run}_{measure_name}.npy
+    # find all the centroids files in the directory
     if session is None:
-        input_dir = f"{ML_root}"
+        input_dir = f"{ML_root}/centroids"
     else:
-        input_dir = f"{ML_root}/{session}"
+        input_dir = f"{ML_root}/centroids/{session}"
 
     output_dir = f"{output_root}/group_results/visual_clustering_centroids"
 
@@ -1170,6 +1170,7 @@ def plot_task_presence_features(
 ):
     """
     Plot the task presence features for a given session and run.
+    Features for both with and without HRF are plotted.
     for comparability of tasks, pass the same run number for all tasks
     parameters:
     ----------
@@ -1180,30 +1181,47 @@ def plot_task_presence_features(
     """
     if session is None:
         task_features = np.load(
-            f"{ML_root}/task_features.npy", allow_pickle="TRUE"
+            f"{ML_root}/task_features/task_features.npy", allow_pickle="TRUE"
+        ).item()
+        task_features_hrf = np.load(
+            f"{ML_root}/task_features/task_features_hrf.npy", allow_pickle="TRUE"
         ).item()
     else:
         task_features = np.load(
-            f"{ML_root}/{session}/task_features.npy", allow_pickle="TRUE"
+            f"{ML_root}/task_features/{session}/task_features.npy", allow_pickle="TRUE"
+        ).item()
+        task_features_hrf = np.load(
+            f"{ML_root}/task_features/{session}/task_features_hrf.npy",
+            allow_pickle="TRUE",
         ).item()
 
     sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.0})
 
     sns.set_style("darkgrid")
 
-    dataframe = pd.DataFrame(task_features)
+    task_features_df = pd.DataFrame(task_features)
+    task_features_hrf_df = pd.DataFrame(task_features_hrf)
     if run is not None:
-        dataframe = dataframe[dataframe["run"] == run]
+        task_features_df = task_features_df[task_features_df["run"] == run]
+        task_features_hrf_df = task_features_hrf_df[task_features_hrf_df["run"] == run]
 
     # FEATURES are columns in the dataframe except for 'task' and 'run'
-    FEATURES = list(dataframe.columns)
+    FEATURES = list(task_features_df.columns)
     FEATURES.remove("task")
     FEATURES.remove("run")
+
+    if session is None:
+        output_dir = f"{output_root}/group_results/task_presence_features"
+    else:
+        output_dir = f"{output_root}/group_results/task_presence_features/{session}"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     for i, feature in enumerate(FEATURES):
         plt.figure(figsize=(10, 5))
         sns.pointplot(
-            data=dataframe,
+            data=task_features_df,
             x="task",
             y=feature,
             errorbar="sd",
@@ -1211,15 +1229,8 @@ def plot_task_presence_features(
             dodge=True,
             capsize=0.1,
         )
+
         # save the figure
-        if session is None:
-            output_dir = f"{output_root}/group_results/task_presence_features"
-        else:
-            output_dir = f"{output_root}/group_results/task_presence_features/{session}"
-
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
         plt.savefig(
             f"{output_dir}/task_presence_features_{feature}.{save_fig_format}",
             dpi=fig_dpi,
@@ -1227,7 +1238,27 @@ def plot_task_presence_features(
             pad_inches=fig_pad,
             format=save_fig_format,
         )
+        plt.close()
 
+        plt.figure(figsize=(10, 5))
+        sns.pointplot(
+            data=task_features_hrf_df,
+            x="task",
+            y=feature,
+            errorbar="sd",
+            linestyle="none",
+            dodge=True,
+            capsize=0.1,
+        )
+
+        # save the figure
+        plt.savefig(
+            f"{output_dir}/task_presence_features_hrf_{feature}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
         plt.close()
 
 
@@ -1406,22 +1437,35 @@ def create_html_report_group_results(
             task_presence_features_dir = f"{group_dir}/task_presence_features/{session}"
         else:
             task_presence_features_dir = f"{group_dir}/task_presence_features"
-        # find all png files in the directory
-        for file_name in os.listdir(task_presence_features_dir):
-            if file_name.endswith(".png"):
-                task_presence_features_img = f"{task_presence_features_dir}/{file_name}"
-                # get the original size of the image
-                img = plt.imread(task_presence_features_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                task_presence_features_img = task_presence_features_img.replace(
-                    group_dir, "."
-                )
-                file.write(
-                    f"<img src='{task_presence_features_img}' alt='Task presence features' width='{width}' height='{img_height}'>\n"
-                )
+
+        for condition in ["with_HRF", "without_HRF"]:
+            file.write(f"<h2>{condition}</h2>\n")
+            # find all png files in the directory
+            for file_name in os.listdir(task_presence_features_dir):
+                if file_name.endswith(".png"):
+                    if (condition == "with_HRF" and "hrf" not in file_name) or (
+                        condition == "without_HRF" and "hrf" in file_name
+                    ):
+                        continue
+                    task_presence_features_img = (
+                        f"{task_presence_features_dir}/{file_name}"
+                    )
+                    # get the original size of the image
+                    img = plt.imread(task_presence_features_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    task_presence_features_img = task_presence_features_img.replace(
+                        group_dir, "."
+                    )
+                    file.write(
+                        f"<img src='{task_presence_features_img}' alt='Task presence features' width='{width}' height='{img_height}'>\n"
+                    )
+
+            file.write("<br>\n")
+
+    file.write("<br>\n")
 
     # classification results
     img_height = 300
@@ -1888,6 +1932,15 @@ if __name__ == "__main__":
                 )
             except Exception as e:
                 print(f"Error in plotting paradigm clustering scores: {e}")
+
+        try:
+            plot_visual_clstr_centroids(
+                ML_root=ML_root,
+                output_root=reports_root,
+                session=session,
+            )
+        except Exception as e:
+            print(f"Error in plotting visual clustering centroids: {e}")
 
         # try:
         #     plot_paradigm_clstr_centroids(
