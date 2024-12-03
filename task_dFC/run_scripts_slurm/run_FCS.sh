@@ -3,7 +3,7 @@
 #SBATCH --job-name=fit_fcs_job   # Optional: Name of your job
 #SBATCH --output=logs/fcs_out.txt  # Standard output log
 #SBATCH --error=logs/fcs_err.txt   # Standard error log
-#SBATCH --time=96:00:00                # Walltime for each task (96 hours)
+#SBATCH --time=4-00:00:00                # Walltime for each task (4 days)
 #SBATCH --mem=64G                     # Memory request per node
 
 DATASET_INFO="./dataset_info.json"
