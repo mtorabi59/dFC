@@ -6,7 +6,7 @@ import warnings
 
 import numpy as np
 
-from pydfc import MultiAnalysis, data_loader
+from pydfc import data_loader, multi_analysis_utils
 
 warnings.simplefilter("ignore")
 
@@ -23,6 +23,7 @@ def run_dFC_assess(
     roi_root,
     fitted_measures_root,
     output_root,
+    params_multi_analysis,
     session=None,
     run=None,
 ):
@@ -89,11 +90,6 @@ def run_dFC_assess(
         return
     ################################# LOAD FIT MEASURES #################################
 
-    MA = np.load(
-        f"{fitted_measures_dir}/multi-analysis_{file_suffix}.npy",
-        allow_pickle="TRUE",
-    ).item()
-
     ALL_RECORDS = os.listdir(f"{fitted_measures_dir}/")
     ALL_RECORDS = [
         i for i in ALL_RECORDS if ("MEASURE" in i) and (f"_{file_suffix}_" in i)
@@ -103,7 +99,6 @@ def run_dFC_assess(
     for s in ALL_RECORDS:
         fit_measure = np.load(f"{fitted_measures_dir}/{s}", allow_pickle="TRUE").item()
         MEASURES_fit_lst.append(fit_measure)
-    MA.set_MEASURES_fit_lst(MEASURES_fit_lst)
     print("fitted MEASURES are loaded ...")
 
     ################################# LOAD DATA #################################
@@ -123,7 +118,13 @@ def run_dFC_assess(
     print("Measurement Started ...")
 
     print("dFC estimation started...")
-    dFC_dict = MA.subj_lvl_dFC_assess(time_series=BOLD)
+    dFC_dict = multi_analysis_utils.subj_lvl_dFC_assess(
+        time_series=BOLD,
+        MEASURES_fit_lst=MEASURES_fit_lst,
+        n_jobs=params_multi_analysis["n_jobs"],
+        verbose=params_multi_analysis["verbose"],
+        backend=params_multi_analysis["backend"],
+    )
     print("dFC estimation done.")
 
     print(f"Measurement required {time.time() - tic:0.3f} seconds.")
@@ -221,6 +222,7 @@ if __name__ == "__main__":
                     roi_root=roi_root,
                     fitted_measures_root=fitted_measures_root,
                     output_root=output_root,
+                    params_multi_analysis=params_multi_analysis,
                     session=session,
                     run=run,
                 )

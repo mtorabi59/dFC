@@ -21,6 +21,7 @@ def run_FCS_estimate(
     params_methods,
     MEASURES_name_lst,
     alter_hparams,
+    params_multi_analysis,
     task,
     roi_root,
     output_root,
@@ -68,24 +69,19 @@ def run_FCS_estimate(
 
     ################################# estimate FCS #################################
 
-    for MEASURE_id, measure in enumerate(MEASURES_lst):
+    MEASURES_fit_lst = multi_analysis_utils.estimate_group_FCS(
+        time_series=BOLD,
+        MEASURES_lst=MEASURES_lst,
+        n_jobs=params_multi_analysis["n_jobs"],
+        verbose=params_multi_analysis["verbose"],
+        backend=params_multi_analysis["backend"],
+    )
 
-        try:
-            print("MEASURE: " + measure.measure_name)
-            print("FCS estimation started...")
-
-            if measure.is_state_based:
-                measure.estimate_FCS(time_series=BOLD)
-
-            print("FCS estimation done.")
-
-            # Save
-            if not os.path.exists(f"{output_dir}"):
-                os.makedirs(f"{output_dir}")
-            np.save(f"{output_dir}/MEASURE_{file_suffix}_{MEASURE_id}.npy", measure)
-        except Exception as e:
-            print(f"Error in MEASURE: {measure.measure_name}")
-            print(e)
+    # Save the fitted measures
+    for MEASURE_id, measure in enumerate(MEASURES_fit_lst):
+        if not os.path.exists(f"{output_dir}"):
+            os.makedirs(f"{output_dir}")
+        np.save(f"{output_dir}/MEASURE_{file_suffix}_{MEASURE_id}.npy", measure)
 
     print(f"Measurement required {time.time() - tic:0.3f} seconds.")
 
@@ -167,6 +163,7 @@ if __name__ == "__main__":
     params_methods = methods_config["params_methods"]
     MEASURES_name_lst = methods_config["MEASURES_name_lst"]
     alter_hparams = methods_config["alter_hparams"]
+    params_multi_analysis = methods_config["params_multi_analysis"]
 
     for session in SESSIONS:
         for run in RUNS[task]:
@@ -174,6 +171,7 @@ if __name__ == "__main__":
                 params_methods=params_methods,
                 MEASURES_name_lst=MEASURES_name_lst,
                 alter_hparams=alter_hparams,
+                params_multi_analysis=params_multi_analysis,
                 task=task,
                 roi_root=roi_root,
                 output_root=fitted_measures_root,

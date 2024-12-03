@@ -28,7 +28,7 @@
     ],
     "alter_hparams" : [],
     "params_multi_analysis" : {
-        "n_jobs": null,
+        "n_jobs": 8,
         "verbose": 0,
         "backend": "loky"
     }
