@@ -261,11 +261,15 @@ def run_clustering_for_visual(
                         suffix = f"{suffix}_{run}"
                     suffix = f"{suffix}_{measure_name}"
 
-                    if not os.path.exists(f"{output_root}/centroids"):
-                        os.makedirs(f"{output_root}/centroids")
+                    if session is None:
+                        folder = f"{output_root}/centroids"
+                    else:
+                        folder = f"{output_root}/{session}/centroids"
+                    if not os.path.exists(folder):
+                        os.makedirs(folder)
 
                     np.save(
-                        f"{output_root}/centroids/{suffix}.npy",
+                        f"{folder}/{suffix}.npy",
                         centroids_mat,
                     )
 

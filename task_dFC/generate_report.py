@@ -964,6 +964,54 @@ def plot_paradigm_clustering_score(
     plt.close()
 
 
+def plot_clstr_visual_centroids(
+    ML_root,
+    output_root,
+    session=None,
+):
+    """ """
+    # the paradigm_clustering_RESULTS files are saved as task_paradigm_clstr_RESULTS_{dFC_id}.npy
+    # find all the paradigm_clustering_RESULTS files in the directory
+    if session is None:
+        input_dir = f"{ML_root}"
+    else:
+        input_dir = f"{ML_root}/{session}"
+
+    output_dir = f"{output_root}/group_results/visual_clustering_centroids"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    ALL_CENTROID_RESULTS = os.listdir(input_dir)
+    ALL_CENTROID_RESULTS = [
+        result_file for result_file in ALL_CENTROID_RESULTS if "centroids_" in result_file
+    ]
+    ALL_CENTROID_RESULTS.sort()
+
+    for result_file in ALL_CENTROID_RESULTS:
+        centroids_mats = np.load(f"{input_dir}/{result_file}", allow_pickle="TRUE")
+
+        # result_file is centroids_{session}_{task}_{run}_{measure_name}.npy
+        # suffix is whatever comes after the centroids and before .npy
+        suffix = result_file.split("centroids_")[1].split(".npy")[0]
+
+        centroids_dict = {}
+        for i, centroid_mat in enumerate(centroids_mats):
+            centroids_dict[f"Cluster {i + 1}"] = centroid_mat
+
+        visualize_conn_mat_dict(
+            data=centroids_dict,
+            title=f"visual-centroids_{suffix}",
+            cmap="seismic",
+            normalize=True,
+            disp_diag=False,
+            save_image=True,
+            output_root=f"{output_dir}/",
+            center_0=True,
+            # node_networks=None,
+        )
+
+
 # def plot_paradigm_clstr_centroids(
 #     ML_root,
 #     output_root,
@@ -1524,6 +1572,61 @@ def create_html_report_group_results(
             )
 
             file.write("<br>\n")
+
+        # display visual clustering centroids
+        img_height = 300
+        file.write("<h2>Visual Clustering Centroids</h2>\n")
+        # find all png files in the directory
+        visual_clustering_centroids_dir = f"{group_dir}/visual_clustering_centroids"
+        for session in SESSIONS:
+            if session is not None:
+                file.write(f"<h3> {session} </h3>\n")
+            for task in TASKS:
+                file.write(f"<h3> {task} </h3>\n")
+                for run in RUNS[task]:
+                    if run is not None:
+                        file.write(f"<h3> {run} </h3>\n")
+
+                    # visual-centroids_{session}_{task}_{run}_{measure_name}.png
+                    all_centroids_img_files = os.listdir(visual_clustering_centroids_dir)
+                    all_centroids_img_files = [
+                        centroids_img_file
+                        for centroids_img_file in all_centroids_img_files
+                        if "visual-centroids" in centroids_img_file
+                        and f"_{task}" in centroids_img_file
+                    ]
+                    if session is not None:
+                        all_centroids_img_files = [
+                            centroids_img_file
+                            for centroids_img_file in all_centroids_img_files
+                            if f"_{session}" in centroids_img_file
+                        ]
+                    if run is not None:
+                        all_centroids_img_files = [
+                            centroids_img_file
+                            for centroids_img_file in all_centroids_img_files
+                            if f"_{run}" in centroids_img_file
+                        ]
+                    all_centroids_img_files.sort()
+
+                    for centroids_img_file in all_centroids_img_files:
+                        # iterate over centroids images of different measures
+                        centroid_img = (
+                            f"{visual_clustering_centroids_dir}/{centroids_img_file}"
+                        )
+                        measure_name = centroids_img_file.split("_")[-1].split(".")[0]
+                        file.write(f"<h3>{measure_name}</h3>\n")
+                        # get the original size of the image
+                        img = plt.imread(centroid_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        centroid_img = centroid_img.replace(group_dir, ".")
+                        file.write(
+                            f"<img src='{centroid_img}' alt='Visual clustering centroids' width='{width}' height='{img_height}'>\n"
+                        )
+                        file.write("<br>\n")
 
         # # display paradigm clustering centroids
         # img_height = 300
