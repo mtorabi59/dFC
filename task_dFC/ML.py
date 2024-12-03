@@ -6,6 +6,7 @@ import traceback
 import numpy as np
 
 from pydfc.ml_utils import (
+    cluster_for_visual,
     extract_task_features,
     task_paradigm_clustering,
     task_presence_classification,
@@ -224,6 +225,57 @@ def run_task_paradigm_clustering(
         )
 
 
+def run_clustering_for_visual(
+    dFC_id,
+    TASKS,
+    RUNS,
+    SESSIONS,
+    roi_root,
+    dFC_root,
+    output_root,
+    normalize_dFC=True,
+):
+    for session in SESSIONS:
+        if not session is None:
+            print(f"=================== {session} ===================")
+
+        for task_id, task in enumerate(TASKS):
+            for run in RUNS[task]:
+                try:
+                    centroids_mat, measure_name = cluster_for_visual(
+                        task=task,
+                        dFC_id=dFC_id,
+                        roi_root=roi_root,
+                        dFC_root=dFC_root,
+                        run=run,
+                        session=session,
+                        normalize_dFC=normalize_dFC,
+                    )
+
+                    # save the centroids
+                    suffix = "centroids"
+                    if session is not None:
+                        suffix = f"{suffix}_{session}"
+                    suffix = f"{suffix}_{task}"
+                    if run is not None:
+                        suffix = f"{suffix}_{run}"
+                    suffix = f"{suffix}_{measure_name}"
+
+                    if not os.path.exists(f"{output_root}/centroids"):
+                        os.makedirs(f"{output_root}/centroids")
+
+                    np.save(
+                        f"{output_root}/centroids/{suffix}.npy",
+                        centroids_mat,
+                    )
+
+                except Exception as e:
+                    print(
+                        f"Error in clustering for visualization for {session} {task} {run}: {e}"
+                    )
+                    traceback.print_exc()
+
+
 #######################################################################################
 
 if __name__ == "__main__":
@@ -356,6 +408,25 @@ if __name__ == "__main__":
         traceback.print_exc()
 
     print(f"Task paradigm clustering finished for dFC ID {dFC_id}.")
+
+    print(f"Clustering for visualization started for dFC ID {dFC_id} ...")
+    try:
+        run_clustering_for_visual(
+            dFC_id=dFC_id,
+            TASKS=TASKS,
+            RUNS=RUNS,
+            SESSIONS=SESSIONS,
+            roi_root=roi_root,
+            dFC_root=dFC_root,
+            output_root=ML_root,
+            normalize_dFC=True,
+        )
+    except Exception as e:
+        print(f"Error in clustering for visualization for dFC ID {dFC_id}: {e}")
+        traceback.print_exc()
+
+    print(f"Clustering for visualization finished for dFC ID {dFC_id}.")
+
     print(f"Task presence prediction finished for dFC ID {dFC_id}.")
 
 #######################################################################################

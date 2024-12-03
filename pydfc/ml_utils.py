@@ -1426,3 +1426,53 @@ def task_paradigm_clustering(
         }
 
     return task_paradigm_clstr_RESULTS
+
+
+def cluster_for_visual(
+    task,
+    dFC_id,
+    roi_root,
+    dFC_root,
+    run=None,
+    session=None,
+    normalize_dFC=True,
+):
+    if run is None:
+        print(f"=============== {task} ===============")
+    else:
+        print(f"=============== {task} {run} ===============")
+
+    SUBJECTS = find_available_subjects(
+        dFC_root=dFC_root, task=task, run=run, session=session, dFC_id=dFC_id
+    )
+
+    print(f"Number of subjects: {len(SUBJECTS)}")
+
+    X, _, _, _, _, _, measure_name = dFC_feature_extraction(
+        task=task,
+        train_subjects=SUBJECTS,
+        test_subjects=[],
+        dFC_id=dFC_id,
+        roi_root=roi_root,
+        dFC_root=dFC_root,
+        run=run,
+        session=session,
+        dynamic_pred="no",
+        normalize_dFC=normalize_dFC,
+    )
+
+    # clustering
+    # apply kmeans clustering to dFC features
+    n_clusters = 12
+
+    kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
+    kmeans.fit(X)
+
+    # get centroids
+    centroids = kmeans.cluster_centers_
+    n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
+    centroids_mat = dFC_vec2mat(
+        centroids, n_regions
+    )  # shape: n_clusters x n_regions x n_regions
+
+    return centroids_mat, measure_name
