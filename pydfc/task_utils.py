@@ -192,7 +192,7 @@ def event_conv_hrf(event_signal, TR_mri, TR_task):
     return events_hrf
 
 
-def event_labels_conv_hrf(event_labels, TR_mri, TR_task):
+def event_labels_conv_hrf(event_labels, TR_mri, TR_task, no_hrf=False):
     """
     event_labels: event labels including 0 and event ids at the time each event happens
     TR_mri: TR of MRI
@@ -202,6 +202,10 @@ def event_labels_conv_hrf(event_labels, TR_mri, TR_task):
     return: event labels convolved with HRF for each event type
     the convolved event labels have the same length as the event_labels
     event type i convolved with HRF is in events_hrf[:, i-1]
+
+    events_hrf[:, 0] is the resting state
+
+    if no_hrf is True, the event labels are not convolved with HRF
     """
 
     event_labels = np.array(event_labels)
@@ -216,7 +220,10 @@ def event_labels_conv_hrf(event_labels, TR_mri, TR_task):
         event_signal = np.zeros(L)
         event_signal[event_labels[:, 0] == event_id] = 1.0
 
-        events_hrf[:, i] = event_conv_hrf(event_signal, TR_mri, TR_task)
+        if no_hrf:
+            events_hrf[:, i] = event_signal
+        else:
+            events_hrf[:, i] = event_conv_hrf(event_signal, TR_mri, TR_task)
 
     # the time points that are not in any event are considered as resting state
     events_hrf[np.sum(events_hrf[:, 1:], axis=1) == 0.0, 0] = 1.0
@@ -285,12 +292,9 @@ def extract_task_presence(
     # event_labels_all_task is all conditions together, rest vs. task times
     event_labels_all_task = np.multiply(event_labels != 0, 1)
 
-    if no_hrf:
-        event_labels_all_task_hrf = event_labels_all_task
-    else:
-        event_labels_all_task_hrf = event_labels_conv_hrf(
-            event_labels=event_labels_all_task, TR_mri=TR_mri, TR_task=TR_task
-        )
+    event_labels_all_task_hrf = event_labels_conv_hrf(
+        event_labels=event_labels_all_task, TR_mri=TR_mri, TR_task=TR_task, no_hrf=no_hrf
+    )
 
     # keep the task signal of events_hrf_0_1_ds
     if event_labels_all_task_hrf.shape[1] == 1:
