@@ -60,7 +60,7 @@ def run_FCS_estimate(
     )
     ################################ Measures of dFC #################################
 
-    MEASURES_lst = multi_analysis_utils.measures_initializer(
+    MEASURES_lst, hyper_param_info = multi_analysis_utils.measures_initializer(
         MEASURES_name_lst, params_methods, alter_hparams
     )
 
