@@ -86,8 +86,11 @@ def run_FCS_estimate(
 
     # Save the fitted measures
     for MEASURE_id, measure in enumerate(MEASURES_fit_lst):
-        if not os.path.exists(f"{output_dir}"):
-            os.makedirs(f"{output_dir}")
+        try:
+            if not os.path.exists(f"{output_dir}"):
+                os.makedirs(f"{output_dir}")
+        except OSError as err:
+            print(err)
         np.save(f"{output_dir}/MEASURE_{file_suffix}_{MEASURE_id}.npy", measure)
 
     print(f"Measurement required {time.time() - tic:0.3f} seconds.")
