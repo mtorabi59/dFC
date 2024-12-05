@@ -64,6 +64,9 @@ def run_FCS_estimate(
         MEASURES_name_lst, params_methods, alter_hparams
     )
 
+    # in this script we process only one measure
+    assert len(MEASURES_lst) == 1, "Only one measure should be processed in this script"
+
     tic = time.time()
     print("Measurement Started ...")
 
@@ -76,6 +79,10 @@ def run_FCS_estimate(
         verbose=params_multi_analysis["verbose"],
         backend=params_multi_analysis["backend"],
     )
+
+    assert (
+        len(MEASURES_fit_lst) == 1
+    ), "Only one measure should be processed in this script"
 
     # Save the fitted measures
     for MEASURE_id, measure in enumerate(MEASURES_fit_lst):
@@ -114,18 +121,6 @@ if __name__ == "__main__":
 
     TASKS = dataset_info["TASKS"]
 
-    job_id = os.getenv("SGE_TASK_ID")  # for SGE
-    if job_id is None:
-        job_id = os.getenv("SLURM_ARRAY_TASK_ID")  # for SLURM
-    job_id = int(job_id)
-    TASK_id = job_id - 1  # TASK_ID starts from 1 not 0
-    if TASK_id >= len(TASKS):
-        print("TASK_id out of TASKS")
-        exit()
-    task = TASKS[TASK_id]
-
-    print(f"FCS estimation CODE started running ... for task: {task} ...")
-
     if "SESSIONS" in dataset_info:
         SESSIONS = dataset_info["SESSIONS"]
     else:
@@ -138,7 +133,7 @@ if __name__ == "__main__":
     else:
         RUNS = None
     if RUNS is None:
-        RUNS = {task: [None]}
+        RUNS = {task: [None] for task in TASKS}
 
     if "{dataset}" in dataset_info["main_root"]:
         main_root = dataset_info["main_root"].replace(
@@ -165,19 +160,37 @@ if __name__ == "__main__":
     alter_hparams = methods_config["alter_hparams"]
     params_multi_analysis = methods_config["params_multi_analysis"]
 
-    for session in SESSIONS:
-        for run in RUNS[task]:
-            run_FCS_estimate(
-                params_methods=params_methods,
-                MEASURES_name_lst=MEASURES_name_lst,
-                alter_hparams=alter_hparams,
-                params_multi_analysis=params_multi_analysis,
-                task=task,
-                roi_root=roi_root,
-                output_root=fitted_measures_root,
-                session=session,
-                run=run,
-            )
+    # pick one method
+    job_id = os.getenv("SGE_TASK_ID")  # for SGE
+    if job_id is None:
+        job_id = os.getenv("SLURM_ARRAY_TASK_ID")  # for SLURM
+    job_id = int(job_id)
+    MEASURE_id = job_id - 1  # job_id starts from 1 not 0
+    if MEASURE_id >= len(MEASURES_name_lst):
+        print("MEASURE_id out of MEASURES_name_lst range")
+        exit()
+    picked_measure_list = [MEASURES_name_lst[MEASURE_id]]  # pick one method but as a list
 
-    print(f"FCS estimation CODE finished running ... for task: {task} ...")
+    print(
+        f"FCS estimation CODE started running ... for measure: {picked_measure_list[0]} ..."
+    )
+
+    for session in SESSIONS:
+        for task in TASKS:
+            for run in RUNS[task]:
+                run_FCS_estimate(
+                    params_methods=params_methods,
+                    MEASURES_name_lst=picked_measure_list,
+                    alter_hparams=alter_hparams,
+                    params_multi_analysis=params_multi_analysis,
+                    task=task,
+                    roi_root=roi_root,
+                    output_root=fitted_measures_root,
+                    session=session,
+                    run=run,
+                )
+
+    print(
+        f"FCS estimation CODE finished running ... for measure: {picked_measure_list[0]} ..."
+    )
 #################################################################################
