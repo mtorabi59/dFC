@@ -66,6 +66,11 @@ def run_FCS_estimate(
 
     # in this script we process only one measure
     assert len(MEASURES_lst) == 1, "Only one measure should be processed in this script"
+    # and we assume alter_hparams is empty
+    # if not, we need to change the naming of the output files
+    assert (
+        len(hyper_param_info) == 0
+    ), "alter_hparams is assumed to be empty in this script"
 
     tic = time.time()
     print("Measurement Started ...")
@@ -85,13 +90,14 @@ def run_FCS_estimate(
     ), "Only one measure should be processed in this script"
 
     # Save the fitted measures
-    for MEASURE_id, measure in enumerate(MEASURES_fit_lst):
+    for measure in MEASURES_fit_lst:
         try:
             if not os.path.exists(f"{output_dir}"):
                 os.makedirs(f"{output_dir}")
         except OSError as err:
             print(err)
-        np.save(f"{output_dir}/MEASURE_{file_suffix}_{MEASURE_id}.npy", measure)
+        measure_name = MEASURES_name_lst[0]
+        np.save(f"{output_dir}/MEASURE_{file_suffix}_{measure_name}.npy", measure)
 
     print(f"Measurement required {time.time() - tic:0.3f} seconds.")
 
