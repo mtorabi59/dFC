@@ -68,9 +68,7 @@ def run_FCS_estimate(
     assert len(MEASURES_lst) == 1, "Only one measure should be processed in this script"
     # and we assume alter_hparams is empty
     # if not, we need to change the naming of the output files
-    assert (
-        len(hyper_param_info) == 0
-    ), "alter_hparams is assumed to be empty in this script"
+    assert len(alter_hparams) == 0, "alter_hparams is assumed to be empty in this script"
 
     tic = time.time()
     print("Measurement Started ...")
