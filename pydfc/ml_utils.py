@@ -1469,7 +1469,7 @@ def cluster_for_visual(
 
     # clustering
     # apply kmeans clustering to dFC features
-    n_clusters = 12
+    n_clusters = 5
 
     kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
     kmeans.fit(X)
