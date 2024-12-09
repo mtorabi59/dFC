@@ -276,8 +276,8 @@ if __name__ == "__main__":
                 output_root=output_root,
                 session=session,
                 RUNS=RUNS[task],
-                trial_type_label=trial_type_label,
-                rest_labels=rest_labels,
+                trial_type_label=trial_type_label[task],
+                rest_labels=rest_labels[task],
             )
 
     print(
