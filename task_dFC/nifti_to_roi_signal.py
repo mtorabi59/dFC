@@ -65,18 +65,30 @@ def run_roi_signal_extraction(
             task_events_root = f"{bids_root}/{subj}/{session}/func"
         info_file = f"{task_events_root}/{task_file.replace(bold_suffix, '_bold.json')}"
 
+        if os.path.exists(info_file):
+            f = open(info_file)
+            acquisition_data = json.load(f)
+            f.close()
+        else:
+            acquisition_data = None
+
         # in some cases the info file is common for all subjects and can be found in f"{bids_root}"
-        if not os.path.exists(info_file):
-            ALL_COMMON_FILES = os.listdir(f"{bids_root}/")
-            ALL_COMMON_FILES = [
-                file_i
-                for file_i in ALL_COMMON_FILES
-                if (f"{task}_" in file_i) and ("_bold.json" in file_i)
-            ]
-            if len(ALL_COMMON_FILES) == 1:
-                info_file = f"{bids_root}/{ALL_COMMON_FILES[0]}"
-        if not os.path.exists(info_file):
-            # if the info file is not found, exclude the subject
+        ALL_COMMON_FILES = os.listdir(f"{bids_root}/")
+        ALL_COMMON_FILES = [
+            file_i
+            for file_i in ALL_COMMON_FILES
+            if (f"{task}_" in file_i) and ("_bold.json" in file_i)
+        ]
+        if len(ALL_COMMON_FILES) == 1:
+            global_info_file = f"{bids_root}/{ALL_COMMON_FILES[0]}"
+            f = open(global_info_file)
+            global_acquisition_data = json.load(f)
+            f.close()
+        else:
+            global_acquisition_data = None
+
+        if global_acquisition_data is None and acquisition_data is None:
+            # if the acquisition_data is not found, exclude the subject
             if run is None:
                 print(f"bold.json info file not found for {subj} {session_str} {task}")
             else:
@@ -84,12 +96,23 @@ def run_roi_signal_extraction(
                     f"bold.json info file not found for {subj} {session_str} {task} {run}"
                 )
             return
-        ################################# LOAD JSON INFO #########################
-        # Opening JSON file as a dictionary
-        f = open(info_file)
-        acquisition_data = json.load(f)
-        f.close()
-        TR_mri = acquisition_data["RepetitionTime"]
+        ################################# GET REPETITION TIME #########################
+        TR_mri = None
+        # first check the acquisition_data
+        if acquisition_data is not None:
+            if "RepetitionTime" in acquisition_data:
+                TR_mri = acquisition_data["RepetitionTime"]
+        # if not found, check the global_acquisition_data
+        if TR_mri is None and global_acquisition_data is not None:
+            if "RepetitionTime" in global_acquisition_data:
+                TR_mri = global_acquisition_data["RepetitionTime"]
+        # if not found, print a warning and skip the subject
+        if TR_mri is None:
+            if run is None:
+                print(f"Repetition time not found for {subj} {session_str} {task}")
+            else:
+                print(f"Repetition time not found for {subj} {session_str} {task} {run}")
+            return
         ################################# EXTRACT TIME SERIES #########################
         # extract ROI signals and convert to TIME_SERIES object
         time_series = data_loader.nifti2timeseries(
