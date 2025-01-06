@@ -257,7 +257,13 @@ def run_clustering_for_visual(
         for task_id, task in enumerate(TASKS):
             for run in RUNS[task]:
                 try:
-                    centroids_mat, measure_name = cluster_for_visual(
+                    (
+                        centroids_mat,
+                        measure_name,
+                        co_occurrence_matrix,
+                        cluster_label_percentage,
+                        task_label_percentage,
+                    ) = cluster_for_visual(
                         task=task,
                         dFC_id=dFC_id,
                         roi_root=roi_root,
@@ -266,6 +272,13 @@ def run_clustering_for_visual(
                         session=session,
                         normalize_dFC=normalize_dFC,
                     )
+
+                    centroids = {
+                        "centroids_mat": centroids_mat,
+                        "co_occurrence_matrix": co_occurrence_matrix,
+                        "cluster_label_percentage": cluster_label_percentage,
+                        "task_label_percentage": task_label_percentage,
+                    }
 
                     # save the centroids
                     suffix = "centroids"
@@ -285,7 +298,7 @@ def run_clustering_for_visual(
 
                     np.save(
                         f"{folder}/{suffix}.npy",
-                        centroids_mat,
+                        centroids,
                     )
 
                 except Exception as e:

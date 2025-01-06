@@ -1434,6 +1434,40 @@ def task_paradigm_clustering(
     return task_paradigm_clstr_RESULTS
 
 
+def co_occurrence(task_labels, clstr_labels):
+    """
+    Calculate the co-occurrence between task labels and clustering labels.
+    """
+    co_occurrence_matrix = np.zeros(
+        (len(np.unique(task_labels)), len(np.unique(clstr_labels)))
+    )
+    for i, task_label in enumerate(np.unique(task_labels)):
+        for j, clstr_label in enumerate(np.unique(clstr_labels)):
+            co_occurrence_matrix[i, j] = np.sum(
+                (task_labels == task_label) & (clstr_labels == clstr_label)
+            )
+
+    # now find the percentage of time each cluster label was present in each task label
+    cluster_label_percentage = (
+        co_occurrence_matrix / np.sum(co_occurrence_matrix, axis=1)[:, None]
+    )
+    # make sure that the sum of each row is 1
+    assert np.allclose(
+        np.sum(cluster_label_percentage, axis=1), 1
+    ), "Sum of each row is not 1."
+
+    # now find the percentage of time each task label occupied each cluster label
+    task_label_percentage = (
+        co_occurrence_matrix / np.sum(co_occurrence_matrix, axis=0)[None, :]
+    )
+    # make sure that the sum of each column is 1
+    assert np.allclose(
+        np.sum(task_label_percentage, axis=0), 1
+    ), "Sum of each column is not 1."
+
+    return co_occurrence_matrix, cluster_label_percentage, task_label_percentage
+
+
 def cluster_for_visual(
     task,
     dFC_id,
@@ -1454,7 +1488,7 @@ def cluster_for_visual(
 
     print(f"Number of subjects: {len(SUBJECTS)}")
 
-    X, _, _, _, _, _, measure_name = dFC_feature_extraction(
+    X, _, y, _, _, _, measure_name = dFC_feature_extraction(
         task=task,
         train_subjects=SUBJECTS,
         test_subjects=[],
@@ -1472,7 +1506,12 @@ def cluster_for_visual(
     n_clusters = 5
 
     kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
-    kmeans.fit(X)
+    clstr_labels = kmeans.fit_predict(X)  # clstr_labels = (n_samples,)
+
+    # calculate the co-occurrence matrix
+    co_occurrence_matrix, cluster_label_percentage, task_label_percentage = co_occurrence(
+        y, clstr_labels
+    )
 
     # get centroids
     centroids = kmeans.cluster_centers_
@@ -1481,4 +1520,10 @@ def cluster_for_visual(
         centroids, n_regions
     )  # shape: n_clusters x n_regions x n_regions
 
-    return centroids_mat, measure_name
+    return (
+        centroids_mat,
+        measure_name,
+        co_occurrence_matrix,
+        cluster_label_percentage,
+        task_label_percentage,
+    )

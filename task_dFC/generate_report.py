@@ -989,14 +989,20 @@ def plot_visual_clstr_centroids(
     ALL_CENTROID_RESULTS.sort()
 
     for result_file in ALL_CENTROID_RESULTS:
-        centroids_mats = np.load(f"{input_dir}/{result_file}", allow_pickle="TRUE")
+        centroids_results = np.load(
+            f"{input_dir}/{result_file}", allow_pickle="TRUE"
+        ).item()
+        centroids_mat = centroids_results["centroids_mat"]
+        co_occurrence_matrix = centroids_results["co_occurrence_matrix"]
+        cluster_label_percentage = centroids_results["cluster_label_percentage"]
+        task_label_percentage = centroids_results["task_label_percentage"]
 
         # result_file is centroids_{session}_{task}_{run}_{measure_name}.npy
         # suffix is whatever comes after the centroids and before .npy
         suffix = result_file.split("centroids_")[1].split(".npy")[0]
 
         centroids_dict = {}
-        for i, centroid_mat in enumerate(centroids_mats):
+        for i, centroid_mat in enumerate(centroids_mat):
             centroids_dict[f"Cluster {i + 1}"] = centroid_mat
 
         visualize_conn_mat_dict(
@@ -1010,6 +1016,73 @@ def plot_visual_clstr_centroids(
             center_0=True,
             # node_networks=None,
         )
+
+        # plot co-occurrence matrix and cluster label percentage and task label percentage
+        # as a seaborn heatmap with numbers in the cells
+        # as separate figures
+
+        # plot co-occurrence matrix
+        plt.figure(figsize=(10, 5))
+        sns.heatmap(
+            co_occurrence_matrix,
+            annot=True,
+            fmt=".2f",
+            cmap="coolwarm",
+            cbar_kws={"label": "Co-occurrence"},
+        )
+        plt.title("Co-occurrence matrix")
+        plt.xlabel("Cluster")
+        plt.ylabel("Task")
+        plt.savefig(
+            f"{output_dir}/co-occurrence-matrix_{suffix}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+        plt.close()
+
+        # plot cluster label percentage
+        plt.figure(figsize=(10, 5))
+        sns.heatmap(
+            cluster_label_percentage,
+            annot=True,
+            fmt=".2f",
+            cmap="coolwarm",
+            cbar_kws={"label": "Percentage"},
+        )
+        plt.title("Cluster label percentage")
+        plt.xlabel("Cluster")
+        plt.ylabel("Task")
+        plt.savefig(
+            f"{output_dir}/cluster-label-percentage_{suffix}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+        plt.close()
+
+        # plot task label percentage
+        plt.figure(figsize=(10, 5))
+        sns.heatmap(
+            task_label_percentage,
+            annot=True,
+            fmt=".2f",
+            cmap="coolwarm",
+            cbar_kws={"label": "Percentage"},
+        )
+        plt.title("Task label percentage")
+        plt.xlabel("Cluster")
+        plt.ylabel("Task")
+        plt.savefig(
+            f"{output_dir}/task-label-percentage_{suffix}.{save_fig_format}",
+            dpi=fig_dpi,
+            bbox_inches=fig_bbox_inches,
+            pad_inches=fig_pad,
+            format=save_fig_format,
+        )
+        plt.close()
 
 
 # def plot_paradigm_clstr_centroids(
@@ -1670,6 +1743,54 @@ def create_html_report_group_results(
                         file.write(
                             f"<img src='{centroid_img}' alt='Visual clustering centroids' width='{width}' height='{img_height}'>\n"
                         )
+
+                        # visual-centroids_{suffix}.png
+                        suffix = centroids_img_file[
+                            centroids_img_file.find("visual-centroids_") + 17 : -4
+                        ]
+
+                        # display co-occurrence matrix
+                        co_occurrence_matrix_img = f"{visual_clustering_centroids_dir}/co-occurrence-matrix_{suffix}.png"
+                        img = plt.imread(co_occurrence_matrix_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        co_occurrence_matrix_img = co_occurrence_matrix_img.replace(
+                            group_dir, "."
+                        )
+                        file.write(
+                            f"<img src='{co_occurrence_matrix_img}' alt='Co-occurrence matrix' width='{width}' height='{img_height}'>\n"
+                        )
+
+                        # display cluster label percentage
+                        cluster_label_percentage_img = f"{visual_clustering_centroids_dir}/cluster-label-percentage_{suffix}.png"
+                        img = plt.imread(cluster_label_percentage_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        cluster_label_percentage_img = (
+                            cluster_label_percentage_img.replace(group_dir, ".")
+                        )
+                        file.write(
+                            f"<img src='{cluster_label_percentage_img}' alt='Cluster label percentage' width='{width}' height='{img_height}'>\n"
+                        )
+
+                        # display task label percentage
+                        task_label_percentage_img = f"{visual_clustering_centroids_dir}/task-label-percentage_{suffix}.png"
+                        img = plt.imread(task_label_percentage_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        task_label_percentage_img = task_label_percentage_img.replace(
+                            group_dir, "."
+                        )
+                        file.write(
+                            f"<img src='{task_label_percentage_img}' alt='Task label percentage' width='{width}' height='{img_height}'>\n"
+                        )
+
                         file.write("<br>\n")
 
         # # display paradigm clustering centroids
