@@ -1912,9 +1912,8 @@ if __name__ == "__main__":
 
     print("Generating report...")
 
-    # Generate report only 5 random subjects
-    # SUBJECTS = np.random.choice(SUBJECTS, 5)
-    SUBJECTS = SUBJECTS[:1]
+    # Generate report only 3 subjects
+    SUBJECTS = SUBJECTS[:3]
 
     start_time = 0
     end_time = 200
