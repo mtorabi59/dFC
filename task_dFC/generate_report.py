@@ -1029,6 +1029,8 @@ def plot_visual_clstr_centroids(
             fmt=".0f",
             cmap="Reds",
             cbar_kws={"label": "Co-occurrence"},
+            yticklabels=["rest", "task"],
+            xticklabels=[str(i + 1) for i in range(co_occurrence_matrix.shape[1])],
         )
         plt.title("Co-occurrence matrix")
         plt.xlabel("Cluster")
@@ -1050,6 +1052,8 @@ def plot_visual_clstr_centroids(
             fmt=".2f",
             cmap="Reds",
             cbar_kws={"label": "Percentage"},
+            yticklabels=["rest", "task"],
+            xticklabels=[str(i + 1) for i in range(co_occurrence_matrix.shape[1])],
         )
         plt.title("Cluster label percentage")
         plt.xlabel("Cluster")
@@ -1071,6 +1075,8 @@ def plot_visual_clstr_centroids(
             fmt=".2f",
             cmap="Reds",
             cbar_kws={"label": "Percentage"},
+            yticklabels=["rest", "task"],
+            xticklabels=[str(i + 1) for i in range(co_occurrence_matrix.shape[1])],
         )
         plt.title("Task label percentage")
         plt.xlabel("Cluster")
@@ -1375,61 +1381,65 @@ def create_html_report_subj_results(
 
                 # display GLM
                 glm_img = f"{subj_dir}/GLM/{session_task_run_dir}/glm.png"
-                img = plt.imread(glm_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                glm_img = glm_img.replace(subj_dir, ".")
-                file.write(
-                    f"<img src='{glm_img}' alt='GLM' width='{width}' height='{img_height}'>\n"
-                )
-                file.write("<br>\n")
+                if os.path.exists(glm_img):
+                    img = plt.imread(glm_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    glm_img = glm_img.replace(subj_dir, ".")
+                    file.write(
+                        f"<img src='{glm_img}' alt='GLM' width='{width}' height='{img_height}'>\n"
+                    )
+                    file.write("<br>\n")
 
                 # display ROI signals
                 ROI_signals_img = (
                     f"{subj_dir}/ROI_signals/{session_task_run_dir}/ROI_signals.png"
                 )
-                img = plt.imread(ROI_signals_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                ROI_signals_img = ROI_signals_img.replace(subj_dir, ".")
-                file.write(
-                    f"<img src='{ROI_signals_img}' alt='ROI signals' width='{width}' height='{img_height}'>\n"
-                )
-                file.write("<br>\n")
+                if os.path.exists(ROI_signals_img):
+                    img = plt.imread(ROI_signals_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    ROI_signals_img = ROI_signals_img.replace(subj_dir, ".")
+                    file.write(
+                        f"<img src='{ROI_signals_img}' alt='ROI signals' width='{width}' height='{img_height}'>\n"
+                    )
+                    file.write("<br>\n")
 
                 # display event labels
                 event_labels_img = (
                     f"{subj_dir}/event_labels/{session_task_run_dir}/event_labels.png"
                 )
-                img = plt.imread(event_labels_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                event_labels_img = event_labels_img.replace(subj_dir, ".")
-                file.write(
-                    f"<img src='{event_labels_img}' alt='Event labels' width='{width}' height='{img_height}'>\n"
-                )
-                file.write("<br>\n")
+                if os.path.exists(event_labels_img):
+                    img = plt.imread(event_labels_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    event_labels_img = event_labels_img.replace(subj_dir, ".")
+                    file.write(
+                        f"<img src='{event_labels_img}' alt='Event labels' width='{width}' height='{img_height}'>\n"
+                    )
+                    file.write("<br>\n")
 
                 # display task presence
                 task_presence_img = (
                     f"{subj_dir}/task_presence/{session_task_run_dir}/task_presence.png"
                 )
-                img = plt.imread(task_presence_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                task_presence_img = task_presence_img.replace(subj_dir, ".")
-                file.write(
-                    f"<img src='{task_presence_img}' alt='Task presence' width='{width}' height='{img_height}'>\n"
-                )
-                file.write("<br>\n")
+                if os.path.exists(task_presence_img):
+                    img = plt.imread(task_presence_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    task_presence_img = task_presence_img.replace(subj_dir, ".")
+                    file.write(
+                        f"<img src='{task_presence_img}' alt='Task presence' width='{width}' height='{img_height}'>\n"
+                    )
+                    file.write("<br>\n")
 
                 # display dFC matrices
                 img_height = 45
@@ -1564,15 +1574,16 @@ def create_html_report_group_results(
                         classification_img = f"{classification_dir}/ML_results_classify_KNN_{task}_{embedding}.png"
                     else:
                         classification_img = f"{classification_dir}/ML_results_classify_KNN_{task}_{run}_{embedding}.png"
-                    img = plt.imread(classification_img)
-                    height, width, _ = img.shape
-                    # change the width so that height equals img_height
-                    width = int(width * img_height / height)
-                    # replace the path to the image with a relative path
-                    classification_img = classification_img.replace(group_dir, ".")
-                    file.write(
-                        f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
-                    )
+                    if os.path.exists(classification_img):
+                        img = plt.imread(classification_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        classification_img = classification_img.replace(group_dir, ".")
+                        file.write(
+                            f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
+                        )
 
                     # display Logistic regression classification results
                     file.write("<h3>Logistic Regression</h3>\n")
@@ -1580,15 +1591,16 @@ def create_html_report_group_results(
                         classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{embedding}.png"
                     else:
                         classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{run}_{embedding}.png"
-                    img = plt.imread(classification_img)
-                    height, width, _ = img.shape
-                    # change the width so that height equals img_height
-                    width = int(width * img_height / height)
-                    # replace the path to the image with a relative path
-                    classification_img = classification_img.replace(group_dir, ".")
-                    file.write(
-                        f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
-                    )
+                    if os.path.exists(classification_img):
+                        img = plt.imread(classification_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        classification_img = classification_img.replace(group_dir, ".")
+                        file.write(
+                            f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
+                        )
 
                     file.write("<br>\n")
 
@@ -1615,34 +1627,36 @@ def create_html_report_group_results(
                         clustering_img = f"{clustering_dir}/clustering_results_ARI_{task}_{embedding}.png"
                     else:
                         clustering_img = f"{clustering_dir}/clustering_results_ARI_{task}_{run}_{embedding}.png"
-                    img = plt.imread(clustering_img)
-                    height, width, _ = img.shape
-                    # change the width so that height equals img_height
-                    width = int(width * img_height / height)
-                    # replace the path to the image with a relative path
-                    clustering_img = clustering_img.replace(group_dir, ".")
-                    file.write(
-                        f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
-                    )
+                    if os.path.exists(clustering_img):
+                        img = plt.imread(clustering_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        clustering_img = clustering_img.replace(group_dir, ".")
+                        file.write(
+                            f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
+                        )
 
-                    file.write("<br>\n")
+                        file.write("<br>\n")
 
                     # display clustering SI results
                     if run is None:
                         clustering_img = f"{clustering_dir}/clustering_results_SI_{task}_{embedding}.png"
                     else:
                         clustering_img = f"{clustering_dir}/clustering_results_SI_{task}_{run}_{embedding}.png"
-                    img = plt.imread(clustering_img)
-                    height, width, _ = img.shape
-                    # change the width so that height equals img_height
-                    width = int(width * img_height / height)
-                    # replace the path to the image with a relative path
-                    clustering_img = clustering_img.replace(group_dir, ".")
-                    file.write(
-                        f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
-                    )
+                    if os.path.exists(clustering_img):
+                        img = plt.imread(clustering_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        clustering_img = clustering_img.replace(group_dir, ".")
+                        file.write(
+                            f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
+                        )
 
-                    file.write("<br>\n")
+                        file.write("<br>\n")
 
     # paradigm clustering results
     file.write("<h1>Paradigm Clustering Results</h1>\n")
@@ -1740,15 +1754,16 @@ def create_html_report_group_results(
                     measure_name = centroids_img_file.split("_")[-1].split(".")[0]
                     file.write(f"<h3>{measure_name}</h3>\n")
                     # get the original size of the image
-                    img = plt.imread(centroid_img)
-                    height, width, _ = img.shape
-                    # change the width so that height equals img_height
-                    width = int(width * img_height / height)
-                    # replace the path to the image with a relative path
-                    centroid_img = centroid_img.replace(group_dir, ".")
-                    file.write(
-                        f"<img src='{centroid_img}' alt='Visual clustering centroids' width='{width}' height='{img_height}'>\n"
-                    )
+                    if os.path.exists(centroid_img):
+                        img = plt.imread(centroid_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        centroid_img = centroid_img.replace(group_dir, ".")
+                        file.write(
+                            f"<img src='{centroid_img}' alt='Visual clustering centroids' width='{width}' height='{img_height}'>\n"
+                        )
 
                     # visual-centroids_{suffix}.png
                     suffix = centroids_img_file[
@@ -1757,45 +1772,48 @@ def create_html_report_group_results(
 
                     # display co-occurrence matrix
                     co_occurrence_matrix_img = f"{visual_clustering_centroids_dir}/co-occurrence-matrix_{suffix}.png"
-                    img = plt.imread(co_occurrence_matrix_img)
-                    height, width, _ = img.shape
-                    # change the width so that height equals img_height
-                    width = int(width * img_height / height)
-                    # replace the path to the image with a relative path
-                    co_occurrence_matrix_img = co_occurrence_matrix_img.replace(
-                        group_dir, "."
-                    )
-                    file.write(
-                        f"<img src='{co_occurrence_matrix_img}' alt='Co-occurrence matrix' width='{width}' height='{img_height}'>\n"
-                    )
+                    if os.path.exists(co_occurrence_matrix_img):
+                        img = plt.imread(co_occurrence_matrix_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        co_occurrence_matrix_img = co_occurrence_matrix_img.replace(
+                            group_dir, "."
+                        )
+                        file.write(
+                            f"<img src='{co_occurrence_matrix_img}' alt='Co-occurrence matrix' width='{width}' height='{img_height}'>\n"
+                        )
 
                     # display cluster label percentage
                     cluster_label_percentage_img = f"{visual_clustering_centroids_dir}/cluster-label-percentage_{suffix}.png"
-                    img = plt.imread(cluster_label_percentage_img)
-                    height, width, _ = img.shape
-                    # change the width so that height equals img_height
-                    width = int(width * img_height / height)
-                    # replace the path to the image with a relative path
-                    cluster_label_percentage_img = cluster_label_percentage_img.replace(
-                        group_dir, "."
-                    )
-                    file.write(
-                        f"<img src='{cluster_label_percentage_img}' alt='Cluster label percentage' width='{width}' height='{img_height}'>\n"
-                    )
+                    if os.path.exists(cluster_label_percentage_img):
+                        img = plt.imread(cluster_label_percentage_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        cluster_label_percentage_img = (
+                            cluster_label_percentage_img.replace(group_dir, ".")
+                        )
+                        file.write(
+                            f"<img src='{cluster_label_percentage_img}' alt='Cluster label percentage' width='{width}' height='{img_height}'>\n"
+                        )
 
                     # display task label percentage
                     task_label_percentage_img = f"{visual_clustering_centroids_dir}/task-label-percentage_{suffix}.png"
-                    img = plt.imread(task_label_percentage_img)
-                    height, width, _ = img.shape
-                    # change the width so that height equals img_height
-                    width = int(width * img_height / height)
-                    # replace the path to the image with a relative path
-                    task_label_percentage_img = task_label_percentage_img.replace(
-                        group_dir, "."
-                    )
-                    file.write(
-                        f"<img src='{task_label_percentage_img}' alt='Task label percentage' width='{width}' height='{img_height}'>\n"
-                    )
+                    if os.path.exists(task_label_percentage_img):
+                        img = plt.imread(task_label_percentage_img)
+                        height, width, _ = img.shape
+                        # change the width so that height equals img_height
+                        width = int(width * img_height / height)
+                        # replace the path to the image with a relative path
+                        task_label_percentage_img = task_label_percentage_img.replace(
+                            group_dir, "."
+                        )
+                        file.write(
+                            f"<img src='{task_label_percentage_img}' alt='Task label percentage' width='{width}' height='{img_height}'>\n"
+                        )
 
                     file.write("<br>\n")
 
