@@ -1670,7 +1670,7 @@ def create_html_report_group_results(
                 file.write(
                     f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
                 )
-            except e:
+            except Exception as e:
                 print(f"Error: {e}")
 
             file.write("<br>\n")
@@ -1691,7 +1691,7 @@ def create_html_report_group_results(
                 file.write(
                     f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
                 )
-            except e:
+            except Exception as e:
                 print(f"Error: {e}")
 
             file.write("<br>\n")
