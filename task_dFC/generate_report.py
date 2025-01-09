@@ -1022,12 +1022,12 @@ def plot_visual_clstr_centroids(
         # as separate figures
 
         # plot co-occurrence matrix
-        plt.figure(figsize=(10, 5))
+        plt.figure(figsize=(20, 10))
         sns.heatmap(
             co_occurrence_matrix,
             annot=True,
-            fmt=".2f",
-            cmap="coolwarm",
+            fmt=".0f",
+            cmap="Reds",
             cbar_kws={"label": "Co-occurrence"},
         )
         plt.title("Co-occurrence matrix")
@@ -1043,12 +1043,12 @@ def plot_visual_clstr_centroids(
         plt.close()
 
         # plot cluster label percentage
-        plt.figure(figsize=(10, 5))
+        plt.figure(figsize=(20, 10))
         sns.heatmap(
             cluster_label_percentage,
             annot=True,
             fmt=".2f",
-            cmap="coolwarm",
+            cmap="Reds",
             cbar_kws={"label": "Percentage"},
         )
         plt.title("Cluster label percentage")
@@ -1064,12 +1064,12 @@ def plot_visual_clstr_centroids(
         plt.close()
 
         # plot task label percentage
-        plt.figure(figsize=(10, 5))
+        plt.figure(figsize=(20, 10))
         sns.heatmap(
             task_label_percentage,
             annot=True,
             fmt=".2f",
-            cmap="coolwarm",
+            cmap="Reds",
             cbar_kws={"label": "Percentage"},
         )
         plt.title("Task label percentage")
@@ -1660,15 +1660,18 @@ def create_html_report_group_results(
         for embedding in ["PCA", "LE"]:
             file.write(f"<h3>{embedding}</h3>\n")
             paradigm_clustering_img = f"{paradigm_clustering_dir}/paradigm_clustering_results_ARI_{embedding}.png"
-            img = plt.imread(paradigm_clustering_img)
-            height, width, _ = img.shape
-            # change the width so that height equals img_height
-            width = int(width * img_height / height)
-            # replace the path to the image with a relative path
-            paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
-            file.write(
-                f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
-            )
+            try:
+                img = plt.imread(paradigm_clustering_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
+                file.write(
+                    f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
+                )
+            except e:
+                print(f"Error: {e}")
 
             file.write("<br>\n")
 
@@ -1678,120 +1681,123 @@ def create_html_report_group_results(
         for embedding in ["PCA", "LE"]:
             file.write(f"<h3>{embedding}</h3>\n")
             paradigm_clustering_img = f"{paradigm_clustering_dir}/paradigm_clustering_results_SI_{embedding}.png"
-            img = plt.imread(paradigm_clustering_img)
-            height, width, _ = img.shape
-            # change the width so that height equals img_height
-            width = int(width * img_height / height)
-            # replace the path to the image with a relative path
-            paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
-            file.write(
-                f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
-            )
+            try:
+                img = plt.imread(paradigm_clustering_img)
+                height, width, _ = img.shape
+                # change the width so that height equals img_height
+                width = int(width * img_height / height)
+                # replace the path to the image with a relative path
+                paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
+                file.write(
+                    f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
+                )
+            except e:
+                print(f"Error: {e}")
 
             file.write("<br>\n")
 
-        # display visual clustering centroids
-        img_height = 300
-        file.write("<h2>Visual Clustering Centroids</h2>\n")
-        # find all png files in the directory
-        visual_clustering_centroids_dir = f"{group_dir}/visual_clustering_centroids"
-        for session in SESSIONS:
-            if session is not None:
-                file.write(f"<h3> {session} </h3>\n")
-            for task in TASKS:
-                file.write(f"<h3> {task} </h3>\n")
-                for run in RUNS[task]:
-                    if run is not None:
-                        file.write(f"<h3> {run} </h3>\n")
+    # display visual clustering centroids
+    img_height = 300
+    file.write("<h1>Visual Clustering Centroids</h2>\n")
+    # find all png files in the directory
+    visual_clustering_centroids_dir = f"{group_dir}/visual_clustering_centroids"
+    for session in SESSIONS:
+        if session is not None:
+            file.write(f"<h3> {session} </h3>\n")
+        for task in TASKS:
+            file.write(f"<h3> {task} </h3>\n")
+            for run in RUNS[task]:
+                if run is not None:
+                    file.write(f"<h3> {run} </h3>\n")
 
-                    # visual-centroids_{session}_{task}_{run}_{measure_name}.png
-                    all_centroids_img_files = os.listdir(visual_clustering_centroids_dir)
+                # visual-centroids_{session}_{task}_{run}_{measure_name}.png
+                all_centroids_img_files = os.listdir(visual_clustering_centroids_dir)
+                all_centroids_img_files = [
+                    centroids_img_file
+                    for centroids_img_file in all_centroids_img_files
+                    if "visual-centroids" in centroids_img_file
+                    and f"_{task}" in centroids_img_file
+                ]
+                if session is not None:
                     all_centroids_img_files = [
                         centroids_img_file
                         for centroids_img_file in all_centroids_img_files
-                        if "visual-centroids" in centroids_img_file
-                        and f"_{task}" in centroids_img_file
+                        if f"_{session}" in centroids_img_file
                     ]
-                    if session is not None:
-                        all_centroids_img_files = [
-                            centroids_img_file
-                            for centroids_img_file in all_centroids_img_files
-                            if f"_{session}" in centroids_img_file
-                        ]
-                    if run is not None:
-                        all_centroids_img_files = [
-                            centroids_img_file
-                            for centroids_img_file in all_centroids_img_files
-                            if f"_{run}" in centroids_img_file
-                        ]
-                    all_centroids_img_files.sort()
+                if run is not None:
+                    all_centroids_img_files = [
+                        centroids_img_file
+                        for centroids_img_file in all_centroids_img_files
+                        if f"_{run}" in centroids_img_file
+                    ]
+                all_centroids_img_files.sort()
 
-                    for centroids_img_file in all_centroids_img_files:
-                        # iterate over centroids images of different measures
-                        centroid_img = (
-                            f"{visual_clustering_centroids_dir}/{centroids_img_file}"
-                        )
-                        measure_name = centroids_img_file.split("_")[-1].split(".")[0]
-                        file.write(f"<h3>{measure_name}</h3>\n")
-                        # get the original size of the image
-                        img = plt.imread(centroid_img)
-                        height, width, _ = img.shape
-                        # change the width so that height equals img_height
-                        width = int(width * img_height / height)
-                        # replace the path to the image with a relative path
-                        centroid_img = centroid_img.replace(group_dir, ".")
-                        file.write(
-                            f"<img src='{centroid_img}' alt='Visual clustering centroids' width='{width}' height='{img_height}'>\n"
-                        )
+                for centroids_img_file in all_centroids_img_files:
+                    # iterate over centroids images of different measures
+                    centroid_img = (
+                        f"{visual_clustering_centroids_dir}/{centroids_img_file}"
+                    )
+                    measure_name = centroids_img_file.split("_")[-1].split(".")[0]
+                    file.write(f"<h3>{measure_name}</h3>\n")
+                    # get the original size of the image
+                    img = plt.imread(centroid_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    centroid_img = centroid_img.replace(group_dir, ".")
+                    file.write(
+                        f"<img src='{centroid_img}' alt='Visual clustering centroids' width='{width}' height='{img_height}'>\n"
+                    )
 
-                        # visual-centroids_{suffix}.png
-                        suffix = centroids_img_file[
-                            centroids_img_file.find("visual-centroids_") + 17 : -4
-                        ]
+                    # visual-centroids_{suffix}.png
+                    suffix = centroids_img_file[
+                        centroids_img_file.find("visual-centroids_") + 17 : -4
+                    ]
 
-                        # display co-occurrence matrix
-                        co_occurrence_matrix_img = f"{visual_clustering_centroids_dir}/co-occurrence-matrix_{suffix}.png"
-                        img = plt.imread(co_occurrence_matrix_img)
-                        height, width, _ = img.shape
-                        # change the width so that height equals img_height
-                        width = int(width * img_height / height)
-                        # replace the path to the image with a relative path
-                        co_occurrence_matrix_img = co_occurrence_matrix_img.replace(
-                            group_dir, "."
-                        )
-                        file.write(
-                            f"<img src='{co_occurrence_matrix_img}' alt='Co-occurrence matrix' width='{width}' height='{img_height}'>\n"
-                        )
+                    # display co-occurrence matrix
+                    co_occurrence_matrix_img = f"{visual_clustering_centroids_dir}/co-occurrence-matrix_{suffix}.png"
+                    img = plt.imread(co_occurrence_matrix_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    co_occurrence_matrix_img = co_occurrence_matrix_img.replace(
+                        group_dir, "."
+                    )
+                    file.write(
+                        f"<img src='{co_occurrence_matrix_img}' alt='Co-occurrence matrix' width='{width}' height='{img_height}'>\n"
+                    )
 
-                        # display cluster label percentage
-                        cluster_label_percentage_img = f"{visual_clustering_centroids_dir}/cluster-label-percentage_{suffix}.png"
-                        img = plt.imread(cluster_label_percentage_img)
-                        height, width, _ = img.shape
-                        # change the width so that height equals img_height
-                        width = int(width * img_height / height)
-                        # replace the path to the image with a relative path
-                        cluster_label_percentage_img = (
-                            cluster_label_percentage_img.replace(group_dir, ".")
-                        )
-                        file.write(
-                            f"<img src='{cluster_label_percentage_img}' alt='Cluster label percentage' width='{width}' height='{img_height}'>\n"
-                        )
+                    # display cluster label percentage
+                    cluster_label_percentage_img = f"{visual_clustering_centroids_dir}/cluster-label-percentage_{suffix}.png"
+                    img = plt.imread(cluster_label_percentage_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    cluster_label_percentage_img = cluster_label_percentage_img.replace(
+                        group_dir, "."
+                    )
+                    file.write(
+                        f"<img src='{cluster_label_percentage_img}' alt='Cluster label percentage' width='{width}' height='{img_height}'>\n"
+                    )
 
-                        # display task label percentage
-                        task_label_percentage_img = f"{visual_clustering_centroids_dir}/task-label-percentage_{suffix}.png"
-                        img = plt.imread(task_label_percentage_img)
-                        height, width, _ = img.shape
-                        # change the width so that height equals img_height
-                        width = int(width * img_height / height)
-                        # replace the path to the image with a relative path
-                        task_label_percentage_img = task_label_percentage_img.replace(
-                            group_dir, "."
-                        )
-                        file.write(
-                            f"<img src='{task_label_percentage_img}' alt='Task label percentage' width='{width}' height='{img_height}'>\n"
-                        )
+                    # display task label percentage
+                    task_label_percentage_img = f"{visual_clustering_centroids_dir}/task-label-percentage_{suffix}.png"
+                    img = plt.imread(task_label_percentage_img)
+                    height, width, _ = img.shape
+                    # change the width so that height equals img_height
+                    width = int(width * img_height / height)
+                    # replace the path to the image with a relative path
+                    task_label_percentage_img = task_label_percentage_img.replace(
+                        group_dir, "."
+                    )
+                    file.write(
+                        f"<img src='{task_label_percentage_img}' alt='Task label percentage' width='{width}' height='{img_height}'>\n"
+                    )
 
-                        file.write("<br>\n")
+                    file.write("<br>\n")
 
         # # display paradigm clustering centroids
         # img_height = 300
