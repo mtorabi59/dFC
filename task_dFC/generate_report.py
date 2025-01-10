@@ -651,6 +651,20 @@ def plot_ML_results(
         dodge=True,
         capsize=0.1,
     )
+    plt.xlabel(g.get_xlabel(), fontweight="bold")
+    plt.ylabel(g.get_ylabel(), fontweight="bold")
+    plt.xticks(fontweight="bold")
+    plt.yticks(fontweight="bold")
+    plt.legend(
+        title=g.legend_.get_title().get_text(),
+        title_fontsize="13",
+        title_fontweight="bold",
+        fontsize="11",
+        loc="best",
+        frameon=True,
+    )
+    for text in g.legend_.get_texts():
+        text.set_fontweight("bold")
     g.axhline(0.5, color="r", linestyle="--")
     # set the y-axis upper limit to 1, but not set the lower limit
     g.set(ylim=(None, 1))
@@ -755,6 +769,20 @@ def plot_clustering_results(
         dodge=True,
         capsize=0.1,
     )
+    plt.xlabel(g.get_xlabel(), fontweight="bold")
+    plt.ylabel(g.get_ylabel(), fontweight="bold")
+    plt.xticks(fontweight="bold")
+    plt.yticks(fontweight="bold")
+    plt.legend(
+        title=g.legend_.get_title().get_text(),
+        title_fontsize="13",
+        title_fontweight="bold",
+        fontsize="11",
+        loc="best",
+        frameon=True,
+    )
+    for text in g.legend_.get_texts():
+        text.set_fontweight("bold")
     g.axhline(0.0, color="r", linestyle="--")
     # set the y-axis upper limit to 1, but not set the lower limit
     g.set(ylim=(None, 1))
@@ -800,6 +828,20 @@ def plot_clustering_results(
         dodge=True,
         capsize=0.1,
     )
+    plt.xlabel(g.get_xlabel(), fontweight="bold")
+    plt.ylabel(g.get_ylabel(), fontweight="bold")
+    plt.xticks(fontweight="bold")
+    plt.yticks(fontweight="bold")
+    plt.legend(
+        title=g.legend_.get_title().get_text(),
+        title_fontsize="13",
+        title_fontweight="bold",
+        fontsize="11",
+        loc="best",
+        frameon=True,
+    )
+    for text in g.legend_.get_texts():
+        text.set_fontweight("bold")
     # set the y-axis upper limit to 1, but not set the lower limit
     g.set(ylim=(None, 1))
     if show_title:
@@ -898,6 +940,20 @@ def plot_paradigm_clustering_score(
         dodge=True,
         capsize=0.1,
     )
+    plt.xlabel(g.get_xlabel(), fontweight="bold")
+    plt.ylabel(g.get_ylabel(), fontweight="bold")
+    plt.xticks(fontweight="bold")
+    plt.yticks(fontweight="bold")
+    plt.legend(
+        title=g.legend_.get_title().get_text(),
+        title_fontsize="13",
+        title_fontweight="bold",
+        fontsize="11",
+        loc="best",
+        frameon=True,
+    )
+    for text in g.legend_.get_texts():
+        text.set_fontweight("bold")
     g.axhline(0.0, color="r", linestyle="--")
     # set the y-axis upper limit to 1, but not set the lower limit
     g.set(ylim=(None, 1))
@@ -936,6 +992,20 @@ def plot_paradigm_clustering_score(
         dodge=True,
         capsize=0.1,
     )
+    plt.xlabel(g.get_xlabel(), fontweight="bold")
+    plt.ylabel(g.get_ylabel(), fontweight="bold")
+    plt.xticks(fontweight="bold")
+    plt.yticks(fontweight="bold")
+    plt.legend(
+        title=g.legend_.get_title().get_text(),
+        title_fontsize="13",
+        title_fontweight="bold",
+        fontsize="11",
+        loc="best",
+        frameon=True,
+    )
+    for text in g.legend_.get_texts():
+        text.set_fontweight("bold")
     # set the y-axis upper limit to 1, but not set the lower limit
     g.set(ylim=(None, 1))
     if show_title:
@@ -1299,7 +1369,7 @@ def plot_task_presence_features(
 
     for i, feature in enumerate(FEATURES):
         plt.figure(figsize=(10, 5))
-        sns.pointplot(
+        g = sns.pointplot(
             data=task_features_df,
             x="task",
             y=feature,
@@ -1308,6 +1378,20 @@ def plot_task_presence_features(
             dodge=True,
             capsize=0.1,
         )
+        plt.xlabel(g.get_xlabel(), fontweight="bold")
+        plt.ylabel(g.get_ylabel(), fontweight="bold")
+        plt.xticks(fontweight="bold")
+        plt.yticks(fontweight="bold")
+        plt.legend(
+            title=g.legend_.get_title().get_text(),
+            title_fontsize="13",
+            title_fontweight="bold",
+            fontsize="11",
+            loc="best",
+            frameon=True,
+        )
+        for text in g.legend_.get_texts():
+            text.set_fontweight("bold")
 
         # save the figure
         plt.savefig(
@@ -1320,7 +1404,7 @@ def plot_task_presence_features(
         plt.close()
 
         plt.figure(figsize=(10, 5))
-        sns.pointplot(
+        g = sns.pointplot(
             data=task_features_hrf_df,
             x="task",
             y=feature,
@@ -1329,6 +1413,20 @@ def plot_task_presence_features(
             dodge=True,
             capsize=0.1,
         )
+        plt.xlabel(g.get_xlabel(), fontweight="bold")
+        plt.ylabel(g.get_ylabel(), fontweight="bold")
+        plt.xticks(fontweight="bold")
+        plt.yticks(fontweight="bold")
+        plt.legend(
+            title=g.legend_.get_title().get_text(),
+            title_fontsize="13",
+            title_fontweight="bold",
+            fontsize="11",
+            loc="best",
+            frameon=True,
+        )
+        for text in g.legend_.get_texts():
+            text.set_fontweight("bold")
 
         # save the figure
         plt.savefig(
