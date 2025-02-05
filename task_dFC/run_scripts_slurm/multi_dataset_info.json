@@ -1,0 +1,6 @@
+{
+	"main_root" : "/home/mt00/projects/def-jbpoline/mt00/DATA/task-based/openneuro/{dataset}",
+	"DATASETS" : [
+		"ses-1"
+	]
+}

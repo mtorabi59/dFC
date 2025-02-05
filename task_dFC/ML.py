@@ -405,41 +405,41 @@ if __name__ == "__main__":
         print(f"Error in classification for dFC ID {dFC_id}: {e}")
         traceback.print_exc()
     print(f"Task presence classification finished for dFC ID {dFC_id}.")
-    print(f"Task presence clustering started for dFC ID {dFC_id} ...")
-    try:
-        run_clustering(
-            dFC_id=dFC_id,
-            TASKS=TASKS,
-            RUNS=RUNS,
-            SESSIONS=SESSIONS,
-            roi_root=roi_root,
-            dFC_root=dFC_root,
-            output_root=ML_root,
-            normalize_dFC=True,
-        )
-    except Exception as e:
-        print(f"Error in clustering for dFC ID {dFC_id}: {e}")
-        traceback.print_exc()
+    # print(f"Task presence clustering started for dFC ID {dFC_id} ...")
+    # try:
+    #     run_clustering(
+    #         dFC_id=dFC_id,
+    #         TASKS=TASKS,
+    #         RUNS=RUNS,
+    #         SESSIONS=SESSIONS,
+    #         roi_root=roi_root,
+    #         dFC_root=dFC_root,
+    #         output_root=ML_root,
+    #         normalize_dFC=True,
+    #     )
+    # except Exception as e:
+    #     print(f"Error in clustering for dFC ID {dFC_id}: {e}")
+    #     traceback.print_exc()
 
-    print(f"Task presence clustering finished for dFC ID {dFC_id}.")
+    # print(f"Task presence clustering finished for dFC ID {dFC_id}.")
 
-    print(f"Task paradigm clustering started for dFC ID {dFC_id} ...")
-    try:
-        run_task_paradigm_clustering(
-            dFC_id=dFC_id,
-            TASKS=TASKS,
-            RUNS=RUNS,
-            SESSIONS=SESSIONS,
-            roi_root=roi_root,
-            dFC_root=dFC_root,
-            output_root=ML_root,
-            normalize_dFC=True,
-        )
-    except Exception as e:
-        print(f"Error in task paradigm clustering for dFC ID {dFC_id}: {e}")
-        traceback.print_exc()
+    # print(f"Task paradigm clustering started for dFC ID {dFC_id} ...")
+    # try:
+    #     run_task_paradigm_clustering(
+    #         dFC_id=dFC_id,
+    #         TASKS=TASKS,
+    #         RUNS=RUNS,
+    #         SESSIONS=SESSIONS,
+    #         roi_root=roi_root,
+    #         dFC_root=dFC_root,
+    #         output_root=ML_root,
+    #         normalize_dFC=True,
+    #     )
+    # except Exception as e:
+    #     print(f"Error in task paradigm clustering for dFC ID {dFC_id}: {e}")
+    #     traceback.print_exc()
 
-    print(f"Task paradigm clustering finished for dFC ID {dFC_id}.")
+    # print(f"Task paradigm clustering finished for dFC ID {dFC_id}.")
 
     print(f"Clustering for visualization started for dFC ID {dFC_id} ...")
     try:
