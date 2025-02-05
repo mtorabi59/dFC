@@ -20,6 +20,7 @@ from pydfc.dfc_utils import (
     rank_norm,
     visualize_conn_mat_dict,
 )
+from pydfc.report_util import plot_classification_metrics
 
 ################################# Parameters ####################################
 
@@ -586,17 +587,17 @@ def plot_dFC_matrices(
         )
 
 
-def plot_ML_results(
+def plot_classification_results(
     ML_root,
     output_root,
     task,
     run=None,
     session=None,
-    ML_algorithm="Random Forest",
+    ML_algorithm="KNN",
     embedding="PCA",
 ):
     """
-    Plot the ML results for a given task, run and session.
+    Plot the ML classification results for a given task, run and session.
     parameters:
     ----------
         ML_root: str, path to ML results
@@ -638,37 +639,11 @@ def plot_ML_results(
     dataframe = dataframe[dataframe["task"] == task]
     dataframe = dataframe[dataframe["embedding"] == embedding]
 
-    plt.figure(figsize=(10, 5))
-
-    g = sns.pointplot(
-        data=dataframe,
-        x="dFC method",
-        y=f"{ML_algorithm} accuracy",
-        hue="group",
-        hue_order=["train", "test"],
-        errorbar="sd",
-        linestyle="none",
-        dodge=True,
-        capsize=0.1,
-    )
-    plt.xlabel(g.get_xlabel(), fontweight="bold")
-    plt.ylabel(g.get_ylabel(), fontweight="bold")
-    plt.xticks(fontweight="bold")
-    plt.yticks(fontweight="bold")
-    g.axhline(0.5, color="r", linestyle="--")
-    # set the y-axis upper limit to 1, but not set the lower limit
-    g.set(ylim=(None, 1))
-    if show_title:
-        g.set_title(task, fontdict={"fontsize": 10, "fontweight": "bold"})
-
     # save the figure
     if session is None:
         output_dir = f"{output_root}/group_results/classification"
     else:
         output_dir = f"{output_root}/group_results/classification/{session}"
-
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
 
     if ML_algorithm == "Logistic regression":
         ML_algorithm_name = "LogReg"
@@ -680,23 +655,32 @@ def plot_ML_results(
         ML_algorithm_name = "GBT"
 
     if run is None:
-        plt.savefig(
-            f"{output_dir}/ML_results_classify_{ML_algorithm_name}_{task}_{embedding}.{save_fig_format}",
-            dpi=fig_dpi,
-            bbox_inches=fig_bbox_inches,
-            pad_inches=fig_pad,
-            format=save_fig_format,
-        )
+        suffix = f"{ML_algorithm_name}_{task}_{embedding}"
     else:
-        plt.savefig(
-            f"{output_dir}/ML_results_classify_{ML_algorithm_name}_{task}_{run}_{embedding}.{save_fig_format}",
-            dpi=fig_dpi,
-            bbox_inches=fig_bbox_inches,
-            pad_inches=fig_pad,
-            format=save_fig_format,
-        )
+        suffix = f"{ML_algorithm_name}_{task}_{run}_{embedding}"
 
-    plt.close()
+    metrics = [
+        "accuracy",
+        "balanced accuracy",
+        "precision",
+        "recall",
+        "f1",
+        "tp",
+        "tn",
+        "fp",
+        "fn",
+        "average precision",
+    ]
+
+    for metric in metrics:
+        plot_classification_metrics(
+            dataframe=dataframe,
+            ML_algorithm=ML_algorithm,
+            pred_metric=metric,
+            title=task,
+            suffix=suffix,
+            output_dir=output_dir,
+        )
 
 
 def plot_clustering_results(
@@ -1579,6 +1563,19 @@ def create_html_report_group_results(
     file.write("<br>\n")
 
     # classification results
+    metrics = [
+        "accuracy",
+        "balanced accuracy",
+        "precision",
+        "recall",
+        "f1",
+        "tp",
+        "tn",
+        "fp",
+        "fn",
+        "average precision",
+    ]
+    classification_models = {"LogReg": "Logistic Regression", "KNN": "KNN"}
     img_height = 300
     file.write("<h1>Classification Results</h1>\n")
     for session in SESSIONS:
@@ -1594,43 +1591,30 @@ def create_html_report_group_results(
                 else:
                     classification_dir = f"{group_dir}/classification"
 
-                for embedding in ["PCA", "LE"]:
-                    file.write(f"<h3>{embedding}</h3>\n")
-                    # display KNN classification results
-                    file.write("<h3>KNN</h3>\n")
-                    if run is None:
-                        classification_img = f"{classification_dir}/ML_results_classify_KNN_{task}_{embedding}.png"
-                    else:
-                        classification_img = f"{classification_dir}/ML_results_classify_KNN_{task}_{run}_{embedding}.png"
-                    if os.path.exists(classification_img):
-                        img = plt.imread(classification_img)
-                        height, width, _ = img.shape
-                        # change the width so that height equals img_height
-                        width = int(width * img_height / height)
-                        # replace the path to the image with a relative path
-                        classification_img = classification_img.replace(group_dir, ".")
-                        file.write(
-                            f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
-                        )
+                for model in classification_models:
+                    file.write(f"<h3>{classification_models[model]}</h3>\n")
+                    for embedding in ["PCA", "LE"]:
+                        file.write(f"<h3>{embedding}</h3>\n")
+                        for metric in metrics:
+                            metric_no_space = metric.replace(" ", "_")
+                            if run is None:
+                                classification_img = f"{classification_dir}/classification_{metric_no_space}_{model}_{task}_{embedding}.png"
+                            else:
+                                classification_img = f"{classification_dir}/classification_{metric_no_space}_{model}_{task}_{run}_{embedding}.png"
+                            if os.path.exists(classification_img):
+                                img = plt.imread(classification_img)
+                                height, width, _ = img.shape
+                                # change the width so that height equals img_height
+                                width = int(width * img_height / height)
+                                # replace the path to the image with a relative path
+                                classification_img = classification_img.replace(
+                                    group_dir, "."
+                                )
+                                file.write(
+                                    f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
+                                )
 
-                    # display Logistic regression classification results
-                    file.write("<h3>Logistic Regression</h3>\n")
-                    if run is None:
-                        classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{embedding}.png"
-                    else:
-                        classification_img = f"{classification_dir}/ML_results_classify_LogReg_{task}_{run}_{embedding}.png"
-                    if os.path.exists(classification_img):
-                        img = plt.imread(classification_img)
-                        height, width, _ = img.shape
-                        # change the width so that height equals img_height
-                        width = int(width * img_height / height)
-                        # replace the path to the image with a relative path
-                        classification_img = classification_img.replace(group_dir, ".")
-                        file.write(
-                            f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
-                        )
-
-                    file.write("<br>\n")
+                            file.write("<br>\n")
 
     # clustering results
     img_height = 300
@@ -2128,7 +2112,7 @@ if __name__ == "__main__":
                 for embedding in ["PCA", "LE"]:
                     for ML_algorithm in ["KNN", "Logistic regression"]:
                         try:
-                            plot_ML_results(
+                            plot_classification_results(
                                 ML_root=ML_root,
                                 output_root=reports_root,
                                 task=task,

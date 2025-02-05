@@ -16,7 +16,17 @@ from sklearn.decomposition import PCA
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.manifold import SpectralEmbedding
-from sklearn.metrics import adjusted_rand_score, balanced_accuracy_score, silhouette_score
+from sklearn.metrics import (
+    accuracy_score,
+    adjusted_rand_score,
+    average_precision_score,
+    balanced_accuracy_score,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    silhouette_score,
+)
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors, kneighbors_graph
 from sklearn.pipeline import make_pipeline
@@ -1098,10 +1108,6 @@ def task_presence_classification(
         "task": list(),
         "run": list(),
         "dFC method": list(),
-        "Logistic regression accuracy": list(),
-        "KNN accuracy": list(),
-        # "Random Forest accuracy": list(),
-        # "Gradient Boosting accuracy": list(),
         "embedding": list(),
     }
     for embedding in ["PCA", "LE"]:
@@ -1161,6 +1167,8 @@ def task_presence_classification(
         # RF = RF_RESULT["RF_model"]
         # GBT = GBT_RESULT["GB_model"]
 
+        ML_models = {"Logistic regression": log_reg, "KNN": KNN}
+
         for subj in SUBJECTS:
             ML_scores["subj_id"].append(subj)
             if subj in train_subjects:
@@ -1172,21 +1180,55 @@ def task_presence_classification(
                 features = X_test_embedded[subj_label_test == subj, :]
                 target = y_test[subj_label_test == subj]
 
-            pred_lr = log_reg.predict(features)
-            pred_KNN = KNN.predict(features)
-            # pred_RF = RF.predict(features)
-            # pred_GBT = GBT.predict(features)
-
-            ML_scores["Logistic regression accuracy"].append(
-                balanced_accuracy_score(target, pred_lr)
-            )
-            ML_scores["KNN accuracy"].append(balanced_accuracy_score(target, pred_KNN))
-            # ML_scores["Random Forest accuracy"].append(
-            #     balanced_accuracy_score(target, pred_RF)
-            # )
-            # ML_scores["Gradient Boosting accuracy"].append(
-            #     balanced_accuracy_score(target, pred_GBT)
-            # )
+            # measure pred score using different metrics on each subj
+            for model_name, model in ML_models.items():
+                pred = model.predict(features)
+                # accuracy score
+                if not f"{model_name} accuracy" in ML_scores:
+                    ML_scores[f"{model_name} accuracy"] = list()
+                ML_scores[f"{model_name} accuracy"].append(accuracy_score(target, pred))
+                # balanced accuracy score
+                if not f"{model_name} balanced accuracy" in ML_scores:
+                    ML_scores[f"{model_name} balanced accuracy"] = list()
+                ML_scores[f"{model_name} balanced accuracy"].append(
+                    balanced_accuracy_score(target, pred)
+                )
+                # precision score
+                if not f"{model_name} precision" in ML_scores:
+                    ML_scores[f"{model_name} precision"] = list()
+                ML_scores[f"{model_name} precision"].append(precision_score(target, pred))
+                # recall score
+                if not f"{model_name} recall" in ML_scores:
+                    ML_scores[f"{model_name} recall"] = list()
+                ML_scores[f"{model_name} recall"].append(recall_score(target, pred))
+                # f1 score
+                if not f"{model_name} f1" in ML_scores:
+                    ML_scores[f"{model_name} f1"] = list()
+                ML_scores[f"{model_name} f1"].append(f1_score(target, pred))
+                # confusion matrix
+                tn, fp, fn, tp = confusion_matrix(target, pred).ravel()
+                # false positive rate
+                if not f"{model_name} fp" in ML_scores:
+                    ML_scores[f"{model_name} fp"] = list()
+                ML_scores[f"{model_name} fp"].append(fp)
+                # false negative rate
+                if not f"{model_name} fn" in ML_scores:
+                    ML_scores[f"{model_name} fn"] = list()
+                ML_scores[f"{model_name} fn"].append(fn)
+                # true positive rate
+                if not f"{model_name} tp" in ML_scores:
+                    ML_scores[f"{model_name} tp"] = list()
+                ML_scores[f"{model_name} tp"].append(tp)
+                # true negative rate
+                if not f"{model_name} tn" in ML_scores:
+                    ML_scores[f"{model_name} tn"] = list()
+                ML_scores[f"{model_name} tn"].append(tn)
+                # average precision score
+                if not f"{model_name} average precision" in ML_scores:
+                    ML_scores[f"{model_name} average precision"] = list()
+                ML_scores[f"{model_name} average precision"].append(
+                    average_precision_score(target, pred)
+                )
 
             ML_scores["task"].append(task)
             ML_scores["run"].append(run)

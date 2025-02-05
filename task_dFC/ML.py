@@ -78,19 +78,8 @@ def run_classification(
     for session in SESSIONS:
         if not session is None:
             print(f"=================== {session} ===================")
-        ML_scores = {
-            "subj_id": list(),
-            "group": list(),
-            "task": list(),
-            "run": list(),
-            "dFC method": list(),
-            "Logistic regression accuracy": list(),
-            "KNN accuracy": list(),
-            # "Random Forest accuracy": list(),
-            # "Gradient Boosting accuracy": list(),
-            "embedding": list(),
-        }
 
+        ML_scores = {}
         ML_RESULT = {}
         for task_id, task in enumerate(TASKS):
             ML_RESULT[task] = {}
@@ -110,7 +99,9 @@ def run_classification(
                         ML_RESULT[task] = ML_RESULT_new
                     else:
                         ML_RESULT[task][run] = ML_RESULT_new
-                    for key in ML_scores:
+                    for key in ML_scores_new:
+                        if key not in ML_scores:
+                            ML_scores[key] = list()
                         ML_scores[key].extend(ML_scores_new[key])
                 except Exception as e:
                     print(
