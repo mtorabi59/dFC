@@ -44,6 +44,40 @@ def get_dataset_info(main_root, dataset):
     return TASKS, RUNS, SESSIONS, ML_root
 
 
+def plot_affinity_matrix(centroids_mat, save_path=None):
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from sklearn.neighbors import kneighbors_graph
+
+    fig_dpi = 120
+    fig_bbox_inches = "tight"
+    fig_pad = 0.1
+    save_fig_format = "png"  # pdf, png,
+
+    X = np.array(centroids_mat)  # shape: (n_centroids, n_regions*(n_regions-1)/2)
+
+    affinity_matrix = kneighbors_graph(
+        X,
+        n_neighbors=125,
+        mode="connectivity",
+        include_self=False,
+        metric="correlation",
+    )
+
+    # plot a heatmap of the affinity matrix
+    plt.figure(figsize=(10, 10))
+    sns.heatmap(affinity_matrix.toarray())
+    if save_path is not None:
+        plt.savefig(
+            save_path,
+            format=save_fig_format,
+            bbox_inches=fig_bbox_inches,
+            dpi=fig_dpi,
+            pad_inches=fig_pad,
+        )
+    plt.close()
+
+
 def run_across_dataset_analysis(main_root, DATASETS):
     """_summary_
 
@@ -107,6 +141,9 @@ def run_across_dataset_analysis(main_root, DATASETS):
     print(f"Number of tasks: {len(set(RESULTS['task']))}")
     print(f"Number of measure_names: {len(set(RESULTS['measure_name']))}")
     print(f"Number of datasets: {len(set(RESULTS['dataset']))}")
+
+    # plot the affinity matrix
+    plot_affinity_matrix(RESULTS["centroids_mat"], save_path="affinity_matrix.png")
 
 
 #######################################################################################
