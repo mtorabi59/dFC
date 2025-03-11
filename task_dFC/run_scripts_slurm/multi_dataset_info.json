@@ -1,6 +1,7 @@
 {
-	"main_root" : "/home/mt00/projects/def-jbpoline/mt00/DATA/task-based/openneuro/{dataset}",
+	"main_root" : "/home/mt00/projects/def-jbpoline/mt00/DATA/task-based/openneuro",
 	"DATASETS" : [
-		"ses-1"
+		"ds001734", "ds002843", "ds003465", "ds004044", "ds004359", "ds004746",
+		"ds002647", "ds002994", "ds003612", "ds004302", "ds004556"
 	]
 }
