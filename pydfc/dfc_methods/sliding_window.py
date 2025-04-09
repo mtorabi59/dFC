@@ -102,8 +102,7 @@ class SLIDING_WINDOW(BaseDFCMethod):
             mean = np.mean(time_series, axis=1, keepdims=True)
             std = np.std(time_series, axis=1, keepdims=True)
             time_series_standardized = np.where(std != 0, (time_series - mean) / std, 0)
-            # model = GraphicalLasso(alpha=self.graphical_lasso_alpha_)
-            model = GraphicalLasso(alpha=0.1)
+            model = GraphicalLasso(alpha=self.graphical_lasso_alpha_)
             model.fit(time_series_standardized.T)
             # the covariance matrix will equal the correlation matrix
             C = model.covariance_
