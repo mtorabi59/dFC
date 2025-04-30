@@ -266,6 +266,25 @@ def downsample_events_hrf(events_hrf, TR_mri, TR_task, method="uniform"):
     return events_hrf_ds
 
 
+def shifted_binarizing(
+    event_labels_all_task_hrf,
+    task_presence_ratio=0.5,
+    step=0.001,
+):
+    # find threshold such that the after binarization of event_labels_all_task_hrf,
+    # the ratio of 1 to 0 is equal to task_presence_ratio
+    for threshold in np.arange(0, np.max(event_labels_all_task_hrf), step):
+        # binarize the event_labels_all_task_hrf
+        event_labels_all_task_hrf_binarized = np.where(
+            event_labels_all_task_hrf > threshold, 1, 0
+        )
+        # find the ratio of 1 to 0 in event_labels_all_task_hrf_binarized
+        new_ratio = np.mean(event_labels_all_task_hrf_binarized)
+        if new_ratio <= task_presence_ratio:
+            break
+    return threshold
+
+
 def extract_task_presence(
     event_labels,
     TR_task,
@@ -284,7 +303,8 @@ def extract_task_presence(
     This function extracts the task presence from the event labels and returns it in the same time points as the dFC data
     It also downsamples the task presence to the time points of the dFC data
     if binary is True, the task presence is binarized using the mean of the task presence
-    binarizing_method: 'median' or 'mean'
+    binarizing_method: 'median' or 'mean' or 'shift'
+    if binarizing_method is 'shift', the task presence is binarized such that the ratio of 1 to 0 is equal to the task presence ratio
 
     if no_hrf is True, the task presence is not convolved with HRF
     """
@@ -307,13 +327,18 @@ def extract_task_presence(
 
     if binary:
         if binarizing_method == "median":
-            task_presence = np.where(
-                event_labels_all_task_hrf > np.median(event_labels_all_task_hrf), 1, 0
-            )
+            threshold = np.median(event_labels_all_task_hrf)
         elif binarizing_method == "mean":
-            task_presence = np.where(
-                event_labels_all_task_hrf > np.mean(event_labels_all_task_hrf), 1, 0
+            threshold = np.mean(event_labels_all_task_hrf)
+        elif binarizing_method == "shift":
+            task_presence_ratio = np.mean(event_labels_all_task)
+            threshold = shifted_binarizing(
+                event_labels_all_task_hrf=event_labels_all_task_hrf,
+                task_presence_ratio=task_presence_ratio,
             )
+        else:
+            raise ValueError("binarizing_method should be 'median', 'mean' or 'shift'")
+        task_presence = np.where(event_labels_all_task_hrf > threshold, 1, 0)
     else:
         task_presence = event_labels_all_task_hrf
 

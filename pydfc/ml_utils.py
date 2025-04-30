@@ -181,7 +181,7 @@ def extract_task_features(TASKS, RUNS, session, roi_root, dFC_root, no_hrf=False
                     TR_task=TR_task,
                     TR_mri=task_data["TR_mri"],
                     binary=True,
-                    binarizing_method="mean",
+                    binarizing_method="shift",
                     no_hrf=no_hrf,
                 )
 
@@ -237,7 +237,7 @@ def dFC_feature_extraction_subj_lvl(
         TR_mri=task_data["TR_mri"],
         TR_array=TR_array,
         binary=True,
-        binarizing_method="mean",
+        binarizing_method="shift",
     )
 
     features = dFC_vecs

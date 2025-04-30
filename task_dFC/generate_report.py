@@ -419,7 +419,7 @@ def plot_task_presence(
         TR_task=TR_task,
         TR_mri=task_data["TR_mri"],
         binary=True,
-        binarizing_method="mean",
+        binarizing_method="shift",
     )
 
     time = np.arange(0, task_presence.shape[0]) / Fs_mri
@@ -487,7 +487,7 @@ def calculate_subj_lvl_task_presence_characteristics(
         TR_task=TR_task,
         TR_mri=task_data["TR_mri"],
         binary=True,
-        binarizing_method="mean",
+        binarizing_method="shift",
     )
     relative_task_on = task_utils.calc_relative_task_on(task_presence)
     # task duration
