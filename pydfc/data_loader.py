@@ -385,7 +385,15 @@ def load_TS(
         if TS is None:
             TS = time_series
         else:
-            TS.concat_ts(time_series)
+            try:
+                TS.concat_ts(time_series)
+            except AssertionError as e:
+                # print the error message
+                print(f"Error in concatenating time series for {subj}: {e}")
+                # raise error with a message and stop the program
+                raise Exception(
+                    f"Fs of subj {subj} TS is {time_series.Fs} while the group Fs is {TS.Fs}"
+                )
 
     return TS
 
