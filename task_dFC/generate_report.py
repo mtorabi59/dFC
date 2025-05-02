@@ -433,12 +433,7 @@ def plot_task_presence(
         time[start_TR:end_TR], task_presence_non_binarized[start_TR:end_TR], linewidth=4
     )
     plt.plot(time[start_TR:end_TR], task_presence[start_TR:end_TR], linewidth=4)
-    # plot mean of task presence_non_binarized as a line
-    plt.plot(
-        time[start_TR:end_TR],
-        np.mean(task_presence_non_binarized) * np.ones_like(time[start_TR:end_TR]),
-        linewidth=4,
-    )
+
     # put vertical lines at the start of each TR
     for TR in range(start_TR, end_TR):
         plt.axvline(x=TR * TR_mri, color="r", linestyle="--")
