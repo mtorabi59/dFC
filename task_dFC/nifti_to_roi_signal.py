@@ -63,7 +63,19 @@ def run_roi_signal_extraction(
         else:
             nifti_file = f"{fmriprep_root}/{subj}/{session}/func/{task_file}"
             task_events_root = f"{bids_root}/{subj}/{session}/func"
-        info_file = f"{task_events_root}/{task_file.replace(bold_suffix, '_bold.json')}"
+        # we need the info file to get the TR
+        # we can find the acquisition data in either the fmriprep folder
+        # or in the bids folder
+        # BUT for multi-echo data, we must use the fmriprep folder
+        # because the bids folder contains multiple files for each echo
+        # so first we check if the file exists in the fmriprep folder
+        # and if not, we check the bids folder
+        # the info file is the same as the nifti file but with a .json extension
+        info_file = nifti_file.replace(".nii.gz", ".json")
+        if not os.path.exists(info_file):
+            info_file = (
+                f"{task_events_root}/{task_file.replace(bold_suffix, '_bold.json')}"
+            )
 
         if os.path.exists(info_file):
             f = open(info_file)
