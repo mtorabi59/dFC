@@ -216,16 +216,22 @@ if __name__ == "__main__":
     for session in SESSIONS:
         for task in TASKS:
             for run in RUNS[task]:
-                run_dFC_assess(
-                    subj_id=participant_id,
-                    task=task,
-                    roi_root=roi_root,
-                    fitted_measures_root=fitted_measures_root,
-                    output_root=output_root,
-                    params_multi_analysis=params_multi_analysis,
-                    session=session,
-                    run=run,
-                )
+                try:
+                    run_dFC_assess(
+                        subj_id=participant_id,
+                        task=task,
+                        roi_root=roi_root,
+                        fitted_measures_root=fitted_measures_root,
+                        output_root=output_root,
+                        params_multi_analysis=params_multi_analysis,
+                        session=session,
+                        run=run,
+                    )
+                except Exception as e:
+                    print(
+                        f"Error in dFC assessment for subject {participant_id}, task {task}, session {session}, run {run}: {e}"
+                    )
+                    continue
 
     print(
         f"subject-level dFC assessment CODE finished running for subject: {participant_id}"
