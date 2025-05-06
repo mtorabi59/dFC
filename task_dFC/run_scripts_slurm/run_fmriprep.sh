@@ -3,7 +3,6 @@
 #SBATCH --job-name=fmriprep_job       # Name of the job
 #SBATCH --output=logs/fmriprep_out.log  # Standard output log
 #SBATCH --error=logs/fmriprep_err.log   # Standard error log
-#SBATCH --time=4-00:00:00                # Walltime (4 day)
 #SBATCH --mem-per-cpu=16G                # Memory (16 GB) per cpu
 #SBATCH --cpus-per-task=8              # Number of CPU cores (increase based on availability)
 
