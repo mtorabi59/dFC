@@ -47,6 +47,9 @@ from .task_utils import (
 def find_available_subjects(dFC_root, task, run=None, session=None, dFC_id=None):
     """
     Find the subjects that have dFC results for the given task and dFC_id (method).
+
+    If run and session are specified, the dFC results for that run and session will be used.
+    Otherwise, the subjects that have dFC results at least for one run and session will returned.
     """
     SUBJECTS = list()
     ALL_SUBJ_FOLDERS = os.listdir(f"{dFC_root}/")
@@ -413,12 +416,46 @@ def precheck_for_procruste(X_best, X_subj):
     return X_best_new
 
 
-def generalized_procrustes(X_list):
+def generalized_procrustes(X_embed_dict):
     """
     Generalized Procrustes Analysis
 
-    returns the mean X to be used as the reference for procrustes transformation
+    X_embed_dict: dict
+        dict of scans and their embeddings
+
+    returns the mean X across scans to be used as the reference for procrustes transformation
     """
+    # initial step
+    # not all scans have the same number of samples
+    # find the max number of samples among all scans
+    max_samples = 0
+    for scan in X_embed_dict:
+        if X_embed_dict[scan].shape[0] > max_samples:
+            max_samples = X_embed_dict[scan].shape[0]
+
+    # find the mean embedding of all scan to use as the reference for procrustes transformation
+    X_list = []
+    for scan in X_embed_dict:
+        X_scan_embed = X_embed_dict[scan]
+        # add zero rows to the embedding of the scan with less samples
+        if X_scan_embed.shape[0] < max_samples:
+            X_scan_embed_new = np.concatenate(
+                (
+                    X_scan_embed,
+                    np.zeros(
+                        (
+                            max_samples - X_scan_embed.shape[0],
+                            X_scan_embed.shape[1],
+                        )
+                    ),
+                ),
+                axis=0,
+            )
+        else:
+            X_scan_embed_new = X_scan_embed
+        X_list.append(X_scan_embed_new)
+
+    # now iteratively find the mean X for transform
     for iter_num in range(100):
 
         try:
@@ -750,34 +787,7 @@ def LE_embed_procustes(
             )
             embed_dict[subject] = X_subj_embed
 
-        # then find the max number of samples among all subjects
-        max_samples = 0
-        for subject in train_subjects:
-            if embed_dict[subject].shape[0] > max_samples:
-                max_samples = embed_dict[subject].shape[0]
-
-        # find the mean embedding of all subjects to use as the reference for procrustes transformation
-        X_train_list = []
-        for subject in train_subjects:
-            X_subj_embed = embed_dict[subject]
-            # add zero rows to the embedding of the subject with less samples
-            if X_subj_embed.shape[0] < max_samples:
-                X_subj_embed_new = np.concatenate(
-                    (
-                        X_subj_embed,
-                        np.zeros(
-                            (
-                                max_samples - X_subj_embed.shape[0],
-                                X_subj_embed.shape[1],
-                            )
-                        ),
-                    ),
-                    axis=0,
-                )
-            else:
-                X_subj_embed_new = X_subj_embed
-            X_train_list.append(X_subj_embed_new)
-        mean_X_train = generalized_procrustes(X_train_list)
+        mean_X_train = generalized_procrustes(embed_dict)
 
         X_train_embed = None
         for subject in train_subjects:
