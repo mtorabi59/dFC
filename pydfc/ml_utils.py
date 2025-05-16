@@ -48,8 +48,12 @@ def find_available_subjects(dFC_root, task, run=None, session=None, dFC_id=None)
     """
     Find the subjects that have dFC results for the given task and dFC_id (method).
 
-    If run and session are specified, the dFC results for that run and session will be used.
-    Otherwise, the subjects that have dFC results at least for one run and session will returned.
+    If run is specified, the dFC results for that run will be used.
+    Otherwise, the subjects that have dFC results at least for one run will returned.
+
+    If session is specified, the dFC results for that session will be used.
+    Otherwise, it is considered that the dataset does not have session information.
+    Note that not specifying session will cause error if the dataset has session information.
     """
     SUBJECTS = list()
     ALL_SUBJ_FOLDERS = os.listdir(f"{dFC_root}/")
@@ -59,6 +63,8 @@ def find_available_subjects(dFC_root, task, run=None, session=None, dFC_id=None)
         if session is None:
             ALL_DFC_FILES = os.listdir(f"{dFC_root}/{subj_folder}/")
         else:
+            if not os.path.exists(f"{dFC_root}/{subj_folder}/{session}/"):
+                continue
             ALL_DFC_FILES = os.listdir(f"{dFC_root}/{subj_folder}/{session}/")
         ALL_DFC_FILES = [
             dFC_file for dFC_file in ALL_DFC_FILES if f"_{task}_" in dFC_file
@@ -1365,125 +1371,6 @@ def task_presence_clustering(
             clustering_scores["embedding"].append(embedding)
 
     return clustering_RESULTS, clustering_scores
-
-
-def task_paradigm_clustering(
-    dFC_id,
-    TASKS,
-    RUNS,
-    session,
-    roi_root,
-    dFC_root,
-    normalize_dFC=True,
-):
-    # find SUBJECTS common to all tasks
-    for task_id, task in enumerate(TASKS):
-        if task_id == 0:
-            SUBJECTS = find_available_subjects(
-                dFC_root=dFC_root, task=task, dFC_id=dFC_id
-            )
-        else:
-            SUBJECTS = np.intersect1d(
-                SUBJECTS,
-                find_available_subjects(dFC_root=dFC_root, task=task, dFC_id=dFC_id),
-            )
-    print(f"Number of subjects: {len(SUBJECTS)}")
-
-    X = None
-    y = None
-    subj_label = None
-    measure_name = None
-    for task_id, task in enumerate(TASKS):
-        for run in RUNS[task]:
-            X_new, _, _, _, subj_label_new, _, measure_name_new = dFC_feature_extraction(
-                task=task,
-                train_subjects=SUBJECTS,
-                test_subjects=[],
-                dFC_id=dFC_id,
-                roi_root=roi_root,
-                dFC_root=dFC_root,
-                run=run,
-                session=session,
-                dynamic_pred="no",
-                normalize_dFC=normalize_dFC,
-            )
-
-            # normalize the features
-            X_new = zscore(X_new, axis=0)
-
-            if measure_name is not None:
-                assert measure_name == measure_name_new, "dFC measure is not consistent."
-            else:
-                measure_name = measure_name_new
-
-            y_new = np.ones(X_new.shape[0]) * task_id
-            if X is None and y is None:
-                X = X_new
-                y = y_new
-                subj_label = subj_label_new
-            else:
-                X = np.concatenate((X, X_new), axis=0)
-                y = np.concatenate((y, y_new), axis=0)
-                subj_label = np.concatenate((subj_label, subj_label_new), axis=0)
-
-    assert X.shape[0] == y.shape[0], "Number of samples do not match."
-    assert X.shape[0] == subj_label.shape[0], "Number of samples do not match."
-
-    # rearrange the order of the samples so that the samples of the same subject are together
-    idx = np.argsort(subj_label)
-    X = X[idx, :]
-    y = y[idx]
-    subj_label = subj_label[idx]
-
-    task_paradigm_clstr_RESULTS = {"PCA": {}, "LE": {}}
-    for embedding in ["PCA", "LE"]:
-        # embed dFC features
-        try:
-            X_embed, _ = embed_dFC_features(
-                train_subjects=SUBJECTS,
-                test_subjects=[],
-                X_train=X,
-                X_test=None,
-                y_train=y,
-                y_test=None,
-                subj_label_train=subj_label,
-                subj_label_test=None,
-                embedding=embedding,
-                n_components="auto",
-                n_neighbors_LE=125,
-                LE_embedding_method="embed+procrustes",
-            )
-        except:
-            continue
-
-        # clustering
-        # apply kmeans clustering to dFC features
-
-        n_clusters = len(TASKS)  # corresponding to task paradigms
-
-        scaler = StandardScaler()
-        X_normalized = scaler.fit_transform(X_embed)
-        kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
-        labels_pred = kmeans.fit_predict(X_normalized)
-
-        # # visualize clustering centroids
-        # centroids = kmeans.cluster_centers_
-        # centroids = pca.inverse_transform(centroids)
-        # centroids = scaler.inverse_transform(centroids)
-        # n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
-        # centroids_mat = dFC_vec2mat(centroids, n_regions)
-
-        task_paradigm_clstr_RESULTS[embedding] = {
-            "dFC_method": measure_name,
-            "StandardScaler": scaler,
-            "kmeans": kmeans,
-            "ARI": adjusted_rand_score(y, labels_pred),
-            "SI": silhouette_score(X_normalized, y),
-            # "centroids": centroids_mat,
-            "task_paradigms": TASKS,
-        }
-
-    return task_paradigm_clstr_RESULTS
 
 
 def co_occurrence(task_labels, clstr_labels):

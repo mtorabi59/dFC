@@ -8,7 +8,6 @@ import numpy as np
 from pydfc.ml_utils import (
     cluster_for_visual,
     extract_task_features,
-    task_paradigm_clustering,
     task_presence_classification,
     task_presence_clustering,
 )
@@ -186,49 +185,6 @@ def run_clustering(
         np.save(f"{folder}/clustering_RESULTS_{dFC_id}.npy", clustering_RESULTS)
 
         np.save(f"{folder}/clustering_scores_{dFC_id}.npy", clustering_scores)
-
-
-def run_task_paradigm_clustering(
-    dFC_id,
-    TASKS,
-    RUNS,
-    SESSIONS,
-    roi_root,
-    dFC_root,
-    output_root,
-    normalize_dFC=True,
-):
-    for session in SESSIONS:
-
-        try:
-            task_paradigm_clstr_RESULTS = task_paradigm_clustering(
-                dFC_id=dFC_id,
-                TASKS=TASKS,
-                RUNS=RUNS,
-                session=session,
-                roi_root=roi_root,
-                dFC_root=dFC_root,
-                normalize_dFC=normalize_dFC,
-            )
-        except Exception as e:
-            print(f"Error in task paradigm clustering for {session}: {e}")
-            traceback.print_exc()
-            continue
-
-        if session is None:
-            folder = f"{output_root}/task_paradigm_clstr"
-        else:
-            folder = f"{output_root}/task_paradigm_clstr/{session}"
-        try:
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-        except OSError as err:
-            print(err)
-
-        np.save(
-            f"{folder}/task_paradigm_clstr_RESULTS_{dFC_id}.npy",
-            task_paradigm_clstr_RESULTS,
-        )
 
 
 def run_clustering_for_visual(
@@ -413,24 +369,6 @@ if __name__ == "__main__":
     #     traceback.print_exc()
 
     # print(f"Task presence clustering finished for dFC ID {dFC_id}.")
-
-    # print(f"Task paradigm clustering started for dFC ID {dFC_id} ...")
-    # try:
-    #     run_task_paradigm_clustering(
-    #         dFC_id=dFC_id,
-    #         TASKS=TASKS,
-    #         RUNS=RUNS,
-    #         SESSIONS=SESSIONS,
-    #         roi_root=roi_root,
-    #         dFC_root=dFC_root,
-    #         output_root=ML_root,
-    #         normalize_dFC=True,
-    #     )
-    # except Exception as e:
-    #     print(f"Error in task paradigm clustering for dFC ID {dFC_id}: {e}")
-    #     traceback.print_exc()
-
-    # print(f"Task paradigm clustering finished for dFC ID {dFC_id}.")
 
     print(f"Clustering for visualization started for dFC ID {dFC_id} ...")
     try:
