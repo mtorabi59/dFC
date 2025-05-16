@@ -31,6 +31,7 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors, kneighbors_graph
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
 from .dfc_utils import dFC_mat2vec, dFC_vec2mat, rank_norm
 from .task_utils import (
@@ -951,6 +952,40 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test):
         "log_reg_test_score": log_reg.score(X_test, y_test),
     }
 
+    return RESULT
+
+
+def SVM_classify(X_train, y_train, X_test, y_test):
+    """
+    SVM classification
+    """
+    # define the parameter grid
+    param_grid = {
+        "svc__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+        "svc__gamma": [0.0001, 0.001, 0.01, 1, 10, 100, 1000],
+    }
+
+    # perform grid search
+    model_for_hyperparam = make_pipeline(
+        StandardScaler(),
+        SVC(kernel="rbf", class_weight={0: 1, 1: 10}),
+    )
+    model_gscv = GridSearchCV(model_for_hyperparam, param_grid, cv=3, n_jobs=-1)
+    model_gscv.fit(X_train, y_train)
+    C = model_gscv.best_params_["svc__C"]
+    gamma = model_gscv.best_params_["svc__gamma"]
+
+    model = make_pipeline(
+        StandardScaler(),
+        SVC(kernel="rbf", C=C, gamma=gamma, class_weight={0: 1, 1: 10}),
+    ).fit(X_train, y_train)
+
+    RESULT = {
+        "SVC_cv_results": model_gscv.cv_results_,
+        "SVC_model": model,
+        "SVC_train_score": model.score(X_train, y_train),
+        "SVC_test_score": model.score(X_test, y_test),
+    }
     return RESULT
 
 
