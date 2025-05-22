@@ -6,6 +6,7 @@
         "tapered_window": true,
         "TF_method": "WTC",
         "clstr_base_measure": "SlidingWindow",
+        "clstr_distance": "euclidean",
         "hmm_iter": 20,
         "dhmm_obs_state_ratio": 0.666,
         "n_states": 5,
