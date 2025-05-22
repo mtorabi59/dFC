@@ -991,10 +991,10 @@ def SVM_classify(X_train, y_train, X_test, y_test):
     ).fit(X_train, y_train)
 
     RESULT = {
-        "SVC_cv_results": model_gscv.cv_results_,
-        "SVC_model": model,
-        "SVC_train_score": model.score(X_train, y_train),
-        "SVC_test_score": model.score(X_test, y_test),
+        "SVM_cv_results": model_gscv.cv_results_,
+        "SVM_model": model,
+        "SVM_train_score": model.score(X_train, y_train),
+        "SVM_test_score": model.score(X_test, y_test),
     }
     return RESULT
 
@@ -1122,7 +1122,7 @@ def task_presence_classification(
     train_test_ratio=0.8,
 ):
     """
-    perform task presence classification using logistic regression, KNN, Random Forest, Gradient Boosting
+    perform task presence classification using logistic regression, SVM, KNN, Random Forest, Gradient Boosting
     for a given task and dFC method and run.
     """
     if run is None:
@@ -1200,35 +1200,22 @@ def task_presence_classification(
             X_train_embedded, y_train, X_test_embedded, y_test
         )
 
-        # KNN
-        KNN_RESULT = KNN_classify(X_train_embedded, y_train, X_test_embedded, y_test)
+        # SVM
+        SVM_RESULT = SVM_classify(X_train_embedded, y_train, X_test_embedded, y_test)
 
-        # # Random Forest
-        # RF_RESULT = random_forest_classify(
-        #     X_train_embedded, y_train, X_test_embedded, y_test
-        # )
-
-        # # Gradient Boosting
-        # GBT_RESULT = gradient_boosting_classify(
-        #     X_train_embedded, y_train, X_test_embedded, y_test
-        # )
+        # # KNN
+        # KNN_RESULT = KNN_classify(X_train_embedded, y_train, X_test_embedded, y_test)
 
         for key in log_reg_RESULT:
             ML_RESULT[embedding][key] = log_reg_RESULT[key]
-        for key in KNN_RESULT:
-            ML_RESULT[embedding][key] = KNN_RESULT[key]
-        # for key in RF_RESULT:
-        #     ML_RESULT[embedding][key] = RF_RESULT[key]
-        # for key in GBT_RESULT:
-        #     ML_RESULT[embedding][key] = GBT_RESULT[key]
+        for key in SVM_RESULT:
+            ML_RESULT[embedding][key] = SVM_RESULT[key]
 
         # measure pred score on each subj
         log_reg = log_reg_RESULT["log_reg_model"]
-        KNN = KNN_RESULT["KNN_model"]
-        # RF = RF_RESULT["RF_model"]
-        # GBT = GBT_RESULT["GB_model"]
+        SVM = SVM_RESULT["SVM_model"]
 
-        ML_models = {"Logistic regression": log_reg, "KNN": KNN}
+        ML_models = {"Logistic regression": log_reg, "SVM": SVM}
 
         for subj in SUBJECTS:
             ML_scores["subj_id"].append(subj)

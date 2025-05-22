@@ -642,6 +642,8 @@ def plot_classification_results(
 
     if ML_algorithm == "Logistic regression":
         ML_algorithm_name = "LogReg"
+    elif ML_algorithm == "SVM":
+        ML_algorithm_name = "SVM"
     elif ML_algorithm == "KNN":
         ML_algorithm_name = "KNN"
     elif ML_algorithm == "Random Forest":
@@ -1570,7 +1572,7 @@ def create_html_report_group_results(
         "fn",
         "average precision",
     ]
-    classification_models = {"LogReg": "Logistic Regression", "KNN": "KNN"}
+    classification_models = {"LogReg": "Logistic Regression", "SVM": "SVM"}
     img_height = 300
     file.write("<h1>Classification Results</h1>\n")
     for session in SESSIONS:
@@ -2105,7 +2107,7 @@ if __name__ == "__main__":
         for task in TASKS:
             for run in RUNS[task]:
                 for embedding in ["PCA", "LE"]:
-                    for ML_algorithm in ["KNN", "Logistic regression"]:
+                    for ML_algorithm in ["SVM", "Logistic regression"]:
                         try:
                             plot_classification_results(
                                 ML_root=ML_root,
