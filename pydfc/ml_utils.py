@@ -39,6 +39,7 @@ from .task_utils import (
     calc_rest_duration,
     calc_task_duration,
     calc_transition_freq,
+    extract_abs_task_presence,
     extract_task_presence,
 )
 
@@ -241,17 +242,31 @@ def dFC_feature_extraction_subj_lvl(
     dFC_vecs = dFC_mat2vec(dFC_mat)
 
     # event data
-    task_presence = extract_task_presence(
+    # task_presence = extract_task_presence(
+    #     event_labels=task_data["event_labels"],
+    #     TR_task=1 / task_data["Fs_task"],
+    #     TR_mri=task_data["TR_mri"],
+    #     TR_array=TR_array,
+    #     binary=True,
+    #     binarizing_method="shift",
+    # )
+    abs_task_presence, indices = extract_abs_task_presence(
         event_labels=task_data["event_labels"],
         TR_task=1 / task_data["Fs_task"],
         TR_mri=task_data["TR_mri"],
         TR_array=TR_array,
-        binary=True,
-        binarizing_method="shift",
     )
 
-    features = dFC_vecs
-    target = task_presence.ravel()
+    # features = dFC_vecs
+    # target = task_presence.ravel()
+
+    # use absolute task presence
+    features = dFC_vecs[indices, :]
+    target = abs_task_presence.ravel()
+
+    assert (
+        features.shape[0] == target.shape[0]
+    ), "Features and target have different number of samples."
 
     if dynamic_pred == "past":
         # concat current TR and two TR before of features to predict the current TR of target

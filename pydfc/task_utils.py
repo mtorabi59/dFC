@@ -351,6 +351,49 @@ def extract_task_presence(
     return task_presence
 
 
+def extract_abs_task_presence(
+    event_labels,
+    TR_task,
+    TR_mri,
+    TR_array=None,
+):
+    """
+    event_labels: event labels including 0 and event ids at the time each event happens
+    TR_task: TR of task
+    TR_mri: TR of MRI
+    TR_array: the time points of the dFC data, optional
+
+    This function considers time points above task_presence_shift as task presence
+    and time points below task_presence_shift as rest and discards the ones in the
+    grey area between them. It also returns the indices of time points that are
+    kept.
+    """
+    task_presence_mean = extract_task_presence(
+        event_labels=event_labels,
+        TR_task=TR_task,
+        TR_mri=TR_mri,
+        TR_array=TR_array,
+        binary=True,
+        binarizing_method="mean",
+        no_hrf=False,
+    )
+    task_presence_shift = extract_task_presence(
+        event_labels=event_labels,
+        TR_task=TR_task,
+        TR_mri=TR_mri,
+        TR_array=TR_array,
+        binary=True,
+        binarizing_method="shift",
+        no_hrf=False,
+    )
+    indices = np.where((task_presence_mean == 0) | (task_presence_shift == 1))[0]
+
+    abs_task_presence = task_presence_shift.copy()
+    abs_task_presence = abs_task_presence[indices]
+
+    return abs_task_presence, indices
+
+
 ################################# Task Features ####################################
 
 
