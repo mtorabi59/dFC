@@ -974,16 +974,6 @@ def SVM_classify(X_train, y_train, X_test, y_test):
     """
     SVM classification
     """
-
-    # set class weights so the task has 10 times more weight than the rest
-    # considering also their number of samples
-    task_count = np.sum(y_train == 1)
-    rest_count = np.sum(y_train == 0)
-    if task_count > rest_count:
-        class_weight = {0: 1, 1: 10}
-    else:
-        class_weight = {0: 1, 1: int(rest_count / task_count) * 10}
-
     # define the parameter grid
     param_grid = {
         "svc__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
@@ -993,7 +983,7 @@ def SVM_classify(X_train, y_train, X_test, y_test):
     # perform grid search
     model_for_hyperparam = make_pipeline(
         StandardScaler(),
-        SVC(kernel="rbf", class_weight=class_weight),
+        SVC(kernel="rbf"),
     )
     model_gscv = GridSearchCV(model_for_hyperparam, param_grid, cv=3, n_jobs=-1)
     model_gscv.fit(X_train, y_train)
@@ -1002,7 +992,7 @@ def SVM_classify(X_train, y_train, X_test, y_test):
 
     model = make_pipeline(
         StandardScaler(),
-        SVC(kernel="rbf", C=C, gamma=gamma, class_weight=class_weight),
+        SVC(kernel="rbf", C=C, gamma=gamma),
     ).fit(X_train, y_train)
 
     RESULT = {
@@ -1181,6 +1171,7 @@ def task_presence_classification(
     ML_scores = {
         "subj_id": list(),
         "group": list(),
+        "SI": list(),
         "task": list(),
         "run": list(),
         "dFC method": list(),
@@ -1243,6 +1234,8 @@ def task_presence_classification(
                 features = X_test_embedded[subj_label_test == subj, :]
                 target = y_test[subj_label_test == subj]
 
+            # Silhouette score
+            ML_scores["SI"].append(silhouette_score(features, target))
             # measure pred score using different metrics on each subj
             for model_name, model in ML_models.items():
                 pred = model.predict(features)
