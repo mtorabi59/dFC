@@ -1058,28 +1058,6 @@ def create_html_report_subj_results(
                             )
                             file.write("<br>\n")
 
-                # # display dFC clustering
-                # img_height = 100
-                # # for dFC matrices find all png files in the directory
-                # dFC_clustering_dir = f"{subj_dir}/dFC_clustering/{session_task_run_dir}"
-                # if os.path.exists(dFC_clustering_dir):
-                #     for file_name in os.listdir(dFC_clustering_dir):
-                #         if file_name.endswith(".png"):
-                #             file.write(
-                #                 f"<h3>{file_name[file_name.find('dFC_clustering_')+15:file_name.find('.png')]}</h3>\n"
-                #             )
-                #             dFC_clustering_img = f"{dFC_clustering_dir}/{file_name}"
-                #             # get the original size of the image
-                #             img = plt.imread(dFC_clustering_img)
-                #             height, width, _ = img.shape
-                #             # change the width so that height equals img_height
-                #             width = int(width * img_height / height)
-                #             # replace the path to the image with a relative path
-                #             dFC_clustering_img = dFC_clustering_img.replace(subj_dir, ".")
-                #             file.write(
-                #                 f"<img src='{dFC_clustering_img}' alt='{file_name}' width='{width}' height='{img_height}'>\n"
-                #             )
-                #             file.write("<br>\n")
     file.write("</body>\n")
     file.write("</html>\n")
     file.close()
@@ -1220,9 +1198,13 @@ def create_html_report_group_results(
                     file.write(f"<h3>{embedding}</h3>\n")
                     # display clustering ARI results
                     if run is None:
-                        clustering_img = f"{clustering_dir}/clustering_results_ARI_{task}_{embedding}.png"
+                        clustering_img = (
+                            f"{clustering_dir}/clustering_SI_{task}_{embedding}.png"
+                        )
                     else:
-                        clustering_img = f"{clustering_dir}/clustering_results_ARI_{task}_{run}_{embedding}.png"
+                        clustering_img = (
+                            f"{clustering_dir}/clustering_SI_{task}_{run}_{embedding}.png"
+                        )
                     if os.path.exists(clustering_img):
                         img = plt.imread(clustering_img)
                         height, width, _ = img.shape
@@ -1235,76 +1217,6 @@ def create_html_report_group_results(
                         )
 
                         file.write("<br>\n")
-
-                    # display clustering SI results
-                    if run is None:
-                        clustering_img = f"{clustering_dir}/clustering_results_SI_{task}_{embedding}.png"
-                    else:
-                        clustering_img = f"{clustering_dir}/clustering_results_SI_{task}_{run}_{embedding}.png"
-                    if os.path.exists(clustering_img):
-                        img = plt.imread(clustering_img)
-                        height, width, _ = img.shape
-                        # change the width so that height equals img_height
-                        width = int(width * img_height / height)
-                        # replace the path to the image with a relative path
-                        clustering_img = clustering_img.replace(group_dir, ".")
-                        file.write(
-                            f"<img src='{clustering_img}' alt='Clustering results' width='{width}' height='{img_height}'>\n"
-                        )
-
-                        file.write("<br>\n")
-
-    # paradigm clustering results
-    file.write("<h1>Paradigm Clustering Results</h1>\n")
-    for session in SESSIONS:
-        if session is not None:
-            file.write(f"<h1> {session} </h1>\n")
-        if session is not None:
-            paradigm_clustering_dir = f"{group_dir}/paradigm_clustering/{session}"
-        else:
-            paradigm_clustering_dir = f"{group_dir}/paradigm_clustering"
-
-        # display paradigm clustering ARI scores
-        img_height = 300
-        file.write("<h2>Paradigm Clustering ARI Scores</h2>\n")
-        for embedding in ["PCA", "LE"]:
-            file.write(f"<h3>{embedding}</h3>\n")
-            paradigm_clustering_img = f"{paradigm_clustering_dir}/paradigm_clustering_results_ARI_{embedding}.png"
-            try:
-                img = plt.imread(paradigm_clustering_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
-                file.write(
-                    f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
-                )
-            except Exception as e:
-                print(f"Error: {e}")
-
-            file.write("<br>\n")
-
-        # display paradigm clustering SI scores
-        img_height = 300
-        file.write("<h2>Paradigm Clustering SI Scores</h2>\n")
-        for embedding in ["PCA", "LE"]:
-            file.write(f"<h3>{embedding}</h3>\n")
-            paradigm_clustering_img = f"{paradigm_clustering_dir}/paradigm_clustering_results_SI_{embedding}.png"
-            try:
-                img = plt.imread(paradigm_clustering_img)
-                height, width, _ = img.shape
-                # change the width so that height equals img_height
-                width = int(width * img_height / height)
-                # replace the path to the image with a relative path
-                paradigm_clustering_img = paradigm_clustering_img.replace(group_dir, ".")
-                file.write(
-                    f"<img src='{paradigm_clustering_img}' alt='Paradigm clustering results' width='{width}' height='{img_height}'>\n"
-                )
-            except Exception as e:
-                print(f"Error: {e}")
-
-            file.write("<br>\n")
 
     # display visual clustering centroids
     img_height = 300
@@ -1412,36 +1324,6 @@ def create_html_report_group_results(
                         )
 
                     file.write("<br>\n")
-
-        # # display paradigm clustering centroids
-        # img_height = 300
-        # file.write("<h2>Paradigm Clustering Centroids</h2>\n")
-        # # find all png files in the directory
-        # paradigm_clustering_centroids_dir = f"{group_dir}/paradigm_clustering_centroids"
-        # for file_name in os.listdir(paradigm_clustering_centroids_dir):
-        #     if file_name.endswith(".png"):
-        #         measure_name = file_name[
-        #             file_name.find("Task_Paradigm_Centroids_") + 24 : -4
-        #         ]
-        #         file.write(f"<h3>{measure_name}</h3>\n")
-        #         paradigm_clustering_centroids_img = (
-        #             f"{paradigm_clustering_centroids_dir}/{file_name}"
-        #         )
-        #         # get the original size of the image
-        #         img = plt.imread(paradigm_clustering_centroids_img)
-        #         height, width, _ = img.shape
-        #         # change the width so that height equals img_height
-        #         width = int(width * img_height / height)
-        #         # replace the path to the image with a relative path
-        #         paradigm_clustering_centroids_img = (
-        #             paradigm_clustering_centroids_img.replace(group_dir, ".")
-        #         )
-        #         file.write(
-        #             f"<img src='{paradigm_clustering_centroids_img}' alt='Paradigm clustering centroids' width='{width}' height='{img_height}'>\n"
-        #         )
-        #         file.write("<br>\n")
-
-        # file.write("<br>\n")
 
     file.write("</body>\n")
     file.write("</html>\n")
