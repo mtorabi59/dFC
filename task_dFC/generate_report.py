@@ -657,16 +657,16 @@ def plot_classification_results(
         suffix = f"{ML_algorithm_name}_{task}_{run}_{embedding}"
 
     metrics = [
-        "accuracy",
+        # "accuracy",
         "balanced accuracy",
         "precision",
         "recall",
         "f1",
-        "tp",
-        "tn",
-        "fp",
-        "fn",
-        "average precision",
+        # "tp",
+        # "tn",
+        # "fp",
+        # "fn",
+        # "average precision",
     ]
 
     for metric in metrics:
@@ -1611,7 +1611,7 @@ def create_html_report_group_results(
                                     f"<img src='{classification_img}' alt='Classification results' width='{width}' height='{img_height}'>\n"
                                 )
 
-                            file.write("<br>\n")
+                        file.write("<br>\n")
 
     # clustering results
     img_height = 300
