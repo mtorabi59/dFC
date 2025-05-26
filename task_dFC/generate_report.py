@@ -1433,21 +1433,21 @@ if __name__ == "__main__":
                     except Exception as e:
                         print(f"Error in plotting dFC matrices: {e}")
 
-                    try:
-                        plot_glm(
-                            fmriprep_root=fmriprep_root,
-                            roi_root=roi_root,
-                            subj=subj,
-                            task=task,
-                            bold_suffix=dataset_info["bold_suffix"],
-                            trial_type_label=dataset_info["trial_type_label"],
-                            rest_labels=dataset_info["rest_labels"],
-                            output_root=reports_root,
-                            run=run,
-                            session=session,
-                        )
-                    except Exception as e:
-                        print(f"Error in plotting GLM: {e}")
+                    # try:
+                    #     plot_glm(
+                    #         fmriprep_root=fmriprep_root,
+                    #         roi_root=roi_root,
+                    #         subj=subj,
+                    #         task=task,
+                    #         bold_suffix=dataset_info["bold_suffix"],
+                    #         trial_type_label=dataset_info["trial_type_label"],
+                    #         rest_labels=dataset_info["rest_labels"],
+                    #         output_root=reports_root,
+                    #         run=run,
+                    #         session=session,
+                    #     )
+                    # except Exception as e:
+                    #     print(f"Error in plotting GLM: {e}")
 
                     try:
                         plot_roi_signals(
@@ -1563,7 +1563,7 @@ if __name__ == "__main__":
                             task=task,
                             run=run,
                             session=session,
-                            ML_algorithm=["SVM", "Logistic regression"],
+                            ML_algorithms=["SVM", "Logistic regression"],
                             embedding=embedding,
                         )
                     except Exception as e:
