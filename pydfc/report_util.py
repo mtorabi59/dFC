@@ -78,3 +78,48 @@ def plot_classification_metrics(
     )
 
     plt.close()
+
+
+def plot_clustering_metrics(dataframe, metric, title, suffix, output_dir):
+    """
+    This function plots these metrics:
+    - SI
+    """
+
+    plt.figure(figsize=(10, 5))
+
+    g = sns.pointplot(
+        data=dataframe,
+        x="dFC method",
+        y=f"{metric}",
+        hue="group",
+        hue_order=["train", "test"],
+        errorbar="sd",
+        linestyle="none",
+        dodge=True,
+        capsize=0.1,
+    )
+    plt.xlabel(g.get_xlabel(), fontweight="bold")
+    plt.ylabel(g.get_ylabel(), fontweight="bold")
+    plt.xticks(fontweight="bold")
+    plt.yticks(fontweight="bold")
+
+    # set the y-axis upper limit to 1, but not set the lower limit
+    g.set(ylim=(None, 1))
+
+    if show_title:
+        g.set_title(title, fontdict={"fontsize": 10, "fontweight": "bold"})
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    metric_no_space = metric.replace(" ", "_")
+    plt.savefig(
+        f"{output_dir}/clustering_{metric_no_space}_{suffix}.{save_fig_format}",
+        dpi=fig_dpi,
+        bbox_inches=fig_bbox_inches,
+        pad_inches=fig_pad,
+        format=save_fig_format,
+    )
+
+    plt.close()
