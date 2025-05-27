@@ -617,6 +617,7 @@ def plot_ML_results(
     ML_scores = None
     for score_file in ALL_ML_SCORES:
         ML_scores_new = np.load(f"{input_dir}/{score_file}", allow_pickle="TRUE").item()
+        ML_scores_new = ML_scores_new["subj_lvl"]
         if ML_scores is None:
             ML_scores = ML_scores_new
         else:
