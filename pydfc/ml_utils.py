@@ -11,6 +11,7 @@ import warnings
 import numpy as np
 from scipy.spatial import procrustes
 from scipy.stats import zscore
+from sklearn.base import clone
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
@@ -27,7 +28,7 @@ from sklearn.metrics import (
     recall_score,
     silhouette_score,
 )
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors, kneighbors_graph
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -938,6 +939,43 @@ def embed_dFC_features(
 ################################# Classification Framework Functions ####################################
 
 
+def get_classification_results(
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    classifier_model=None,
+):
+    """
+    Get classification results for a given classifier.
+    This function fits the classifier, predicts the labels for train and test sets,
+    and calculates the balanced accuracy score, recall, precision, and f1 for both sets.
+
+    cloning ensures that the classifier is not fitted and the original classifier remains unchanged.
+    """
+    classifier_model = clone(classifier_model)
+    classifier_model.fit(X_train, y_train)
+    y_train_pred = classifier_model.predict(X_train)
+    y_test_pred = classifier_model.predict(X_test)
+
+    RESULT = {
+        "model": classifier_model,
+        "train": {
+            "balanced accuracy": balanced_accuracy_score(y_train, y_train_pred),
+            "recall": recall_score(y_train, y_train_pred),
+            "precision": precision_score(y_train, y_train_pred),
+            "f1": f1_score(y_train, y_train_pred),
+        },
+        "test": {
+            "balanced accuracy": balanced_accuracy_score(y_test, y_test_pred),
+            "recall": recall_score(y_test, y_test_pred),
+            "precision": precision_score(y_test, y_test_pred),
+            "f1": f1_score(y_test, y_test_pred),
+        },
+    }
+    return RESULT
+
+
 def logistic_regression_classify(X_train, y_train, X_test, y_test):
     """
     Logistic regression classification
@@ -955,17 +993,18 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test):
 
     C = lr_gscv.best_params_["logisticregression__C"]
 
-    log_reg = make_pipeline(
+    model = make_pipeline(
         StandardScaler(),
         LogisticRegression(penalty="l1", C=C, solver="saga"),
-    ).fit(X_train, y_train)
+    )
 
-    RESULT = {
-        "log_reg_model": log_reg,
-        "log_reg_C": C,
-        "log_reg_train_score": log_reg.score(X_train, y_train),
-        "log_reg_test_score": log_reg.score(X_test, y_test),
-    }
+    RESULT = get_classification_results(
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        classifier_model=model,
+    )
 
     return RESULT
 
@@ -990,17 +1029,19 @@ def SVM_classify(X_train, y_train, X_test, y_test):
     C = model_gscv.best_params_["svc__C"]
     gamma = model_gscv.best_params_["svc__gamma"]
 
+    # this is for permutation tests
     model = make_pipeline(
         StandardScaler(),
         SVC(kernel="rbf", C=C, gamma=gamma),
-    ).fit(X_train, y_train)
+    )
 
-    RESULT = {
-        "SVM_cv_results": model_gscv.cv_results_,
-        "SVM_model": model,
-        "SVM_train_score": model.score(X_train, y_train),
-        "SVM_test_score": model.score(X_test, y_test),
-    }
+    RESULT = get_classification_results(
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        classifier_model=model,
+    )
     return RESULT
 
 
@@ -1022,17 +1063,19 @@ def KNN_classify(X_train, y_train, X_test, y_test):
 
     n_neighbors = knn_gscv.best_params_["kneighborsclassifier__n_neighbors"]
 
-    neigh = make_pipeline(
+    # this is for permutation tests
+    model = make_pipeline(
         StandardScaler(),
         KNeighborsClassifier(n_neighbors=n_neighbors),
-    ).fit(X_train, y_train)
+    )
 
-    RESULT = {
-        "KNN_cv_results": knn_gscv.cv_results_,
-        "KNN_model": neigh,
-        "KNN_train_score": neigh.score(X_train, y_train),
-        "KNN_test_score": neigh.score(X_test, y_test),
-    }
+    RESULT = get_classification_results(
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        classifier_model=model,
+    )
 
     return RESULT
 
@@ -1059,17 +1102,19 @@ def random_forest_classify(X_train, y_train, X_test, y_test):
     n_estimators = rf_gscv.best_params_["randomforestclassifier__n_estimators"]
     max_depth = rf_gscv.best_params_["randomforestclassifier__max_depth"]
 
-    rf = make_pipeline(
+    # this is for permutation tests
+    model = make_pipeline(
         StandardScaler(),
         RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth),
-    ).fit(X_train, y_train)
+    )
 
-    RESULT = {
-        "RF_cv_results": rf_gscv.cv_results_,
-        "RF_model": rf,
-        "RF_train_score": rf.score(X_train, y_train),
-        "RF_test_score": rf.score(X_test, y_test),
-    }
+    RESULT = get_classification_results(
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        classifier_model=model,
+    )
 
     return RESULT
 
@@ -1098,21 +1143,106 @@ def gradient_boosting_classify(X_train, y_train, X_test, y_test):
     learning_rate = gb_gscv.best_params_["gradientboostingclassifier__learning_rate"]
     max_depth = gb_gscv.best_params_["gradientboostingclassifier__max_depth"]
 
-    gb = make_pipeline(
+    # this is for permutation tests
+    model = make_pipeline(
         StandardScaler(),
         GradientBoostingClassifier(
             n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate
         ),
-    ).fit(X_train, y_train)
+    )
 
-    RESULT = {
-        "GB_cv_results": gb_gscv.cv_results_,
-        "GB_model": gb,
-        "GB_train_score": gb.score(X_train, y_train),
-        "GB_test_score": gb.score(X_test, y_test),
-    }
+    RESULT = get_classification_results(
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        classifier_model=model,
+    )
 
     return RESULT
+
+
+def get_permutation_scores(
+    X_train,
+    y_train,
+    X_test,
+    y_test,
+    classifier_model,
+    n_permutations=100,
+):
+    """
+    Get permutation scores for a given classifier and data.
+    cloning ensures that the classifier is not previously fitted.
+    """
+    # first get the true balanced accuracy scores from original data
+    classifier_original = clone(classifier_model)
+    classifier_original.fit(X_train, y_train)
+    y_train_pred = classifier_original.predict(X_train)
+    y_test_pred = classifier_original.predict(X_test)
+
+    # next calculate the balanced accuracy scores for permuted data
+    permutation_train_scores = []
+    permutation_test_scores = []
+    for _ in range(n_permutations):
+        y_train_permuted = np.random.permutation(y_train)
+        model_permuted = clone(classifier_model)
+        model_permuted.fit(X_train, y_train_permuted)
+
+        y_train_permuted_pred = model_permuted.predict(X_train)
+        y_test_permuted_pred = model_permuted.predict(X_test)
+        permutation_train_scores.append(
+            balanced_accuracy_score(y_train_permuted, y_train_permuted_pred)
+        )
+        permutation_test_scores.append(
+            balanced_accuracy_score(y_test, y_test_permuted_pred)
+        )
+    p_value_train = (
+        np.sum(
+            np.array(permutation_train_scores)
+            >= balanced_accuracy_score(y_train, y_train_pred)
+        )
+        + 1
+    ) / (len(permutation_train_scores) + 1)
+    p_value_test = (
+        np.sum(
+            np.array(permutation_test_scores)
+            >= balanced_accuracy_score(y_test, y_test_pred)
+        )
+        + 1
+    ) / (len(permutation_test_scores) + 1)
+
+    return permutation_train_scores, permutation_test_scores, p_value_train, p_value_test
+
+
+def get_classification_scores(
+    target,
+    pred,
+):
+    """
+    Get classification scores for a given target and predicted labels.
+    Returns a dictionary with these metrics:
+    - accuracy
+    - balanced accuracy
+    - recall
+    - precision
+    - f1 score
+    - fp, fn, tp, tn
+    - average precision
+    """
+    tn, fp, fn, tp = confusion_matrix(target, pred).ravel()
+    scores = {
+        "accuracy": accuracy_score(target, pred),
+        "balanced accuracy": balanced_accuracy_score(target, pred),
+        "recall": recall_score(target, pred),
+        "precision": precision_score(target, pred),
+        "f1": f1_score(target, pred),
+        "fp": fp,
+        "fn": fn,
+        "tp": tp,
+        "tn": tn,
+        "average precision": average_precision_score(target, pred),
+    }
+    return scores
 
 
 def task_presence_classification(
@@ -1167,15 +1297,24 @@ def task_presence_classification(
         )
     )
 
-    ML_RESULT = {"PCA": {}, "LE": {}}
     ML_scores = {
-        "subj_id": list(),
-        "group": list(),
-        "SI": list(),
-        "task": list(),
-        "run": list(),
-        "dFC method": list(),
-        "embedding": list(),
+        "group_lvl": {
+            "task": list(),
+            "run": list(),
+            "dFC method": list(),
+            "embedding": list(),
+            "group": list(),
+            "SI": list(),
+        },
+        "subj_lvl": {
+            "subj_id": list(),
+            "group": list(),
+            "SI": list(),
+            "task": list(),
+            "run": list(),
+            "dFC method": list(),
+            "embedding": list(),
+        },
     }
     for embedding in ["PCA", "LE"]:
         # embed dFC features
@@ -1197,6 +1336,12 @@ def task_presence_classification(
         except:
             continue
 
+        # Silhouette score
+        SI = {
+            "train": silhouette_score(X_train_embedded, y_train),
+            "test": silhouette_score(X_test_embedded, y_test),
+        }
+
         # task presence classification
 
         print("task presence classification ...")
@@ -1209,89 +1354,128 @@ def task_presence_classification(
         # SVM
         SVM_RESULT = SVM_classify(X_train_embedded, y_train, X_test_embedded, y_test)
 
-        # # KNN
-        # KNN_RESULT = KNN_classify(X_train_embedded, y_train, X_test_embedded, y_test)
+        ML_models = {"Logistic regression": log_reg_RESULT, "SVM": SVM_RESULT}
 
-        for key in log_reg_RESULT:
-            ML_RESULT[embedding][key] = log_reg_RESULT[key]
-        for key in SVM_RESULT:
-            ML_RESULT[embedding][key] = SVM_RESULT[key]
+        # permutation tests
+        permutation_scores = {
+            "train": {},
+            "test": {},
+        }
+        for model_name in ML_models:
+            (
+                permutation_train_scores,
+                permutation_test_scores,
+                p_value_train,
+                p_value_test,
+            ) = get_permutation_scores(
+                X_train=X_train_embedded,
+                y_train=y_train,
+                X_test=X_test_embedded,
+                y_test=y_test,
+                classifier_model=ML_models[model_name]["model"],
+                n_permutations=100,
+            )
+            permutation_scores["train"][
+                f"{model_name} permutation p_value"
+            ] = p_value_train
+            permutation_scores["train"][f"{model_name} permutation score mean"] = np.mean(
+                permutation_train_scores
+            )
+            permutation_scores["train"][f"{model_name} permutation score std"] = np.std(
+                permutation_train_scores
+            )
+            permutation_scores["test"][f"{model_name} permutation p_value"] = p_value_test
+            permutation_scores["test"][f"{model_name} permutation score mean"] = np.mean(
+                permutation_test_scores
+            )
+            permutation_scores["test"][f"{model_name} permutation score std"] = np.std(
+                permutation_test_scores
+            )
 
-        # measure pred score on each subj
-        log_reg = log_reg_RESULT["log_reg_model"]
-        SVM = SVM_RESULT["SVM_model"]
+        # group level scores
+        for group in ["train", "test"]:
 
-        ML_models = {"Logistic regression": log_reg, "SVM": SVM}
+            ML_scores["group_lvl"]["group"].append(group)
+            ML_scores["group_lvl"]["embedding"].append(embedding)
+            ML_scores["group_lvl"]["task"].append(task)
+            ML_scores["group_lvl"]["run"].append(run)
+            ML_scores["group_lvl"]["dFC method"].append(measure_name)
+            # SI
+            ML_scores["group_lvl"]["SI"].append(SI[group])
 
+            for model_name in ML_models:
+                # accuracy score
+                for metric in ML_models[model_name][group]:
+                    if not f"{model_name} {metric}" in ML_scores["group_lvl"]:
+                        ML_scores["group_lvl"][f"{model_name} {metric}"] = list()
+                    ML_scores["group_lvl"][f"{model_name} {metric}"].append(
+                        ML_models[model_name][group][metric]
+                    )
+
+                # permutation test results
+                for key in permutation_scores[group]:
+                    if not key in ML_scores["group_lvl"]:
+                        ML_scores["group_lvl"][key] = list()
+                    ML_scores["group_lvl"][key].append(permutation_scores[group][key])
+
+        # subject level scores
         for subj in SUBJECTS:
-            ML_scores["subj_id"].append(subj)
+            ML_scores["subj_lvl"]["subj_id"].append(subj)
             if subj in train_subjects:
-                ML_scores["group"].append("train")
+                ML_scores["subj_lvl"]["group"].append("train")
                 features = X_train_embedded[subj_label_train == subj, :]
                 target = y_train[subj_label_train == subj]
             elif subj in test_subjects:
-                ML_scores["group"].append("test")
+                ML_scores["subj_lvl"]["group"].append("test")
                 features = X_test_embedded[subj_label_test == subj, :]
                 target = y_test[subj_label_test == subj]
 
             # Silhouette score
-            ML_scores["SI"].append(silhouette_score(features, target))
+            ML_scores["subj_lvl"]["SI"].append(silhouette_score(features, target))
             # measure pred score using different metrics on each subj
-            for model_name, model in ML_models.items():
+            for model_name in ML_models:
+                model = ML_models[model_name]["model"]
                 pred = model.predict(features)
-                # accuracy score
-                if not f"{model_name} accuracy" in ML_scores:
-                    ML_scores[f"{model_name} accuracy"] = list()
-                ML_scores[f"{model_name} accuracy"].append(accuracy_score(target, pred))
-                # balanced accuracy score
-                if not f"{model_name} balanced accuracy" in ML_scores:
-                    ML_scores[f"{model_name} balanced accuracy"] = list()
-                ML_scores[f"{model_name} balanced accuracy"].append(
-                    balanced_accuracy_score(target, pred)
-                )
-                # precision score
-                if not f"{model_name} precision" in ML_scores:
-                    ML_scores[f"{model_name} precision"] = list()
-                ML_scores[f"{model_name} precision"].append(precision_score(target, pred))
-                # recall score
-                if not f"{model_name} recall" in ML_scores:
-                    ML_scores[f"{model_name} recall"] = list()
-                ML_scores[f"{model_name} recall"].append(recall_score(target, pred))
-                # f1 score
-                if not f"{model_name} f1" in ML_scores:
-                    ML_scores[f"{model_name} f1"] = list()
-                ML_scores[f"{model_name} f1"].append(f1_score(target, pred))
-                # confusion matrix
-                tn, fp, fn, tp = confusion_matrix(target, pred).ravel()
-                # false positive rate
-                if not f"{model_name} fp" in ML_scores:
-                    ML_scores[f"{model_name} fp"] = list()
-                ML_scores[f"{model_name} fp"].append(fp)
-                # false negative rate
-                if not f"{model_name} fn" in ML_scores:
-                    ML_scores[f"{model_name} fn"] = list()
-                ML_scores[f"{model_name} fn"].append(fn)
-                # true positive rate
-                if not f"{model_name} tp" in ML_scores:
-                    ML_scores[f"{model_name} tp"] = list()
-                ML_scores[f"{model_name} tp"].append(tp)
-                # true negative rate
-                if not f"{model_name} tn" in ML_scores:
-                    ML_scores[f"{model_name} tn"] = list()
-                ML_scores[f"{model_name} tn"].append(tn)
-                # average precision score
-                if not f"{model_name} average precision" in ML_scores:
-                    ML_scores[f"{model_name} average precision"] = list()
-                ML_scores[f"{model_name} average precision"].append(
-                    average_precision_score(target, pred)
-                )
+                scores = get_classification_scores(target=target, pred=pred)
 
-            ML_scores["task"].append(task)
-            ML_scores["run"].append(run)
-            ML_scores["dFC method"].append(measure_name)
-            ML_scores["embedding"].append(embedding)
+                for metric in scores:
+                    if not f"{model_name} {metric}" in ML_scores["subj_lvl"]:
+                        ML_scores["subj_lvl"][f"{model_name} {metric}"] = list()
+                    ML_scores["subj_lvl"][f"{model_name} {metric}"].append(scores[metric])
 
-    return ML_RESULT, ML_scores
+            ML_scores["subj_lvl"]["task"].append(task)
+            ML_scores["subj_lvl"]["run"].append(run)
+            ML_scores["subj_lvl"]["dFC method"].append(measure_name)
+            ML_scores["subj_lvl"]["embedding"].append(embedding)
+
+    # sanity check of the ML_scores
+    L = None
+    for key in ML_scores["group_lvl"]:
+        if L is None:
+            L = len(ML_scores["group_lvl"][key])
+        else:
+            assert (
+                len(ML_scores["group_lvl"][key]) == L
+            ), f"Length of {key} is not equal to others."
+
+    # L is supposed to be equal to 2 embeddings (PCA and LE) * 2 groups (train and test)
+    assert L == 2 * 2, f"Length of group_lvl is not equal to 4, but {L}."
+
+    L = None
+    for key in ML_scores["subj_lvl"]:
+        if L is None:
+            L = len(ML_scores["subj_lvl"][key])
+        else:
+            assert (
+                len(ML_scores["subj_lvl"][key]) == L
+            ), f"Length of {key} is not equal to others."
+
+    # L is supposed to be equal to number of subjects * 2 embeddings (PCA and LE)
+    assert (
+        L == len(SUBJECTS) * 2
+    ), f"Length of subj_lvl is not equal to {len(SUBJECTS) * 2}, but {L}."
+
+    return ML_scores
 
 
 ################################# Clustering Framework Functions ####################################

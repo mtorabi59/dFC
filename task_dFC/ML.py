@@ -79,12 +79,10 @@ def run_classification(
             print(f"=================== {session} ===================")
 
         ML_scores = {}
-        ML_RESULT = {}
         for task_id, task in enumerate(TASKS):
-            ML_RESULT[task] = {}
             for run in RUNS[task]:
                 try:
-                    ML_RESULT_new, ML_scores_new = task_presence_classification(
+                    ML_scores_new = task_presence_classification(
                         task=task,
                         dFC_id=dFC_id,
                         roi_root=roi_root,
@@ -94,10 +92,6 @@ def run_classification(
                         dynamic_pred=dynamic_pred,
                         normalize_dFC=normalize_dFC,
                     )
-                    if run is None:
-                        ML_RESULT[task] = ML_RESULT_new
-                    else:
-                        ML_RESULT[task][run] = ML_RESULT_new
                     for key in ML_scores_new:
                         if key not in ML_scores:
                             ML_scores[key] = list()
@@ -117,7 +111,6 @@ def run_classification(
                 os.makedirs(folder)
         except OSError as err:
             print(err)
-        np.save(f"{folder}/ML_RESULT_{dFC_id}.npy", ML_RESULT)
 
         np.save(f"{folder}/ML_scores_classify_{dFC_id}.npy", ML_scores)
 
