@@ -78,7 +78,10 @@ def run_classification(
         if not session is None:
             print(f"=================== {session} ===================")
 
-        ML_scores = {}
+        ML_scores = {
+            "group_lvl": {},
+            "subj_lvl": {},
+        }
         for task_id, task in enumerate(TASKS):
             for run in RUNS[task]:
                 try:
@@ -92,10 +95,19 @@ def run_classification(
                         dynamic_pred=dynamic_pred,
                         normalize_dFC=normalize_dFC,
                     )
-                    for key in ML_scores_new:
-                        if key not in ML_scores:
-                            ML_scores[key] = list()
-                        ML_scores[key].extend(ML_scores_new[key])
+                    # group level scores
+                    for key in ML_scores_new["group_lvl"]:
+                        if key not in ML_scores["group_lvl"]:
+                            ML_scores["group_lvl"][key] = list()
+                        ML_scores["group_lvl"][key].extend(
+                            ML_scores_new["group_lvl"][key]
+                        )
+                    # subject level scores
+                    for key in ML_scores_new["subj_lvl"]:
+                        if key not in ML_scores["subj_lvl"]:
+                            ML_scores["subj_lvl"][key] = list()
+                        ML_scores["subj_lvl"][key].extend(ML_scores_new["subj_lvl"][key])
+
                 except Exception as e:
                     print(
                         f"Error in task presence classification for {session} {task} {run}: {e}"
