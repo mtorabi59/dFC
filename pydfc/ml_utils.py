@@ -28,11 +28,12 @@ from sklearn.metrics import (
     recall_score,
     silhouette_score,
 )
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold, StratifiedKFold
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors, kneighbors_graph
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+from sklearn.utils import shuffle
 
 from .dfc_utils import dFC_mat2vec, dFC_vec2mat, rank_norm
 from .task_utils import (
@@ -976,9 +977,12 @@ def get_classification_results(
     return RESULT
 
 
-def logistic_regression_classify(X_train, y_train, X_test, y_test):
+def logistic_regression_classify(X_train, y_train, X_test, y_test, subj_label_train=None):
     """
     Logistic regression classification
+
+    provide subj_label_train if you want to use StratifiedGroupKFold
+    to ensure that the same subject is not in both train and test sets
     """
     # create a pipeline with a logistic regression model to find the best C
     logistic_reg = make_pipeline(
@@ -986,10 +990,25 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test):
     )
     # create a dictionary of all values we want to test for C
     param_grid = {"logisticregression__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+
+    # use StratifiedGroupKFold to ensure that the same subject is not in both train and test sets
+    # shuffle the data to ensure time points are shuffled
+    if subj_label_train is None:
+        X_train_shuffled, y_train_shuffled = shuffle(X_train, y_train)
+        cv = StratifiedKFold(n_splits=5)
+    else:
+        X_train_shuffled, y_train_shuffled, subj_label_train_shuffled = shuffle(
+            X_train, y_train, subj_label_train
+        )
+        cv = StratifiedGroupKFold(n_splits=5)
     # use gridsearch to test all values for C
-    lr_gscv = GridSearchCV(logistic_reg, param_grid, cv=5)
+    lr_gscv = GridSearchCV(logistic_reg, param_grid, cv=cv, n_jobs=-1)
     # fit model to data
-    lr_gscv.fit(X_train, y_train)
+    if subj_label_train is None:
+        lr_gscv.fit(X_train_shuffled, y_train_shuffled)
+    else:
+        # use groups to ensure that the same subject is not in both train and test sets
+        lr_gscv.fit(X_train_shuffled, y_train_shuffled, groups=subj_label_train_shuffled)
 
     C = lr_gscv.best_params_["logisticregression__C"]
 
@@ -1009,9 +1028,12 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test):
     return RESULT
 
 
-def SVM_classify(X_train, y_train, X_test, y_test):
+def SVM_classify(X_train, y_train, X_test, y_test, subj_label_train=None):
     """
     SVM classification
+
+    provide subj_label_train if you want to use StratifiedGroupKFold
+    to ensure that the same subject is not in both train and test sets
     """
     # define the parameter grid
     param_grid = {
@@ -1024,8 +1046,23 @@ def SVM_classify(X_train, y_train, X_test, y_test):
         StandardScaler(),
         SVC(kernel="rbf"),
     )
-    model_gscv = GridSearchCV(model_for_hyperparam, param_grid, cv=3, n_jobs=-1)
-    model_gscv.fit(X_train, y_train)
+    # use StratifiedGroupKFold to ensure that the same subject is not in both train and test sets
+    # shuffle the data to ensure time points are shuffled
+    if subj_label_train is None:
+        X_train_shuffled, y_train_shuffled = shuffle(X_train, y_train)
+        cv = StratifiedKFold(n_splits=3)
+    else:
+        X_train_shuffled, y_train_shuffled, subj_label_train_shuffled = shuffle(
+            X_train, y_train, subj_label_train
+        )
+        cv = StratifiedGroupKFold(n_splits=3)
+    model_gscv = GridSearchCV(model_for_hyperparam, param_grid, cv=cv, n_jobs=-1)
+    if subj_label_train is None:
+        model_gscv.fit(X_train_shuffled, y_train_shuffled)
+    else:
+        model_gscv.fit(
+            X_train_shuffled, y_train_shuffled, groups=subj_label_train_shuffled
+        )
     C = model_gscv.best_params_["svc__C"]
     gamma = model_gscv.best_params_["svc__gamma"]
 
@@ -1391,11 +1428,21 @@ def task_presence_classification(
 
         # logistic regression
         log_reg_RESULT = logistic_regression_classify(
-            X_train_embedded, y_train, X_test_embedded, y_test
+            X_train=X_train_embedded,
+            y_train=y_train,
+            X_test=X_test_embedded,
+            y_test=y_test,
+            subj_label_train=subj_label_train,
         )
 
         # SVM
-        SVM_RESULT = SVM_classify(X_train_embedded, y_train, X_test_embedded, y_test)
+        SVM_RESULT = SVM_classify(
+            X_train=X_train_embedded,
+            y_train=y_train,
+            X_test=X_test_embedded,
+            y_test=y_test,
+            subj_label_train=subj_label_train,
+        )
 
         ML_models = {"Logistic regression": log_reg_RESULT, "SVM": SVM_RESULT}
 
