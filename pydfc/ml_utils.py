@@ -1029,7 +1029,6 @@ def SVM_classify(X_train, y_train, X_test, y_test):
     C = model_gscv.best_params_["svc__C"]
     gamma = model_gscv.best_params_["svc__gamma"]
 
-    # this is for permutation tests
     model = make_pipeline(
         StandardScaler(),
         SVC(kernel="rbf", C=C, gamma=gamma),
@@ -1063,7 +1062,6 @@ def KNN_classify(X_train, y_train, X_test, y_test):
 
     n_neighbors = knn_gscv.best_params_["kneighborsclassifier__n_neighbors"]
 
-    # this is for permutation tests
     model = make_pipeline(
         StandardScaler(),
         KNeighborsClassifier(n_neighbors=n_neighbors),
@@ -1102,7 +1100,6 @@ def random_forest_classify(X_train, y_train, X_test, y_test):
     n_estimators = rf_gscv.best_params_["randomforestclassifier__n_estimators"]
     max_depth = rf_gscv.best_params_["randomforestclassifier__max_depth"]
 
-    # this is for permutation tests
     model = make_pipeline(
         StandardScaler(),
         RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth),
@@ -1143,7 +1140,6 @@ def gradient_boosting_classify(X_train, y_train, X_test, y_test):
     learning_rate = gb_gscv.best_params_["gradientboostingclassifier__learning_rate"]
     max_depth = gb_gscv.best_params_["gradientboostingclassifier__max_depth"]
 
-    # this is for permutation tests
     model = make_pipeline(
         StandardScaler(),
         GradientBoostingClassifier(
@@ -1162,12 +1158,55 @@ def gradient_boosting_classify(X_train, y_train, X_test, y_test):
     return RESULT
 
 
+def group_permutation(y, groups, permute_groups=True):
+    """
+    Permute the labels while keeping the group structure intact.
+    This is useful for permutation tests where we want to keep the group structure.
+    Also permute the order of groups if permute_groups is True.
+    If permute_groups is False, the labels within each group are permuted but the order of groups is not changed.
+    This function assumes that all samples in a group have the same label.
+    """
+    # make sure groups is a numpy array
+    groups = np.array(groups, copy=True)
+    y = np.copy(y)
+
+    unique_groups = np.unique(groups)
+
+    # Step 1: Create a mapping from groups to labels
+    group_to_label = {group: y[groups == group] for group in unique_groups}
+
+    # Step 2: Permute each group labels
+    group_to_permuted_label = {}
+    for group in unique_groups:
+        group_to_permuted_label[group] = np.random.permutation(group_to_label[group])
+
+    # Step 3: Reconstruct permuted y based on groups
+    # also shuffle the order of groups if permute_groups is True
+    if permute_groups:
+        unique_groups_permuted = np.random.permutation(unique_groups)
+    else:
+        unique_groups_permuted = unique_groups
+    y_permuted = list()
+    for group in unique_groups_permuted:
+        # For each group, append the permuted label to y_permuted
+        y_permuted.extend(group_to_permuted_label[group])
+    # Convert to numpy array
+    y_permuted = np.array(y_permuted)
+
+    assert (
+        y_permuted.shape == y.shape
+    ), f"Permuted labels shape {y_permuted.shape} does not match original labels shape {y.shape}"
+
+    return y_permuted
+
+
 def get_permutation_scores(
     X_train,
     y_train,
     X_test,
     y_test,
     classifier_model,
+    groups_train=None,
     n_permutations=100,
 ):
     """
@@ -1184,7 +1223,11 @@ def get_permutation_scores(
     permutation_train_scores = []
     permutation_test_scores = []
     for _ in range(n_permutations):
-        y_train_permuted = np.random.permutation(y_train)
+        if groups_train is not None:
+            # permute the labels while keeping the group structure intact
+            y_train_permuted = group_permutation(y_train, groups_train)
+        else:
+            y_train_permuted = np.random.permutation(y_train)
         model_permuted = clone(classifier_model)
         model_permuted.fit(X_train, y_train_permuted)
 
@@ -1373,6 +1416,7 @@ def task_presence_classification(
                 X_test=X_test_embedded,
                 y_test=y_test,
                 classifier_model=ML_models[model_name]["model"],
+                groups_train=subj_label_train,
                 n_permutations=100,
             )
             permutation_scores["train"][
