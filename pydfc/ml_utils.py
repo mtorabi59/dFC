@@ -1503,11 +1503,11 @@ def task_presence_classification(
                         ML_models[model_name][group][metric]
                     )
 
-                # permutation test results
-                for key in permutation_scores[group]:
-                    if not key in ML_scores["group_lvl"]:
-                        ML_scores["group_lvl"][key] = list()
-                    ML_scores["group_lvl"][key].append(permutation_scores[group][key])
+            # permutation test results
+            for key in permutation_scores[group]:
+                if not key in ML_scores["group_lvl"]:
+                    ML_scores["group_lvl"][key] = list()
+                ML_scores["group_lvl"][key].append(permutation_scores[group][key])
 
         # subject level scores
         for subj in SUBJECTS:
