@@ -21,17 +21,6 @@ os.environ["NUMEXPR_NUM_THREADS"] = "16"
 os.environ["OMP_NUM_THREADS"] = "16"
 ################################# Parameters ####################################
 
-# simulation parameters
-sim_length = 250e3  # in m sec
-onset_time = 20.0  # in seconds
-BOLD_period = 500  # in m sec
-TAVG_period = 1.0  # in m sec
-global_conn_coupling_coef = 0.0126
-conn_speed = 1.0
-D = 0.001  # noise dispersion
-dt = 0.5  # integration step in m sec
-n_subj = 200  # number of subjects
-
 # argparse
 HELPTEXT = """
 Script to simulate task-based data.
@@ -39,10 +28,14 @@ Script to simulate task-based data.
 parser = argparse.ArgumentParser(description=HELPTEXT)
 
 parser.add_argument("--dataset_info", type=str, help="path to dataset info file")
+parser.add_argument("--tasks_info", type=str, help="path to tasks info file")
+parser.add_argument("--participant_id", type=str, help="participant id")
 
 args = parser.parse_args()
 
 dataset_info_file = args.dataset_info
+tasks_info_file = args.tasks_info
+participant_id = args.participant_id
 
 # Read dataset info
 with open(dataset_info_file, "r") as f:
@@ -58,128 +51,34 @@ if "{main_root}" in dataset_info["roi_root"]:
 else:
     output_root = dataset_info["roi_root"]
 
-# create a subject id list
-subj_list = [f"sub-{i:04d}" for i in range(1, n_subj + 1)]
+# Read tasks info
+with open(tasks_info_file, "r") as f:
+    all_tasks_info = json.load(f)
 
-job_id = os.getenv("SGE_TASK_ID")  # for SGE
-if job_id is None:
-    job_id = os.getenv("SLURM_ARRAY_TASK_ID")  # for SLURM
-job_id = int(job_id)
-subj_id = subj_list[job_id - 1]  # TASK_ID starts from 1 not 0
+print(f"subject-level simulation started running ... for subject: {participant_id} ...")
 
-print(f"subject-level simulation started running ... for subject: {subj_id} ...")
+for task in all_tasks_info:
 
-all_task_info = {
-    "task-lowFreqLongRest": {
-        "task_name": "task-lowFreqLongRest",
-        "onset_time": onset_time,
-        "task_duration": 8.0,
-        "task_block_duration": 20.0,
-        "sim_length": sim_length,
-        "BOLD_period": BOLD_period,
-        "TAVG_period": TAVG_period,
-        "num_stimulated_regions": 5,
-        "global_conn_coupling_coef": global_conn_coupling_coef,
-        "D": D,
-        "conn_speed": conn_speed,
-        "dt": dt,
-    },
-    "task-lowFreqShortRest": {
-        "task_name": "task-lowFreqShortRest",
-        "onset_time": onset_time,
-        "task_duration": 12.0,
-        "task_block_duration": 20.0,
-        "sim_length": sim_length,
-        "BOLD_period": BOLD_period,
-        "TAVG_period": TAVG_period,
-        "num_stimulated_regions": 5,
-        "global_conn_coupling_coef": global_conn_coupling_coef,
-        "D": D,
-        "conn_speed": conn_speed,
-        "dt": dt,
-    },
-    "task-lowFreqShortTask": {
-        "task_name": "task-lowFreqShortTask",
-        "onset_time": onset_time,
-        "task_duration": 1.0,
-        "task_block_duration": 20.0,
-        "sim_length": sim_length,
-        "BOLD_period": BOLD_period,
-        "TAVG_period": TAVG_period,
-        "num_stimulated_regions": 5,
-        "global_conn_coupling_coef": global_conn_coupling_coef,
-        "D": D,
-        "conn_speed": conn_speed,
-        "dt": dt,
-    },
-    "task-highFreqLongRest": {
-        "task_name": "task-highFreqLongRest",
-        "onset_time": onset_time,
-        "task_duration": 1.0,
-        "task_block_duration": 5.0,
-        "sim_length": sim_length,
-        "BOLD_period": BOLD_period,
-        "TAVG_period": TAVG_period,
-        "num_stimulated_regions": 5,
-        "global_conn_coupling_coef": global_conn_coupling_coef,
-        "D": D,
-        "conn_speed": conn_speed,
-        "dt": dt,
-    },
-    "task-highFreqShortRest": {
-        "task_name": "task-highFreqShortRest",
-        "onset_time": onset_time,
-        "task_duration": 4.0,
-        "task_block_duration": 5.0,
-        "sim_length": sim_length,
-        "BOLD_period": BOLD_period,
-        "TAVG_period": TAVG_period,
-        "num_stimulated_regions": 5,
-        "global_conn_coupling_coef": global_conn_coupling_coef,
-        "D": D,
-        "conn_speed": conn_speed,
-        "dt": dt,
-    },
-    "task-lowFreqShortRestDominStimul": {
-        "task_name": "task-lowFreqShortRestDominStimul",
-        "onset_time": onset_time,
-        "task_duration": 12.0,
-        "task_block_duration": 20.0,
-        "sim_length": sim_length,
-        "BOLD_period": BOLD_period,
-        "TAVG_period": TAVG_period,
-        "num_stimulated_regions": 26,
-        "global_conn_coupling_coef": global_conn_coupling_coef,
-        "D": D,
-        "conn_speed": conn_speed,
-        "dt": dt,
-    },
-    "task-lowFreqShortRestNoisy": {
-        "task_name": "task-midFreqMidRestNoisy",
-        "onset_time": onset_time,
-        "task_duration": 12.0,
-        "task_block_duration": 20.0,
-        "sim_length": sim_length,
-        "BOLD_period": BOLD_period,
-        "TAVG_period": TAVG_period,
-        "num_stimulated_regions": 5,
-        "global_conn_coupling_coef": global_conn_coupling_coef,
-        "D": D * 100,
-        "conn_speed": conn_speed,
-        "dt": dt,
-    },
-}
-
-for task in all_task_info:
-
-    time_series, task_data = simul_utils.simulate_task_data(subj_id, all_task_info[task])
+    # the task_data file might not exist for some subjects, so we use a try-except block
+    try:
+        time_series, task_data = simul_utils.simulate_task_data(
+            participant_id, all_tasks_info[task]
+        )
+    except Exception as e:
+        print(f"Error simulating task {task} for participant {participant_id}: {e}")
+        continue
 
     # save the time series and task data
-    output_file_prefix = f"{subj_id}_{task}"
-    if not os.path.exists(f"{output_root}/{subj_id}/"):
-        os.makedirs(f"{output_root}/{subj_id}/")
-    np.save(f"{output_root}/{subj_id}/{output_file_prefix}_time-series.npy", time_series)
-    np.save(f"{output_root}/{subj_id}/{output_file_prefix}_task-data.npy", task_data)
+    output_file_prefix = f"{participant_id}_{task}"
+    if not os.path.exists(f"{output_root}/{participant_id}/"):
+        os.makedirs(f"{output_root}/{participant_id}/")
+    np.save(
+        f"{output_root}/{participant_id}/{output_file_prefix}_time-series.npy",
+        time_series,
+    )
+    np.save(
+        f"{output_root}/{participant_id}/{output_file_prefix}_task-data.npy", task_data
+    )
 
 print("****************** DONE ******************")
 ####################################################################################

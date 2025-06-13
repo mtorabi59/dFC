@@ -103,9 +103,9 @@ def simulate_task_BOLD(
     sim_length : float
         The length of the simulation in seconds.
     BOLD_period : float
-        The BOLD period in seconds.
+        The BOLD period in milliseconds.
     TAVG_period : float
-        The TAVG period in seconds.
+        The TAVG period in milliseconds.
     num_stimulated_regions : int, optional
         The number of stimulated regions. The default is 5.
         if num_stimulated_regions is 5, the stimulated regions are:
@@ -366,28 +366,28 @@ def simulate_task_data(subj_id, task_info):
 
     Parameters
     ----------
-    subj_id : int
+    subj_id : str
         The subject ID.
     task_info : dict
         A dictionary containing the task information below:
             - task_name: str
                 The name of the task.
-            - task_data: dict
-                A dictionary containing the task parameters
+            - task_data: str
+                Path to a dictionary containing the task parameters
                 if task_data is not provided, onset_time, task_duration, task_block_duration,
                 sim_length, will be used to create the task data.
             - onset_time: float
-                The onset time of the task.
+                The onset time of the task in seconds.
             - task_duration: float
-                The duration of the task.
+                The duration of the task in seconds.
             - task_block_duration: float
-                The duration of the task block.
+                The duration of the task block in seconds.
             - sim_length: float
-                The length of the simulation.
+                The length of the simulation in milliseconds.
             - BOLD_period: float
-                The BOLD period.
+                The BOLD period in milliseconds.
             - TAVG_period: float
-                The TAVG period.
+                The TAVG period in milliseconds.
             - num_stimulated_regions: int
                 The number of stimulated regions.
             - global_conn_coupling_coef: float
@@ -397,10 +397,15 @@ def simulate_task_data(subj_id, task_info):
             - conn_speed: float
                 The connectivity speed.
             - dt: float
-                The simulation time step.
+                The simulation time step in milliseconds.
     """
     if task_info["task_data"] is not None:
-        task_data = task_info["task_data"]
+        # task_info["task_data"] is a path to a dictionary with {subj_id} as a placeholder
+        if "{subj_id}" in task_info["task_data"]:
+            task_data_path = task_info["task_data"].replace("{subj_id}", subj_id)
+        else:
+            task_data_path = task_info["task_data"]
+        task_data = np.load(task_data_path, allow_pickle="TRUE").item()
     else:
         task_data = create_simul_task_info(
             TR_mri=task_info["BOLD_period"] * 1e-3,  # convert to seconds
