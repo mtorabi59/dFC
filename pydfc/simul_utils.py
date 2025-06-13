@@ -7,11 +7,62 @@ Created on April 25 2024
 """
 
 import numpy as np
+from scipy import signal
 from tvb.simulator.lab import *
 
 from pydfc import TIME_SERIES, task_utils
 
 ################################# Simulation Functions ####################################
+
+
+class CustomStimuli(patterns.StimuliRegion):
+    def __init__(
+        self, stimulus_timing, region_weighting, connectivity, amplitude=1.0, **kwargs
+    ):
+        """
+        Parameters:
+        - stimulus_timing: array of 0s and 1s (or amplitudes) over time
+        - target_nodes: list or array of node indices where to apply the stimulus
+        - amplitude: default amplitude (multiplied by stimulus_timing value)
+        """
+        super().__init__(**kwargs)
+        self.stimulus_timing = np.array(stimulus_timing)
+        self.amplitude = amplitude
+        self.current_idx = 0
+        self.weight = region_weighting
+        self.connectivity = connectivity  # Required by TVB, even if not used
+        # Required by TVB, even if not used
+        self.temporal = equations.PulseTrain()
+        self.spatial = equations.DiscreteEquation()
+
+    def __call__(self, temporal_indices, spatial_indices=None):
+
+        # if temporal_indices is not a single integer, raise an error
+        if not isinstance(temporal_indices, (int, np.integer)):
+            raise ValueError(
+                "CustomStimuli expects a single integer for temporal_indices."
+            )
+        # time is milliseconds
+        n_nodes = self.weight.shape[0]
+        stim = np.zeros(n_nodes)
+
+        # Determine which index in the stimulus array corresponds to current time
+        self.current_idx = temporal_indices
+
+        if self.current_idx < len(self.stimulus_timing):
+            stim_value = self.stimulus_timing[self.current_idx] * self.amplitude
+        else:
+            stim_value = 0  # stimulus ends when array is exhausted
+
+        stim = np.multiply(self.weight, stim_value)
+        self.stimulus = stim
+        return self.stimulus
+
+    def set_state(self, state):
+        self.state = state
+
+    def configure_time(self, t):
+        pass
 
 
 def create_random_stimulus_weights(stimulated_regions_list, n_regions=76):
@@ -30,33 +81,8 @@ def create_random_stimulus_weights(stimulated_regions_list, n_regions=76):
     return weighting
 
 
-def create_stimulus(
-    onset,
-    task_duration,
-    task_block_duration,
-    conn,
-    region_weighting,
-):
-    """
-    Create a stimulus pattern for the task.
-    """
-    # temporal profile
-    eqn_t = equations.PulseTrain()
-    eqn_t.parameters["onset"] = onset * 1e3  # ms
-    eqn_t.parameters["tau"] = task_duration * 1e3  # ms
-    eqn_t.parameters["T"] = task_block_duration * 1e3  # ms
-
-    stimulus = patterns.StimuliRegion(
-        temporal=eqn_t, connectivity=conn, weight=region_weighting
-    )
-
-    return stimulus
-
-
 def simulate_task_BOLD(
-    onset_time,
-    task_duration,
-    task_block_duration,
+    stimulus_timing,
     sim_length,
     BOLD_period,
     TAVG_period,
@@ -72,18 +98,14 @@ def simulate_task_BOLD(
 
     Parameters
     ----------
-    onset_time : float
-        The onset time of the task.
-    task_duration : float
-        The duration of the task.
-    task_block_duration : float
-        The duration of the task block.
+    stimulus_timing : array-like, optional
+        The stimulus timing array, which should contain 0s and 1s (or amplitudes) over time.
     sim_length : float
-        The length of the simulation.
+        The length of the simulation in seconds.
     BOLD_period : float
-        The BOLD period.
+        The BOLD period in seconds.
     TAVG_period : float
-        The TAVG period.
+        The TAVG period in seconds.
     num_stimulated_regions : int, optional
         The number of stimulated regions. The default is 5.
         if num_stimulated_regions is 5, the stimulated regions are:
@@ -95,7 +117,6 @@ def simulate_task_BOLD(
         else, the stimulated regions are randomly selected.
     """
     # randomize some parameters for each subjects
-    onset = np.random.normal(loc=onset_time, scale=0.5)  # seconds
     global_conn_coupling = np.random.normal(loc=global_conn_coupling_coef, scale=0.0075)
     conn_speed_rand = np.random.normal(loc=conn_speed, scale=0.1 * conn_speed)
     ################################# Initialize Simulation ####################################
@@ -118,12 +139,15 @@ def simulate_task_BOLD(
         stimulated_regions_list=stimulated_regions_list, n_regions=76
     )
 
-    stimulus = create_stimulus(
-        onset=onset,
-        task_duration=task_duration,
-        task_block_duration=task_block_duration,
-        conn=conn,
+    # check if stimulus_timing is only containing 0s and 1s
+    if not np.all(np.isin(stimulus_timing, [0, 1])):
+        raise ValueError("stimulus_timing should only contain 0s and 1s.")
+
+    stimulus = CustomStimuli(
+        stimulus_timing=stimulus_timing,
         region_weighting=weighting,
+        connectivity=conn,
+        amplitude=1.0,
     )
 
     ################################# Run Simulation ####################################
@@ -185,7 +209,6 @@ def simulate_task_BOLD(
 
 
 def create_simul_task_info(
-    num_time_mri,
     TR_mri,
     task,
     onset,
@@ -199,10 +222,8 @@ def create_simul_task_info(
 
     Parameters
     ----------
-    num_time_mri : int
-        Number of time points in the BOLD signal.
     TR_mri : float
-        The repetition time of the MRI.
+        The repetition time of the MRI in seconds.
     task : str
         The task name.
     onset : float
@@ -213,6 +234,7 @@ def create_simul_task_info(
         The duration of the task block.
     sim_length : float
         The length of the simulation.
+        in milliseconds
     oversampling : int, optional
         The oversampling factor. The default is 50.
         generate more samples per TR than the func data to have a
@@ -224,10 +246,14 @@ def create_simul_task_info(
     # using onset, task_duration, task_block_duration to create the events
     events.append(["onset", "duration", "trial_type"])
     t = onset
-    while t < sim_length:
+    while t < (sim_length * 1e-3):
         events.append([t, task_duration, "task"])
         t += task_block_duration
     events = np.array(events)
+
+    # find the number of time points in the MRI data
+    # sim_length is in milliseconds
+    num_time_mri = int((sim_length * 1e-3) / TR_mri)
 
     event_labels, Fs_task, event_types = task_utils.events_time_to_labels(
         events=events,
@@ -254,14 +280,39 @@ def create_simul_task_info(
     return task_data
 
 
+def event_labels_to_stimulus_timing(
+    event_labels,
+    Fs_task,
+    dt,
+):
+    """
+    Convert event labels to stimulus timing.
+    Parameters
+    ----------
+    event_labels : array-like
+        The event labels, which should contain 0s (rest) and event ids over time.
+    Fs_task : float
+        The sampling frequency of the task data in Hz.
+    dt : float
+        The simulation time step in milliseconds.
+    """
+    # make sure the timings are only 0s and 1s
+    stimulus_timing = np.multiply(event_labels != 0, 1)
+
+    # make sure task_data sampling frequency is equal to simulation time step
+    L_old = len(stimulus_timing)
+    L_new = int((L_old * 1e3) / (Fs_task * dt))
+    stimulus_timing = signal.resample(stimulus_timing, L_new)
+    # binarize the stimulus timing
+    # because of the resampling, the values might not be exactly 0 or 1
+    stimulus_timing = np.where(stimulus_timing > 0.5, 1, 0)
+
+    return stimulus_timing
+
+
 def simulate_task_BOLD_TS(
     subj_id,
-    task,
-    onset_time,
-    task_duration,
-    task_block_duration,
-    sim_length,
-    BOLD_period,
+    task_data,
     TAVG_period,
     num_stimulated_regions=5,
     global_conn_coupling_coef=0.0126,
@@ -273,11 +324,18 @@ def simulate_task_BOLD_TS(
     """
     Simulate BOLD signal for a task and return a TIME_SERIES object.
     """
+    task = task_data["task"]
+    BOLD_period = task_data["TR_mri"] * 1e3  # convert to milliseconds
+    sim_length = task_data["num_time_mri"] * BOLD_period  # in milliseconds
+    stimulus_timing = event_labels_to_stimulus_timing(
+        event_labels=task_data["event_labels"],
+        Fs_task=task_data["Fs_task"],
+        dt=dt,
+    )
+
     bold_data, bold_time, region_labels, centres_locs, TR_mri, _, _, _ = (
         simulate_task_BOLD(
-            onset_time=onset_time,
-            task_duration=task_duration,
-            task_block_duration=task_block_duration,
+            stimulus_timing=stimulus_timing,
             sim_length=sim_length,
             BOLD_period=BOLD_period,
             TAVG_period=TAVG_period,
@@ -298,18 +356,8 @@ def simulate_task_BOLD_TS(
         TS_name=f"BOLD_{subj_id}_{task}",
         session_name=task,
     )
-    num_time_mri = time_series.n_time
-    task_data = create_simul_task_info(
-        num_time_mri=num_time_mri,
-        TR_mri=TR_mri,
-        task=task,
-        onset=onset_time,
-        task_duration=task_duration,
-        task_block_duration=task_block_duration,
-        sim_length=sim_length,
-    )
 
-    return time_series, task_data
+    return time_series
 
 
 def simulate_task_data(subj_id, task_info):
@@ -324,6 +372,10 @@ def simulate_task_data(subj_id, task_info):
         A dictionary containing the task information below:
             - task_name: str
                 The name of the task.
+            - task_data: dict
+                A dictionary containing the task parameters
+                if task_data is not provided, onset_time, task_duration, task_block_duration,
+                sim_length, will be used to create the task data.
             - onset_time: float
                 The onset time of the task.
             - task_duration: float
@@ -347,14 +399,21 @@ def simulate_task_data(subj_id, task_info):
             - dt: float
                 The simulation time step.
     """
-    time_series, task_data = simulate_task_BOLD_TS(
+    if task_info["task_data"] is not None:
+        task_data = task_info["task_data"]
+    else:
+        task_data = create_simul_task_info(
+            TR_mri=task_info["BOLD_period"] * 1e-3,  # convert to seconds
+            task=task_info["task_name"],
+            onset=task_info["onset_time"],
+            task_duration=task_info["task_duration"],
+            task_block_duration=task_info["task_block_duration"],
+            sim_length=task_info["sim_length"],
+        )
+
+    time_series = simulate_task_BOLD_TS(
         subj_id=subj_id,
-        task=task_info["task_name"],
-        onset_time=task_info["onset_time"],
-        task_duration=task_info["task_duration"],
-        task_block_duration=task_info["task_block_duration"],
-        sim_length=task_info["sim_length"],
-        BOLD_period=task_info["BOLD_period"],
+        task_data=task_data,
         TAVG_period=task_info["TAVG_period"],
         num_stimulated_regions=task_info["num_stimulated_regions"],
         global_conn_coupling_coef=task_info["global_conn_coupling_coef"],
@@ -362,5 +421,9 @@ def simulate_task_data(subj_id, task_info):
         conn_speed=task_info["conn_speed"],
         dt=task_info["dt"],
     )
+
+    # make sure task_data["num_time_mri"] is equal to the number of time points in the time series
+    if task_data["num_time_mri"] != time_series.n_time:
+        task_data["num_time_mri"] = time_series.n_time
 
     return time_series, task_data

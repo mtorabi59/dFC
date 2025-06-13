@@ -29,7 +29,7 @@ TAVG_period = 1.0  # in m sec
 global_conn_coupling_coef = 0.0126
 conn_speed = 1.0
 D = 0.001  # noise dispersion
-dt = 0.5  # integration step
+dt = 0.5  # integration step in m sec
 n_subj = 200  # number of subjects
 
 # argparse
