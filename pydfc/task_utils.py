@@ -289,7 +289,7 @@ def shifted_binarizing(
 
 def GMM_binarizing(
     event_labels_all_task_hrf,
-    threshold=0.1,
+    threshold=0.01,
     downsample=True,
     TR_mri=None,
     TR_task=None,
@@ -322,6 +322,26 @@ def GMM_binarizing(
     # Create a binarized signal with transition points discarded
     indices = np.where((p_on <= threshold) | (p_on >= (1 - threshold)))[0]
     task_presence = np.where(p_on >= (1 - threshold), 1, 0)
+
+    # check that both classes are non-empty
+    unique_labels = np.unique(task_presence[indices])
+    if len(unique_labels) < 2:
+        fallback_threshold = 0.10
+        indices = np.where(
+            (p_on <= fallback_threshold) | (p_on >= (1 - fallback_threshold))
+        )[0]
+        task_presence = np.where(p_on >= (1 - fallback_threshold), 1, 0)
+
+        # Re-check after fallback
+        unique_labels = np.unique(task_presence[indices])
+        if len(unique_labels) < 2:
+            warnings.warn(
+                f"Even with fallback threshold={fallback_threshold}, only one class present in confident samples."
+            )
+        else:
+            warnings.warn(
+                f"Only one class detected at threshold={threshold}, falling back to threshold={fallback_threshold}."
+            )
 
     return task_presence, indices
 
@@ -398,7 +418,7 @@ def extract_task_presence(
         elif binarizing_method == "GMM":
             task_presence, indices = GMM_binarizing(
                 event_labels_all_task_hrf,
-                threshold=0.1,
+                threshold=0.01,
                 downsample=True,
                 TR_mri=TR_mri,
                 TR_task=TR_task,
