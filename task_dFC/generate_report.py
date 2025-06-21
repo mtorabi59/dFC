@@ -407,19 +407,19 @@ def plot_task_presence(
     TR_mri = task_data["TR_mri"]
     Fs_mri = 1 / TR_mri
 
-    task_presence_non_binarized = task_utils.extract_task_presence(
+    task_presence_non_binarized, _ = task_utils.extract_task_presence(
         event_labels=task_data["event_labels"],
         TR_task=TR_task,
         TR_mri=task_data["TR_mri"],
         binary=False,
     )
 
-    task_presence = task_utils.extract_task_presence(
+    task_presence, indices = task_utils.extract_task_presence(
         event_labels=task_data["event_labels"],
         TR_task=TR_task,
         TR_mri=task_data["TR_mri"],
         binary=True,
-        binarizing_method="shift",
+        binarizing_method="GMM",
     )
 
     time = np.arange(0, task_presence.shape[0]) / Fs_mri
@@ -433,6 +433,17 @@ def plot_task_presence(
         time[start_TR:end_TR], task_presence_non_binarized[start_TR:end_TR], linewidth=4
     )
     plt.plot(time[start_TR:end_TR], task_presence[start_TR:end_TR], linewidth=4)
+    # Define local time and signal
+    time_new = time[start_TR:end_TR]
+    task_presence_new = task_presence_non_binarized[start_TR:end_TR]
+
+    # Find indices that are BOTH in the range and in indices
+    all_range = np.arange(start_TR, end_TR)
+    local_indices = np.where(np.isin(all_range, indices))[
+        0
+    ]  # relative to the start_TR:end_TR slice
+
+    plt.scatter(time_new[local_indices], task_presence_new[local_indices], color="orange")
 
     # put vertical lines at the start of each TR
     for TR in range(start_TR, end_TR):
@@ -464,45 +475,6 @@ def plot_task_presence(
     )
 
     plt.close()
-
-
-def calculate_subj_lvl_task_presence_characteristics(
-    roi_root,
-    subj,
-    task,
-    run=None,
-    session=None,
-):
-    task_data = load_task_data(roi_root, subj, task, run, session)
-    Fs_task = task_data["Fs_task"]
-    TR_task = 1 / Fs_task
-
-    task_presence = task_utils.extract_task_presence(
-        event_labels=task_data["event_labels"],
-        TR_task=TR_task,
-        TR_mri=task_data["TR_mri"],
-        binary=True,
-        binarizing_method="shift",
-    )
-    relative_task_on = task_utils.calc_relative_task_on(task_presence)
-    # task duration
-    avg_task_duration, var_task_duration = task_utils.calc_task_duration(
-        task_presence, task_data["TR_mri"]
-    )
-    # rest duration
-    avg_rest_duration, var_rest_duration = task_utils.calc_rest_duration(
-        task_presence, task_data["TR_mri"]
-    )
-    # freq of transitions
-    num_of_transitions, relative_transition_freq = task_utils.calc_transition_freq(
-        task_presence
-    )
-
-    print(f"Relative task on: {relative_task_on}")
-    print(f"Average task duration: {avg_task_duration} seconds")
-    print(f"Average rest duration: {avg_rest_duration} seconds")
-    print(f"Number of transitions: {num_of_transitions}")
-    print(f"Relative transition frequency: {relative_transition_freq}")
 
 
 # def plot_FCS():
