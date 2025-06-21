@@ -244,8 +244,9 @@ def downsample_events_hrf(events_hrf, TR_mri, TR_task, method="uniform"):
     the shape of events_hrf is (num_time_task, num_event_types) or (num_time_task,)
     the shape of the downsampled events_hrf is (num_time_mri, num_event_types)
     """
+    flag = False
     if len(events_hrf.shape) == 1:
-        flag = 1
+        flag = True
         events_hrf = np.expand_dims(events_hrf, axis=1)
     events_hrf_ds = []
     for i in range(events_hrf.shape[1]):
