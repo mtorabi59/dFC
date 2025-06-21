@@ -41,7 +41,6 @@ from .task_utils import (
     calc_rest_duration,
     calc_task_duration,
     calc_transition_freq,
-    extract_abs_task_presence,
     extract_task_presence,
 )
 
@@ -189,14 +188,15 @@ def extract_task_features(TASKS, RUNS, session, roi_root, dFC_root, no_hrf=False
                 Fs_task = task_data["Fs_task"]
                 TR_task = 1 / Fs_task
 
-                task_presence = extract_task_presence(
+                task_presence, indices = extract_task_presence(
                     event_labels=task_data["event_labels"],
                     TR_task=TR_task,
                     TR_mri=task_data["TR_mri"],
                     binary=True,
-                    binarizing_method="shift",
+                    binarizing_method="GMM",
                     no_hrf=no_hrf,
                 )
+                task_presence = task_presence[indices]
 
                 relative_task_on = calc_relative_task_on(task_presence)
                 # task duration
@@ -244,19 +244,13 @@ def dFC_feature_extraction_subj_lvl(
     dFC_vecs = dFC_mat2vec(dFC_mat)
 
     # event data
-    # task_presence = extract_task_presence(
-    #     event_labels=task_data["event_labels"],
-    #     TR_task=1 / task_data["Fs_task"],
-    #     TR_mri=task_data["TR_mri"],
-    #     TR_array=TR_array,
-    #     binary=True,
-    #     binarizing_method="shift",
-    # )
-    abs_task_presence, indices = extract_abs_task_presence(
+    task_presence, indices = extract_task_presence(
         event_labels=task_data["event_labels"],
         TR_task=1 / task_data["Fs_task"],
         TR_mri=task_data["TR_mri"],
         TR_array=TR_array,
+        binary=True,
+        binarizing_method="GMM",
     )
 
     # features = dFC_vecs
@@ -264,7 +258,7 @@ def dFC_feature_extraction_subj_lvl(
 
     # use absolute task presence
     features = dFC_vecs[indices, :]
-    target = abs_task_presence.ravel()
+    target = task_presence.ravel()[indices]
 
     assert (
         features.shape[0] == target.shape[0]

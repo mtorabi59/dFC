@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from nilearn import glm
 from scipy import signal
+from sklearn.mixture import GaussianMixture
 
 from .dfc_utils import TR_intersection, rank_norm, visualize_conn_mat
 
@@ -285,13 +286,52 @@ def shifted_binarizing(
     return threshold
 
 
+def GMM_binarizing(
+    event_labels_all_task_hrf,
+    threshold=0.1,
+    downsample=True,
+    TR_mri=None,
+    TR_task=None,
+    TR_array=None,
+):
+    event_labels_all_task_hrf = event_labels_all_task_hrf.copy()
+    event_labels_all_task_hrf_reshaped = event_labels_all_task_hrf.reshape(-1, 1)
+    # Fit GMM
+    gmm = GaussianMixture(n_components=2, n_init=5).fit(
+        event_labels_all_task_hrf_reshaped
+    )
+    # downsample to MRI TR
+    if downsample:
+        event_labels_all_task_hrf_reshaped = downsample_events_hrf(
+            event_labels_all_task_hrf_reshaped, TR_mri, TR_task
+        )
+    # some dFC measures (window-based) have a different TR than the task data
+    if TR_array is not None:
+        event_labels_all_task_hrf_reshaped = event_labels_all_task_hrf_reshaped[TR_array]
+    # now predict on vs. off for the downsampled time points
+    probs = gmm.predict_proba(event_labels_all_task_hrf_reshaped)
+    # Identify which component corresponds to "on" (higher mean)
+    # Each component has a mean, and in this case:
+    # The "off" state should have a lower mean (closer to baseline).
+    # The "on" state should have a higher mean (HRF-convolved signal is elevated during task).
+    means = gmm.means_.flatten()
+    on_component = np.argmax(means)
+    # Get probability of being in the "on" state
+    p_on = probs[:, on_component]
+    # Create a binarized signal with transition points discarded
+    indices = np.where((p_on <= threshold) | (p_on >= (1 - threshold)))[0]
+    task_presence = np.where(p_on >= (1 - threshold), 1, 0)
+
+    return task_presence, indices
+
+
 def extract_task_presence(
     event_labels,
     TR_task,
     TR_mri,
     TR_array=None,
     binary=True,
-    binarizing_method="median",
+    binarizing_method="GMM",
     no_hrf=False,
 ):
     """
@@ -303,7 +343,7 @@ def extract_task_presence(
     This function extracts the task presence from the event labels and returns it in the same time points as the dFC data
     It also downsamples the task presence to the time points of the dFC data
     if binary is True, the task presence is binarized using the mean of the task presence
-    binarizing_method: 'median' or 'mean' or 'shift'
+    binarizing_method: 'median' or 'mean' or 'shift' or 'GMM'
     if binarizing_method is 'shift', the task presence is binarized such that the ratio of 1 to 0 is equal to the task presence ratio
 
     if no_hrf is True, the task presence is not convolved with HRF
@@ -328,70 +368,54 @@ def extract_task_presence(
     if binary:
         if binarizing_method == "median":
             threshold = np.median(event_labels_all_task_hrf)
+            task_presence = np.where(event_labels_all_task_hrf > threshold, 1, 0)
+            task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
+            # some dFC measures (window-based) have a different TR than the task data
+            if TR_array is not None:
+                task_presence = task_presence[TR_array]
+            indices = np.arange(task_presence.shape[0])
         elif binarizing_method == "mean":
             threshold = np.mean(event_labels_all_task_hrf)
+            task_presence = np.where(event_labels_all_task_hrf > threshold, 1, 0)
+            task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
+            # some dFC measures (window-based) have a different TR than the task data
+            if TR_array is not None:
+                task_presence = task_presence[TR_array]
+            indices = np.arange(task_presence.shape[0])
         elif binarizing_method == "shift":
             task_presence_ratio = np.mean(event_labels_all_task)
             threshold = shifted_binarizing(
                 event_labels_all_task_hrf=event_labels_all_task_hrf,
                 task_presence_ratio=task_presence_ratio,
             )
+            task_presence = np.where(event_labels_all_task_hrf > threshold, 1, 0)
+            task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
+            # some dFC measures (window-based) have a different TR than the task data
+            if TR_array is not None:
+                task_presence = task_presence[TR_array]
+            indices = np.arange(task_presence.shape[0])
+        elif binarizing_method == "GMM":
+            task_presence, indices = GMM_binarizing(
+                event_labels_all_task_hrf,
+                threshold=0.1,
+                downsample=True,
+                TR_mri=TR_mri,
+                TR_task=TR_task,
+                TR_array=TR_array,
+            )
         else:
-            raise ValueError("binarizing_method should be 'median', 'mean' or 'shift'")
-        task_presence = np.where(event_labels_all_task_hrf > threshold, 1, 0)
+            raise ValueError(
+                "binarizing_method should be 'median', 'mean', 'shift', or 'GMM'"
+            )
     else:
         task_presence = event_labels_all_task_hrf
+        task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
+        # some dFC measures (window-based) have a different TR than the task data
+        if TR_array is not None:
+            task_presence = task_presence[TR_array]
+        indices = np.arange(task_presence.shape[0])
 
-    task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
-
-    # some dFC measures (window-based) have a different TR than the task data
-    if TR_array is not None:
-        task_presence = task_presence[TR_array]
-
-    return task_presence
-
-
-def extract_abs_task_presence(
-    event_labels,
-    TR_task,
-    TR_mri,
-    TR_array=None,
-):
-    """
-    event_labels: event labels including 0 and event ids at the time each event happens
-    TR_task: TR of task
-    TR_mri: TR of MRI
-    TR_array: the time points of the dFC data, optional
-
-    This function considers time points above task_presence_shift as task presence
-    and time points below task_presence_shift as rest and discards the ones in the
-    grey area between them. It also returns the indices of time points that are
-    kept.
-    """
-    task_presence_mean = extract_task_presence(
-        event_labels=event_labels,
-        TR_task=TR_task,
-        TR_mri=TR_mri,
-        TR_array=TR_array,
-        binary=True,
-        binarizing_method="mean",
-        no_hrf=False,
-    )
-    task_presence_shift = extract_task_presence(
-        event_labels=event_labels,
-        TR_task=TR_task,
-        TR_mri=TR_mri,
-        TR_array=TR_array,
-        binary=True,
-        binarizing_method="shift",
-        no_hrf=False,
-    )
-    indices = np.where((task_presence_mean == 0) | (task_presence_shift == 1))[0]
-
-    abs_task_presence = task_presence_shift.copy()
-    abs_task_presence = abs_task_presence[indices]
-
-    return abs_task_presence, indices
+    return task_presence, indices
 
 
 ################################# Task Features ####################################
