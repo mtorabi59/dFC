@@ -398,7 +398,7 @@ def extract_task_presence(
         elif binarizing_method == "GMM":
             task_presence, indices = GMM_binarizing(
                 event_labels_all_task_hrf,
-                threshold=0.01,
+                threshold=0.1,
                 downsample=True,
                 TR_mri=TR_mri,
                 TR_task=TR_task,
