@@ -10,7 +10,6 @@ import warnings
 
 import numpy as np
 from scipy.spatial import procrustes
-from scipy.stats import zscore
 from sklearn.base import clone
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
@@ -697,6 +696,42 @@ def LE_transform(X, n_components, n_neighbors, distance_metric="euclidean"):
     return X_embed
 
 
+def LE_transform_dFC(X, n_components, n_neighbors, distance_metric="euclidean"):
+    """
+    Transform dFC features into a lower dimensional space using Laplacian Eigenmaps (LE).
+    This function takes care of the case where the dFC samples are not unique,
+    specifically for state-based dFC features.
+    """
+    unique_samples = np.unique(X, axis=0)
+    # if there are repeated samples, we need to apply LE on the unique samples
+    if unique_samples.shape[0] == X.shape[0]:
+        # if all samples are unique, we can apply LE directly on the data
+        X_embedded = LE_transform(
+            X=X,
+            n_components=n_components,
+            n_neighbors=n_neighbors,
+            distance_metric=distance_metric,
+        )
+    else:
+        n_neighbors_LE = int(3 / 5 * unique_samples.shape[0])
+        unique_samples_embedded = LE_transform(
+            X=unique_samples,
+            n_components=n_components,
+            n_neighbors=n_neighbors_LE,
+            distance_metric=distance_metric,
+        )
+
+        # for each entry in X, put the corresponding entry in unique_samples_embedded
+        # in the corresponding position in X_embedded
+        X_embedded = np.zeros((X.shape[0], n_components))
+        for i, sample in enumerate(unique_samples):
+            idx = np.where((X == sample).all(axis=1))[0]
+            if len(idx) > 0:
+                X_embedded[idx] = unique_samples_embedded[i]
+
+    return X_embedded
+
+
 def LE_embed_procustes(
     X_train,
     X_test,
@@ -720,7 +755,7 @@ def LE_embed_procustes(
             ), f"Indices of {subject} are not consecutive"
             X_subj = X_train[subj_label_train == subject, :]
             y_subj = y_train[subj_label_train == subject]
-            X_subj_embed = LE_transform(
+            X_subj_embed = LE_transform_dFC(
                 X=X_subj,
                 n_components=n_components,
                 n_neighbors=n_neighbors_LE,
@@ -768,7 +803,7 @@ def LE_embed_procustes(
                 np.diff(np.where(subj_label_test == subject)[0]) == 1
             ), f"Indices of {subject} are not consecutive"
             X_subj = X_test[subj_label_test == subject, :]
-            X_subj_embed = LE_transform(
+            X_subj_embed = LE_transform_dFC(
                 X=X_subj,
                 n_components=n_components,
                 n_neighbors=n_neighbors_LE,
@@ -797,7 +832,7 @@ def LE_embed_procustes(
                 np.diff(np.where(subj_label_train == subject)[0]) == 1
             ), f"Indices of {subject} are not consecutive"
             X_subj = X_train[subj_label_train == subject, :]
-            X_subj_embed = LE_transform(
+            X_subj_embed = LE_transform_dFC(
                 X=X_subj,
                 n_components=n_components,
                 n_neighbors=n_neighbors_LE,
@@ -824,7 +859,7 @@ def LE_embed_procustes(
         X_test_embed = None
         for subject in test_subjects:
             X_subj = X_test[subj_label_test == subject, :]
-            X_subj_embed = LE_transform(
+            X_subj_embed = LE_transform_dFC(
                 X=X_subj,
                 n_components=n_components,
                 n_neighbors=n_neighbors_LE,
@@ -916,7 +951,7 @@ def embed_dFC_features(
                 X_concat = np.concatenate((X_train, X_test), axis=0)
             else:
                 X_concat = X_train
-            X_concat_embed = LE_transform(
+            X_concat_embed = LE_transform_dFC(
                 X=X_concat,
                 n_components=n_components,
                 n_neighbors=n_neighbors_LE,
