@@ -442,6 +442,9 @@ def plot_task_presence(
     local_indices = np.where(np.isin(all_range, indices))[
         0
     ]  # relative to the start_TR:end_TR slice
+    print(f"Local indices: {local_indices}")
+    print(f"Indices: {indices}")
+    print(f"all_range: {all_range}")
 
     plt.scatter(time_new[local_indices], task_presence_new[local_indices], color="orange")
 
