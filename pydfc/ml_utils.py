@@ -723,7 +723,7 @@ def LE_transform_dFC(X, n_components, n_neighbors, distance_metric="euclidean"):
 
         # for each entry in X, put the corresponding entry in unique_samples_embedded
         # in the corresponding position in X_embedded
-        X_embedded = np.zeros((X.shape[0], n_components))
+        X_embedded = np.zeros((X.shape[0], unique_samples_embedded.shape[1]))
         for i, sample in enumerate(unique_samples):
             idx = np.where((X == sample).all(axis=1))[0]
             if len(idx) > 0:
