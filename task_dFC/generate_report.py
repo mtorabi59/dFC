@@ -446,7 +446,7 @@ def plot_task_presence(
     print(f"Indices: {indices}")
     print(f"all_range: {all_range}")
 
-    plt.scatter(time_new[local_indices], task_presence_new[local_indices], color="orange")
+    plt.scatter(time_new[local_indices], task_presence_new[local_indices], color="brown")
 
     # put vertical lines at the start of each TR
     for TR in range(start_TR, end_TR):
