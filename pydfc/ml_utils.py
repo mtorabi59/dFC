@@ -704,15 +704,7 @@ def LE_transform_dFC(X, n_components, n_neighbors, distance_metric="euclidean"):
     """
     unique_samples = np.unique(X, axis=0)
     # if there are repeated samples, we need to apply LE on the unique samples
-    if unique_samples.shape[0] == X.shape[0]:
-        # if all samples are unique, we can apply LE directly on the data
-        X_embedded = LE_transform(
-            X=X,
-            n_components=n_components,
-            n_neighbors=n_neighbors,
-            distance_metric=distance_metric,
-        )
-    else:
+    if unique_samples.shape[0] < X.shape[0] // 2:
         n_neighbors_LE = int(3 / 5 * unique_samples.shape[0])
         unique_samples_embedded = LE_transform(
             X=unique_samples,
@@ -728,6 +720,14 @@ def LE_transform_dFC(X, n_components, n_neighbors, distance_metric="euclidean"):
             idx = np.where((X == sample).all(axis=1))[0]
             if len(idx) > 0:
                 X_embedded[idx] = unique_samples_embedded[i]
+    else:
+        # if all samples are unique, we can apply LE directly on the data
+        X_embedded = LE_transform(
+            X=X,
+            n_components=n_components,
+            n_neighbors=n_neighbors,
+            distance_metric=distance_metric,
+        )
 
     return X_embedded
 
@@ -900,6 +900,7 @@ def embed_dFC_features(
     All the subjects are transformed into the space of the subject with the highest silhouette score.
 
     LE_embedding_method: "concat+embed" or "embed+procrustes"
+    if the dFC features are not unique (state-based), "embed+procrustes" will not work. So this function will switch to "concat+embed" method.
     """
     # make a copy of the data
     X_train = X_train.copy()
@@ -919,6 +920,13 @@ def embed_dFC_features(
         else:
             X_test_embed = None
     elif embedding == "LE":
+        # if the dFC features are not unique (state-based), set the LE_embedding_method to "concat+embed"
+        if np.unique(X_train, axis=0).shape[0] < X_train.shape[0] // 2:
+            if LE_embedding_method == "embed+procrustes":
+                warnings.warn(
+                    "The dFC features are not unique (state-based). Switching to 'concat+embed' method."
+                )
+                LE_embedding_method = "concat+embed"
         # if n_components is not specified, find the intrinsic dimension of the data using training set and based on the silhouette score
         if n_components == "auto":
             n_components = find_intrinsic_dim(
@@ -947,6 +955,9 @@ def embed_dFC_features(
             )
         elif LE_embedding_method == "concat+embed":
             # since SpectralEmbedding does not have transform method, we need to fit the LE on the whole data
+            # but note that this method is used mostly for state-based dFC features, and in this case the
+            # samples are the same across subjects, so we can concatenate the training and test sets
+            # and then apply LE on the concatenated data
             if X_test is not None:
                 X_concat = np.concatenate((X_train, X_test), axis=0)
             else:
