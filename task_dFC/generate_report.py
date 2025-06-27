@@ -433,24 +433,13 @@ def plot_task_presence(
         time[start_TR:end_TR], task_presence_non_binarized[start_TR:end_TR], linewidth=4
     )
     plt.plot(time[start_TR:end_TR], task_presence[start_TR:end_TR], linewidth=4)
-    # Define local time and signal
-    time_new = time[start_TR:end_TR]
-    task_presence_new = task_presence_non_binarized[start_TR:end_TR]
-
-    # Find indices that are BOTH in the range and in indices
-    all_range = np.arange(start_TR, end_TR)
-    local_indices = np.where(np.isin(all_range, indices))[
-        0
-    ]  # relative to the start_TR:end_TR slice
-    print(f"Local indices: {local_indices}")
-    print(f"Indices: {indices}")
-    print(f"all_range: {all_range}")
-
-    plt.scatter(time_new[local_indices], task_presence_new[local_indices], color="brown")
 
     # put vertical lines at the start of each TR
     for TR in range(start_TR, end_TR):
-        plt.axvline(x=TR * TR_mri, color="r", linestyle="--")
+        if TR in indices:
+            plt.axvline(x=TR * TR_mri, color="g", linestyle="--")
+        else:
+            plt.axvline(x=TR * TR_mri, color="r", linestyle="--")
     # show TR labels on the red lines with a small font and at the top
     for TR in range(start_TR, end_TR):
         plt.text(TR * TR_mri, 1.2, f"TR {TR}", fontsize=8, color="black", ha="center")
