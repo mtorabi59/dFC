@@ -65,10 +65,22 @@ def run_FCS_estimate(
     )
 
     # in this script we process only one measure
-    assert len(MEASURES_lst) == 1, "Only one measure should be processed in this script"
-    # and we assume alter_hparams is empty
-    # if not, we need to change the naming of the output files
-    assert len(alter_hparams) == 0, "alter_hparams is assumed to be empty in this script"
+    # if alter_hparams is not empty, we need to change the naming of the output files
+    # to differentiate between the measures
+    if len(MEASURES_lst) == 1:
+        only_one_measure = True
+    else:
+        only_one_measure = False
+
+    if not only_one_measure:
+        # we assume only one hyperparameter is altered
+        # alter_hparams is a dictionary with one key
+        # ow change the naming of the output files
+        assert len(alter_hparams) == 1, (
+            "alter_hparams should have only one key, "
+            "but got more than one. This script is designed to process only one hyperparameter."
+        )
+        hyper_param_name = [key for key in alter_hparams.keys()][0]
 
     tic = time.time()
     print("Measurement Started ...")
@@ -83,9 +95,10 @@ def run_FCS_estimate(
         backend=params_multi_analysis["backend"],
     )
 
-    assert (
-        len(MEASURES_fit_lst) == 1
-    ), "Only one measure should be processed in this script"
+    if only_one_measure:
+        assert (
+            len(MEASURES_fit_lst) == 1
+        ), "Only one measure should be processed, but got more than one."
 
     # Save the fitted measures
     for measure in MEASURES_fit_lst:
@@ -94,7 +107,10 @@ def run_FCS_estimate(
                 os.makedirs(f"{output_dir}")
         except OSError as err:
             print(err)
-        measure_name = MEASURES_name_lst[0]
+        if only_one_measure:
+            measure_name = measure.measure_name
+        else:
+            measure_name = f"{measure.measure_name}-{hyper_param_name}-{measure.params[hyper_param_name]}"
         np.save(f"{output_dir}/MEASURE_{file_suffix}_{measure_name}.npy", measure)
 
     print(f"Measurement required {time.time() - tic:0.3f} seconds.")
