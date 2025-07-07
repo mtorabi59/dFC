@@ -236,11 +236,25 @@ def dFC_feature_extraction_subj_lvl(
     dynamic_pred: "no", "past", "past_and_future"
     """
     # dFC features
-    dFC_mat = dFC.get_dFC_mat()
-    TR_array = dFC.TR_array
-    if normalize_dFC:
-        dFC_mat = rank_norm(dFC_mat)
-    dFC_vecs = dFC_mat2vec(dFC_mat)
+    # for state-based dFC, we use the FCS_proba as features
+    # for state-free dFC, we use the dFC matrix as features
+    if dFC.measure.is_state_based:
+        # state-based dFC
+        dFC_vecs = dFC.FCS_proba  # shape: (n_time, n_states)
+        TR_array = dFC.TR_array
+
+        assert dFC_vecs.shape[0] == len(
+            TR_array
+        ), "dFC_vecs and TR_array have different number of samples."
+        assert (
+            dFC_vecs.shape[1] == dFC.measure.params["n_states"]
+        ), "dFC_vecs and n_states are not consistent."
+    else:
+        dFC_mat = dFC.get_dFC_mat()
+        TR_array = dFC.TR_array
+        if normalize_dFC:
+            dFC_mat = rank_norm(dFC_mat)
+        dFC_vecs = dFC_mat2vec(dFC_mat)
 
     # event data
     task_presence, indices = extract_task_presence(
@@ -1452,23 +1466,32 @@ def task_presence_classification(
     }
     for embedding in ["PCA", "LE"]:
         # embed dFC features
-        try:
-            X_train_embedded, X_test_embedded = embed_dFC_features(
-                train_subjects=train_subjects,
-                test_subjects=test_subjects,
-                X_train=X_train,
-                X_test=X_test,
-                y_train=y_train,
-                y_test=y_test,
-                subj_label_train=subj_label_train,
-                subj_label_test=subj_label_test,
-                embedding=embedding,
-                n_components="auto",
-                n_neighbors_LE=125,
-                LE_embedding_method="embed+procrustes",
+        # if the number of features is smaller than 25, we assume that dimensionality reduction is not needed
+        # specially for state-based dFC features, the number of features is equal to the number of states
+        if X_train.shape[1] < 25:
+            X_train_embedded = X_train
+            X_test_embedded = X_test
+            print(
+                f"Number of features is {X_train.shape[1]}. No dimensionality reduction is applied."
             )
-        except:
-            continue
+        else:
+            try:
+                X_train_embedded, X_test_embedded = embed_dFC_features(
+                    train_subjects=train_subjects,
+                    test_subjects=test_subjects,
+                    X_train=X_train,
+                    X_test=X_test,
+                    y_train=y_train,
+                    y_test=y_test,
+                    subj_label_train=subj_label_train,
+                    subj_label_test=subj_label_test,
+                    embedding=embedding,
+                    n_components="auto",
+                    n_neighbors_LE=125,
+                    LE_embedding_method="embed+procrustes",
+                )
+            except:
+                continue
 
         # Silhouette score
         SI = {
@@ -1674,23 +1697,31 @@ def task_presence_clustering(
     }
     for embedding in ["PCA", "LE"]:
         # embed dFC features
-        try:
-            X_embedded, _ = embed_dFC_features(
-                train_subjects=SUBJECTS,
-                test_subjects=[],
-                X_train=X,
-                X_test=None,
-                y_train=y,
-                y_test=None,
-                subj_label_train=subj_label,
-                subj_label_test=None,
-                embedding=embedding,
-                n_components="auto",
-                n_neighbors_LE=125,
-                LE_embedding_method="embed+procrustes",
+        # if the number of features is smaller than 25, we assume that dimensionality reduction is not needed
+        # specially for state-based dFC features, the number of features is equal to the number of states
+        if X.shape[1] < 25:
+            X_embedded = X
+            print(
+                f"Number of features is {X.shape[1]}. No dimensionality reduction is applied."
             )
-        except:
-            continue
+        else:
+            try:
+                X_embedded, _ = embed_dFC_features(
+                    train_subjects=SUBJECTS,
+                    test_subjects=[],
+                    X_train=X,
+                    X_test=None,
+                    y_train=y,
+                    y_test=None,
+                    subj_label_train=subj_label,
+                    subj_label_test=None,
+                    embedding=embedding,
+                    n_components="auto",
+                    n_neighbors_LE=125,
+                    LE_embedding_method="embed+procrustes",
+                )
+            except:
+                continue
 
         # clustering
         # apply kmeans clustering to dFC features
