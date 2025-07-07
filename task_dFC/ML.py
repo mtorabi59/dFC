@@ -4,6 +4,7 @@ import os
 import traceback
 
 import numpy as np
+from joblib import Parallel, delayed
 
 from pydfc.ml_utils import (
     cluster_for_visual,
@@ -11,6 +12,10 @@ from pydfc.ml_utils import (
     task_presence_classification,
     task_presence_clustering,
 )
+
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
 
 #######################################################################################
 
@@ -63,6 +68,27 @@ def run_task_features_extraction(
             print(err)
 
 
+def classify_single_run(
+    task, run, session, dFC_id, roi_root, dFC_root, dynamic_pred, normalize_dFC
+):
+    try:
+        ML_scores_new = task_presence_classification(
+            task=task,
+            dFC_id=dFC_id,
+            roi_root=roi_root,
+            dFC_root=dFC_root,
+            run=run,
+            session=session,
+            dynamic_pred=dynamic_pred,
+            normalize_dFC=normalize_dFC,
+        )
+        return task, run, ML_scores_new
+    except Exception as e:
+        print(f"Error in task presence classification for {session} {task} {run}: {e}")
+        traceback.print_exc()
+        return task, run, None
+
+
 def run_classification(
     dFC_id,
     TASKS,
@@ -73,54 +99,54 @@ def run_classification(
     output_root,
     dynamic_pred="no",
     normalize_dFC=True,
+    n_jobs=-1,  # Number of parallel jobs; -1 = all available cores
 ):
     for session in SESSIONS:
-        if not session is None:
+        if session is not None:
             print(f"=================== {session} ===================")
 
         ML_scores = {
             "group_lvl": {},
             "subj_lvl": {},
         }
-        for task_id, task in enumerate(TASKS):
-            for run in RUNS[task]:
-                try:
-                    ML_scores_new = task_presence_classification(
-                        task=task,
-                        dFC_id=dFC_id,
-                        roi_root=roi_root,
-                        dFC_root=dFC_root,
-                        run=run,
-                        session=session,
-                        dynamic_pred=dynamic_pred,
-                        normalize_dFC=normalize_dFC,
-                    )
-                    # group level scores
-                    for key in ML_scores_new["group_lvl"]:
-                        if key not in ML_scores["group_lvl"]:
-                            ML_scores["group_lvl"][key] = list()
-                        ML_scores["group_lvl"][key].extend(
-                            ML_scores_new["group_lvl"][key]
-                        )
-                    # subject level scores
-                    for key in ML_scores_new["subj_lvl"]:
-                        if key not in ML_scores["subj_lvl"]:
-                            ML_scores["subj_lvl"][key] = list()
-                        ML_scores["subj_lvl"][key].extend(ML_scores_new["subj_lvl"][key])
 
-                except Exception as e:
-                    print(
-                        f"Error in task presence classification for {session} {task} {run}: {e}"
-                    )
-                    traceback.print_exc()
+        # Parallel execution
+        results = Parallel(n_jobs=n_jobs, verbose=0, backend="loky")(
+            delayed(classify_single_run)(
+                task,
+                run,
+                session,
+                dFC_id,
+                roi_root,
+                dFC_root,
+                dynamic_pred,
+                normalize_dFC,
+            )
+            for task in TASKS
+            for run in RUNS[task]
+        )
 
-        if session is None:
-            folder = f"{output_root}/classification"
-        else:
-            folder = f"{output_root}/classification/{session}"
+        # Aggregate results
+        for task, run, result in results:
+            if result is None:
+                continue
+            for key in result["group_lvl"]:
+                if key not in ML_scores["group_lvl"]:
+                    ML_scores["group_lvl"][key] = []
+                ML_scores["group_lvl"][key].extend(result["group_lvl"][key])
+            for key in result["subj_lvl"]:
+                if key not in ML_scores["subj_lvl"]:
+                    ML_scores["subj_lvl"][key] = []
+                ML_scores["subj_lvl"][key].extend(result["subj_lvl"][key])
+
+        # Save output
+        folder = (
+            f"{output_root}/classification"
+            if session is None
+            else f"{output_root}/classification/{session}"
+        )
         try:
-            if not os.path.exists(folder):
-                os.makedirs(folder)
+            os.makedirs(folder, exist_ok=True)
         except OSError as err:
             print(err)
 
