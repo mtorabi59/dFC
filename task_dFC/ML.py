@@ -378,6 +378,7 @@ if __name__ == "__main__":
             output_root=ML_root,
             dynamic_pred="no",
             normalize_dFC=True,
+            n_jobs=6,
         )
     except Exception as e:
         print(f"Error in classification for dFC ID {dFC_id}: {e}")
