@@ -229,16 +229,20 @@ def dFC_feature_extraction_subj_lvl(
     task_data,
     dynamic_pred="no",
     normalize_dFC=True,
+    FCS_proba_for_SB=True,
 ):
     """
     Extract features and target for task presence classification
     for a single subject.
     dynamic_pred: "no", "past", "past_and_future"
+
+    FCS_proba_for_SB: if True, use FCS_proba as features for state-based dFC.
+    If False, use dFC_vecs (dFC matrix as features).
     """
     # dFC features
     # for state-based dFC, we use the FCS_proba as features
     # for state-free dFC, we use the dFC matrix as features
-    if dFC.measure.is_state_based:
+    if dFC.measure.is_state_based and FCS_proba_for_SB:
         # state-based dFC
         dFC_vecs = dFC.FCS_proba  # shape: (n_time, n_states)
         TR_array = dFC.TR_array
@@ -315,11 +319,15 @@ def dFC_feature_extraction(
     session=None,
     dynamic_pred="no",
     normalize_dFC=True,
+    FCS_proba_for_SB=True,
 ):
     """
     Extract features and target for task presence classification
     for all subjects.
     if run is specified, dFC results for that run will be used.
+
+    if FCS_proba_for_SB is True, use FCS_proba as features for state-based dFC.
+    If False, use dFC_vecs (dFC matrix as features).
     """
     dFC_measure_name = None
     X_train = None
@@ -344,6 +352,7 @@ def dFC_feature_extraction(
             task_data=task_data,
             dynamic_pred=dynamic_pred,
             normalize_dFC=normalize_dFC,
+            FCS_proba_for_SB=FCS_proba_for_SB,
         )
 
         subj_label_train.extend([subj for i in range(X_subj.shape[0])])
@@ -389,6 +398,7 @@ def dFC_feature_extraction(
             task_data=task_data,
             dynamic_pred=dynamic_pred,
             normalize_dFC=normalize_dFC,
+            FCS_proba_for_SB=FCS_proba_for_SB,
         )
 
         subj_label_test.extend([subj for i in range(X_subj.shape[0])])
@@ -1442,6 +1452,7 @@ def task_presence_classification(
             session=session,
             dynamic_pred=dynamic_pred,
             normalize_dFC=normalize_dFC,
+            FCS_proba_for_SB=True,  # for state-based dFC features, we use FCS_proba
         )
     )
 
@@ -1683,6 +1694,7 @@ def task_presence_clustering(
         session=session,
         dynamic_pred="no",
         normalize_dFC=normalize_dFC,
+        FCS_proba_for_SB=True,  # for state-based dFC features, we use FCS_proba
     )
 
     clustering_RESULTS = {"PCA": {}, "LE": {}}
@@ -1838,6 +1850,7 @@ def cluster_for_visual(
         session=session,
         dynamic_pred="no",
         normalize_dFC=normalize_dFC,
+        FCS_proba_for_SB=False,
     )
 
     # clustering
