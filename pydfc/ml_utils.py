@@ -1496,9 +1496,15 @@ def task_presence_classification(
                 continue
 
         # Silhouette score
+        # SI does not need to be separated for train and test sets
+        # we will use the same SI for both train and test sets
+        # using all samples from train and test sets
+        X_combined = np.concatenate((X_train_embedded, X_test_embedded), axis=0)
+        y_combined = np.concatenate((y_train, y_test), axis=0)
+
         SI = {
-            "train": silhouette_score(X_train_embedded, y_train),
-            "test": silhouette_score(X_test_embedded, y_test),
+            "train": silhouette_score(X_combined, y_combined),
+            "test": silhouette_score(X_combined, y_combined),
         }
 
         # task presence classification
