@@ -631,6 +631,9 @@ def SI_ID(X, y, search_range=range(2, 50, 5), n_neighbors_LE=125):
 
     SI_score = {}
     for n_components in search_range:
+        if n_components > X.shape[1]:
+            # if the number of components is larger than the number of features, break
+            break
         try:
             X_train_embed, _ = embed_dFC_features(
                 train_subjects=["subj"],
