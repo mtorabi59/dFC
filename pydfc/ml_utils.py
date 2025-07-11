@@ -363,13 +363,7 @@ def dFC_feature_extraction(
             X_train = np.concatenate((X_train, X_subj), axis=0)
             y_train = np.concatenate((y_train, y_subj), axis=0)
 
-        if dFC.measure.measure_name == "SlidingWindow":
-            # for SlidingWindow, we also put the W parameter in the measure name
-            dFC_measure_name_new = (
-                f"{dFC.measure.measure_name}-W{dFC.measure.params['W']}"
-            )
-        else:
-            dFC_measure_name_new = dFC.measure.measure_name
+        dFC_measure_name_new = dFC.measure.measure_name
         if dFC_measure_name is None:
             dFC_measure_name = dFC_measure_name_new
         else:
@@ -409,13 +403,7 @@ def dFC_feature_extraction(
             X_test = np.concatenate((X_test, X_subj), axis=0)
             y_test = np.concatenate((y_test, y_subj), axis=0)
 
-        if dFC.measure.measure_name == "SlidingWindow":
-            # for SlidingWindow, we also put the W parameter in the measure name
-            dFC_measure_name_new = (
-                f"{dFC.measure.measure_name}-W{dFC.measure.params['W']}"
-            )
-        else:
-            dFC_measure_name_new = dFC.measure.measure_name
+        dFC_measure_name_new = dFC.measure.measure_name
         if dFC_measure_name is None:
             dFC_measure_name = dFC_measure_name_new
         else:
