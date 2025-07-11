@@ -5,7 +5,7 @@
         "TAVG_period": 1.0,
         "num_stimulated_regions": 5,
         "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
+        "D": 0.1,
         "conn_speed": 1.0,
         "dt": 0.5
     },
@@ -15,7 +15,7 @@
         "TAVG_period": 1.0,
         "num_stimulated_regions": 5,
         "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
+        "D": 0.1,
         "conn_speed": 1.0,
         "dt": 0.5
     },
@@ -25,7 +25,7 @@
         "TAVG_period": 1.0,
         "num_stimulated_regions": 5,
         "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
+        "D": 0.1,
         "conn_speed": 1.0,
         "dt": 0.5
     },
@@ -35,7 +35,7 @@
         "TAVG_period": 1.0,
         "num_stimulated_regions": 5,
         "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
+        "D": 0.1,
         "conn_speed": 1.0,
         "dt": 0.5
     }

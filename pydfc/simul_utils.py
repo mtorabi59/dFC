@@ -122,6 +122,19 @@ def simulate_task_BOLD(
     ################################# Initialize Simulation ####################################
     conn = connectivity.Connectivity.from_file()
     conn.speed = np.array([conn_speed_rand])
+    conn.configure()
+    # randomize the structural connectivity
+    # Additive Gaussian noise (e.g. 10% of weight magnitude)
+    noise_level = 0.1  # 10%
+    conn.weights += np.random.normal(
+        loc=0,
+        scale=noise_level * np.std(conn.weights[conn.weights > 0]),
+        size=conn.weights.shape,
+    )
+    # Remove negative weights if any
+    conn.weights = np.clip(conn.weights, 0, None)
+    # reconfigure the connectivity
+    conn.configure()
 
     # configure stimulus spatial pattern
     if num_stimulated_regions == 5:

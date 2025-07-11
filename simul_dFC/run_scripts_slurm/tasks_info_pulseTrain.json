@@ -9,7 +9,7 @@
         "TAVG_period": 1.0,
         "num_stimulated_regions": 5,
         "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
+        "D": 0.1,
         "conn_speed": 1.0,
         "dt": 0.5
     },
@@ -23,7 +23,7 @@
         "TAVG_period": 1.0,
         "num_stimulated_regions": 5,
         "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
+        "D": 0.1,
         "conn_speed": 1.0,
         "dt": 0.5
     },
@@ -37,7 +37,7 @@
         "TAVG_period": 1.0,
         "num_stimulated_regions": 5,
         "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
+        "D": 0.1,
         "conn_speed": 1.0,
         "dt": 0.5
     },
@@ -51,7 +51,7 @@
         "TAVG_period": 1.0,
         "num_stimulated_regions": 5,
         "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
+        "D": 0.1,
         "conn_speed": 1.0,
         "dt": 0.5
     },
@@ -65,35 +65,7 @@
         "TAVG_period": 1.0,
         "num_stimulated_regions": 5,
         "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
-        "conn_speed": 1.0,
-        "dt": 0.5
-    },
-    "task-lowFreqShortRestDominStimul": {
-        "task_name": "task-lowFreqShortRestDominStimul",
-        "onset_time": 20.0,
-        "task_duration": 12.0,
-        "task_block_duration": 20.0,
-        "sim_length": 250e3,
-        "BOLD_period": 500,
-        "TAVG_period": 1.0,
-        "num_stimulated_regions": 26,
-        "global_conn_coupling_coef": 0.0126,
-        "D": 0.01,
-        "conn_speed": 1.0,
-        "dt": 0.5
-    },
-    "task-lowFreqShortRestNoisy": {
-        "task_name": "task-midFreqMidRestNoisy",
-        "onset_time": 20.0,
-        "task_duration": 12.0,
-        "task_block_duration": 20.0,
-        "sim_length": 250e3,
-        "BOLD_period": 500,
-        "TAVG_period": 1.0,
-        "num_stimulated_regions": 5,
-        "global_conn_coupling_coef": 0.0126,
-        "D": 1.00,
+        "D": 0.1,
         "conn_speed": 1.0,
         "dt": 0.5
     }
