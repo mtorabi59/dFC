@@ -1468,32 +1468,23 @@ def task_presence_classification(
     }
     for embedding in ["PCA", "LE"]:
         # embed dFC features
-        # if the number of features is smaller than 25, we assume that dimensionality reduction is not needed
-        # specially for state-based dFC features, the number of features is equal to the number of states
-        if X_train.shape[1] < 25:
-            X_train_embedded = X_train
-            X_test_embedded = X_test
-            print(
-                f"Number of features is {X_train.shape[1]}. No dimensionality reduction is applied."
+        try:
+            X_train_embedded, X_test_embedded = embed_dFC_features(
+                train_subjects=train_subjects,
+                test_subjects=test_subjects,
+                X_train=X_train,
+                X_test=X_test,
+                y_train=y_train,
+                y_test=y_test,
+                subj_label_train=subj_label_train,
+                subj_label_test=subj_label_test,
+                embedding=embedding,
+                n_components="auto",
+                n_neighbors_LE=125,
+                LE_embedding_method="embed+procrustes",
             )
-        else:
-            try:
-                X_train_embedded, X_test_embedded = embed_dFC_features(
-                    train_subjects=train_subjects,
-                    test_subjects=test_subjects,
-                    X_train=X_train,
-                    X_test=X_test,
-                    y_train=y_train,
-                    y_test=y_test,
-                    subj_label_train=subj_label_train,
-                    subj_label_test=subj_label_test,
-                    embedding=embedding,
-                    n_components="auto",
-                    n_neighbors_LE=125,
-                    LE_embedding_method="embed+procrustes",
-                )
-            except:
-                continue
+        except:
+            continue
 
         # Silhouette score
         # SI does not need to be separated for train and test sets
