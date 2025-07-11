@@ -412,7 +412,7 @@ def simulate_task_data(subj_id, task_info):
             - dt: float
                 The simulation time step in milliseconds.
     """
-    if task_info["task_data"] is not None:
+    if "task_data" in task_info:
         # task_info["task_data"] is a path to a dictionary with {subj_id} as a placeholder
         if "{subj_id}" in task_info["task_data"]:
             task_data_path = task_info["task_data"].replace("{subj_id}", subj_id)
