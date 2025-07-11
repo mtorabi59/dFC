@@ -7,6 +7,7 @@ Created on Wed March 20 2024
 import argparse
 import json
 import os
+import traceback
 import warnings
 
 import numpy as np
@@ -66,6 +67,8 @@ for task in all_tasks_info:
         )
     except Exception as e:
         print(f"Error simulating task {task} for participant {participant_id}: {e}")
+        # print traceback
+        traceback.print_exc()
         continue
 
     # save the time series and task data
