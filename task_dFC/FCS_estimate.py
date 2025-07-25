@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import time
+import traceback
 import warnings
 
 import numpy as np
@@ -201,17 +202,23 @@ if __name__ == "__main__":
     for session in SESSIONS:
         for task in TASKS:
             for run in RUNS[task]:
-                run_FCS_estimate(
-                    params_methods=params_methods,
-                    MEASURES_name_lst=picked_measure_list,
-                    alter_hparams=alter_hparams,
-                    params_multi_analysis=params_multi_analysis,
-                    task=task,
-                    roi_root=roi_root,
-                    output_root=fitted_measures_root,
-                    session=session,
-                    run=run,
-                )
+                try:
+                    run_FCS_estimate(
+                        params_methods=params_methods,
+                        MEASURES_name_lst=picked_measure_list,
+                        alter_hparams=alter_hparams,
+                        params_multi_analysis=params_multi_analysis,
+                        task=task,
+                        roi_root=roi_root,
+                        output_root=fitted_measures_root,
+                        session=session,
+                        run=run,
+                    )
+                except Exception as e:
+                    print(
+                        f"Error in run_FCS_estimate for task: {task}, session: {session}, run: {run}, measure: {picked_measure_list[0]}, error: {e}"
+                    )
+                    traceback.print_exc()
 
     print(
         f"FCS estimation CODE finished running ... for measure: {picked_measure_list[0]} ..."
