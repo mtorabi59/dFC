@@ -1483,7 +1483,8 @@ def task_presence_classification(
                 n_neighbors_LE=125,
                 LE_embedding_method="embed+procrustes",
             )
-        except:
+        except Exception as e:
+            print(f"Error in embedding dFC features with {embedding}: {e}")
             continue
 
         # Silhouette score

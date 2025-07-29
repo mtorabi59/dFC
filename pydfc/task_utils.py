@@ -297,10 +297,27 @@ def GMM_binarizing(
 ):
     event_labels_all_task_hrf = event_labels_all_task_hrf.copy()
     event_labels_all_task_hrf_reshaped = event_labels_all_task_hrf.reshape(-1, 1)
-    # Fit GMM
-    gmm = GaussianMixture(n_components=2, n_init=5).fit(
-        event_labels_all_task_hrf_reshaped
+    # normal the signal to [0, 1]
+    event_labels_all_task_hrf_reshaped = (
+        event_labels_all_task_hrf_reshaped - np.min(event_labels_all_task_hrf_reshaped)
+    ) / (
+        np.max(event_labels_all_task_hrf_reshaped)
+        - np.min(event_labels_all_task_hrf_reshaped)
     )
+    # Fit GMM
+    gmm = GaussianMixture(
+        n_components=2, means_init=np.array([[0.0], [1.0]]), n_init=5
+    ).fit(event_labels_all_task_hrf_reshaped)
+    means = gmm.means_.flatten()
+    # if the lower mean is larger than 0.25 or the higher mean is smaller than 0.75, we need to use 3 components
+    # first find the lower and higher mean
+    lower_mean = np.min(means)
+    higher_mean = np.max(means)
+    if lower_mean > 0.25 or higher_mean < 0.75:
+        # Fit GMM with 3 components
+        gmm = GaussianMixture(
+            n_components=3, means_init=np.array([[0.0], [0.5], [1.0]]), n_init=5
+        ).fit(event_labels_all_task_hrf_reshaped)
     # downsample to MRI TR
     if downsample:
         event_labels_all_task_hrf_reshaped = downsample_events_hrf(
@@ -317,30 +334,30 @@ def GMM_binarizing(
     # The "on" state should have a higher mean (HRF-convolved signal is elevated during task).
     means = gmm.means_.flatten()
     on_component = np.argmax(means)
-    # Get probability of being in the "on" state
+    off_component = np.argmin(means)
+    # if len(means) == 3:
+    #     # set the mid component to the one that is in between the on and off components
+    #     mid_component = np.argsort(means)[1]
+    # Get probability of being in the "on" and "off" state
     p_on = probs[:, on_component]
+    p_off = probs[:, off_component]
+    # if len(means) == 3:
+    #     p_mid = probs[:, mid_component]
     # Create a binarized signal with transition points discarded
-    indices = np.where((p_on <= threshold) | (p_on >= (1 - threshold)))[0]
-    task_presence = np.where(p_on >= (1 - threshold), 1, 0)
+    for threshold in [0.01, 0.1, 0.2, 0.3, 0.4]:
+        # try different thresholds
+        # lower thresholds may result in only one class being present
+        indices = np.where((p_off >= (1 - threshold)) | (p_on >= (1 - threshold)))[0]
+        task_presence = np.where(p_on >= (1 - threshold), 1, 0)
 
-    # check that both classes are non-empty
-    unique_labels = np.unique(task_presence[indices])
-    if len(unique_labels) < 2:
-        fallback_threshold = 0.10
-        indices = np.where(
-            (p_on <= fallback_threshold) | (p_on >= (1 - fallback_threshold))
-        )[0]
-        task_presence = np.where(p_on >= (1 - fallback_threshold), 1, 0)
-
-        # Re-check after fallback
+        # check that both classes are non-empty
         unique_labels = np.unique(task_presence[indices])
-        if len(unique_labels) < 2:
+        if len(unique_labels) == 2:
+            break
+
+        if threshold == 0.4:
             warnings.warn(
-                f"Even with fallback threshold={fallback_threshold}, only one class present in confident samples."
-            )
-        else:
-            warnings.warn(
-                f"Only one class detected at threshold={threshold}, falling back to threshold={fallback_threshold}."
+                f"Even with threshold={threshold}, only one class present in confident samples."
             )
 
     return task_presence, indices
@@ -456,10 +473,15 @@ def calc_task_duration(task_presence, TR_mri):
     return: avg_task_duration, var_task_duration
     """
     task_durations = list()
+    start = None
     for i in range(1, len(task_presence)):
         if task_presence[i] == 1 and task_presence[i - 1] == 0:
             start = i
-        if task_presence[i] == 0 and task_presence[i - 1] == 1:
+        if (
+            (task_presence[i] == 0)
+            and (task_presence[i - 1] == 1)
+            and (start is not None)
+        ):
             end = i
             task_durations.append((end - start) * TR_mri)
             start = None
