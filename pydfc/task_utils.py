@@ -289,12 +289,42 @@ def shifted_binarizing(
 
 def GMM_binarizing(
     event_labels_all_task_hrf,
-    threshold=0.01,
+    threshold=None,
     downsample=True,
     TR_mri=None,
     TR_task=None,
     TR_array=None,
 ):
+    """_summary_
+
+    Parameters
+    ----------
+    event_labels_all_task_hrf : _type_
+        _description_
+    threshold : float, optional
+        _description_, by default 0.01
+    downsample : bool, optional
+        _description_, by default True
+    TR_mri : _type_, optional
+        _description_, by default None
+    TR_task : _type_, optional
+        _description_, by default None
+    TR_array : _type_, optional
+        _description_, by default None
+
+    Returns
+    -------
+    task_presence : array
+        _description_
+    indices : array
+        _description_
+    -----------
+    in order to get the task presence, use task_presence[indices]
+    """
+    if threshold is None:
+        thresholds_list = [0.01, 0.1, 0.2, 0.3, 0.4]
+    else:
+        thresholds_list = [threshold]
     event_labels_all_task_hrf = event_labels_all_task_hrf.copy()
     event_labels_all_task_hrf_reshaped = event_labels_all_task_hrf.reshape(-1, 1)
     # normal the signal to [0, 1]
@@ -344,20 +374,20 @@ def GMM_binarizing(
     # if len(means) == 3:
     #     p_mid = probs[:, mid_component]
     # Create a binarized signal with transition points discarded
-    for threshold in [0.01, 0.1, 0.2, 0.3, 0.4]:
+    for threshold_ in thresholds_list:
         # try different thresholds
         # lower thresholds may result in only one class being present
-        indices = np.where((p_off >= (1 - threshold)) | (p_on >= (1 - threshold)))[0]
-        task_presence = np.where(p_on >= (1 - threshold), 1, 0)
+        indices = np.where((p_off >= (1 - threshold_)) | (p_on >= (1 - threshold_)))[0]
+        task_presence = np.where(p_on >= (1 - threshold_), 1, 0)
 
         # check that both classes are non-empty
         unique_labels = np.unique(task_presence[indices])
         if len(unique_labels) == 2:
             break
 
-        if threshold == 0.4:
+        if threshold_ == 0.4:
             warnings.warn(
-                f"Even with threshold={threshold}, only one class present in confident samples."
+                f"Even with threshold={threshold_}, only one class present in confident samples."
             )
 
     return task_presence, indices
@@ -434,8 +464,8 @@ def extract_task_presence(
             indices = np.arange(task_presence.shape[0])
         elif binarizing_method == "GMM":
             task_presence, indices = GMM_binarizing(
-                event_labels_all_task_hrf,
-                threshold=0.01,
+                event_labels_all_task_hrf=event_labels_all_task_hrf,
+                threshold=None,
                 downsample=True,
                 TR_mri=TR_mri,
                 TR_task=TR_task,
