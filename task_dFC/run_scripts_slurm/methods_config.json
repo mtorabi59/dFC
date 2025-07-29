@@ -1,12 +1,12 @@
 {
     "params_methods" : {
-        "W": 12,
+        "W": 44,
         "n_overlap": 1.0,
         "sw_method": "pear_corr",
         "tapered_window": true,
         "TF_method": "WTC",
         "clstr_base_measure": "SlidingWindow",
-        "clstr_distance": "euclidean",
+        "clstr_distance": "manhattan",
         "hmm_iter": 20,
         "dhmm_obs_state_ratio": 0.666,
         "n_states": 5,
