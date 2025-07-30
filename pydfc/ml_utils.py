@@ -681,15 +681,21 @@ def find_intrinsic_dim(
         for subject in subjects:
             X_subj = X[subj_label == subject, :]
             y_subj = y[subj_label == subject]
-            intrinsic_dim_all.append(
-                SI_ID(
+            try:
+                # some subjects may not have enough samples to estimate the intrinsic dimension
+                subj_estim_ID = SI_ID(
                     X_subj,
                     y_subj,
                     search_range=search_range_SI,
                     n_neighbors_LE=n_neighbors_LE,
                     LE_embedding_method=LE_embedding_method,
                 )
-            )
+                intrinsic_dim_all.append(subj_estim_ID)
+            except Exception as e:
+                warnings.warn(
+                    f"Error in SI_ID for subject {subject}: {e}. Skipping this subject."
+                )
+                continue
         intrinsic_dim = int(np.mean(intrinsic_dim_all))
     elif method == "twonn":
         intrinsic_dim_all = list()
@@ -709,11 +715,17 @@ def LE_transform(X, n_components, n_neighbors, distance_metric="euclidean"):
     min_n_neighbors = 70
 
     if n_neighbors >= X.shape[0]:
-        n_neighbors_to_be_used = min_n_neighbors
-        # raise a warning
-        warnings.warn(
-            "n_neighbors is larger than the number of samples. n_neighbors is set to the minimum value of 70."
-        )
+        if min_n_neighbors >= X.shape[0]:
+            n_neighbors_to_be_used = int(X.shape[0] * 2 / 3)
+            warnings.warn(
+                f"number of samples is less than {min_n_neighbors}. n_neighbors is set to {n_neighbors_to_be_used}."
+            )
+        else:
+            n_neighbors_to_be_used = min_n_neighbors
+            # raise a warning
+            warnings.warn(
+                f"n_neighbors is larger than the number of samples. n_neighbors is set to the minimum value of {min_n_neighbors}."
+            )
     else:
         n_neighbors_to_be_used = n_neighbors
 
