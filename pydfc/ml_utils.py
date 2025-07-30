@@ -612,7 +612,13 @@ def twonn(X, discard_ratio=0.1):
     return d
 
 
-def SI_ID(X, y, search_range=range(2, 50, 5), n_neighbors_LE=125):
+def SI_ID(
+    X,
+    y,
+    search_range=range(2, 50, 5),
+    n_neighbors_LE=125,
+    LE_embedding_method="embed+procrustes",
+):
     """
     Find the intrinsic dimension of the data based on the silhouette score.
     """
@@ -635,9 +641,12 @@ def SI_ID(X, y, search_range=range(2, 50, 5), n_neighbors_LE=125):
                 embedding="LE",
                 n_components=n_components,
                 n_neighbors_LE=n_neighbors_LE,
-                LE_embedding_method="embed+procrustes",
+                LE_embedding_method=LE_embedding_method,
             )
-        except:
+        except Exception as e:
+            warnings.warn(
+                f"Error in SI_ID embedding with n_components={n_components}: {e}. Skipping this n_components."
+            )
             continue
 
         SI_score[n_components] = silhouette_score(X_train_embed, y)
@@ -656,6 +665,7 @@ def find_intrinsic_dim(
     method="SI",
     n_neighbors_LE=125,
     search_range_SI=range(2, 50, 5),
+    LE_embedding_method="embed+procrustes",
 ):
     """
     Find the number of components to use for embedding the data using LE.
@@ -677,6 +687,7 @@ def find_intrinsic_dim(
                     y_subj,
                     search_range=search_range_SI,
                     n_neighbors_LE=n_neighbors_LE,
+                    LE_embedding_method=LE_embedding_method,
                 )
             )
         intrinsic_dim = int(np.mean(intrinsic_dim_all))
@@ -958,6 +969,12 @@ def embed_dFC_features(
                 LE_embedding_method = "concat+embed"
         # if n_components is not specified, find the intrinsic dimension of the data using training set and based on the silhouette score
         if n_components == "auto":
+            if X_train.shape[1] < 7:
+                search_range_SI = range(2, X_train.shape[1] + 1)
+            elif X_train.shape[1] < 24:
+                search_range_SI = range(2, X_train.shape[1] + 1, 2)
+            else:
+                search_range_SI = range(2, 50, 5)
             n_components = find_intrinsic_dim(
                 X=X_train,
                 y=y_train,
@@ -965,7 +982,8 @@ def embed_dFC_features(
                 subjects=train_subjects,
                 method="SI",
                 n_neighbors_LE=n_neighbors_LE,
-                search_range_SI=range(2, 50, 5),
+                search_range_SI=search_range_SI,
+                LE_embedding_method=LE_embedding_method,
             )
 
         if LE_embedding_method == "embed+procrustes":
