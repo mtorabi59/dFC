@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#SBATCH --job-name=ML_job   # Optional: Name of your job
+#SBATCH --cpus-per-task=8  # Number of CPU cores per task
 #SBATCH --output=logs/ML_out.txt  # Standard output log
 #SBATCH --error=logs/ML_err.txt   # Standard error log
 #SBATCH --mem=128G                     # Memory request per node
