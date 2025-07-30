@@ -38,7 +38,7 @@ def run_roi_signal_extraction(
         else:
             ALL_TASK_FILES = os.listdir(f"{fmriprep_root}/{subj}/{session}/func/")
     except FileNotFoundError:
-        print(f"Subject {subj} {session_str} not found in {fmriprep_root}")
+        warnings.warn(f"Subject {subj} {session_str} not found in {fmriprep_root}")
         return
 
     ALL_TASK_FILES = [
@@ -49,7 +49,7 @@ def run_roi_signal_extraction(
 
     if not len(ALL_TASK_FILES) >= 1:
         # if the func file is not found, exclude the subject
-        print(f"Func file not found for {subj} {session_str} {task}")
+        warnings.warn(f"Func file not found for {subj} {session_str} {task}")
         return
 
     for run in RUNS:
@@ -102,9 +102,11 @@ def run_roi_signal_extraction(
         if global_acquisition_data is None and acquisition_data is None:
             # if the acquisition_data is not found, exclude the subject
             if run is None:
-                print(f"bold.json info file not found for {subj} {session_str} {task}")
+                warnings.warn(
+                    f"bold.json info file not found for {subj} {session_str} {task}"
+                )
             else:
-                print(
+                warnings.warn(
                     f"bold.json info file not found for {subj} {session_str} {task} {run}"
                 )
             return
@@ -121,9 +123,13 @@ def run_roi_signal_extraction(
         # if not found, print a warning and skip the subject
         if TR_mri is None:
             if run is None:
-                print(f"Repetition time not found for {subj} {session_str} {task}")
+                warnings.warn(
+                    f"Repetition time not found for {subj} {session_str} {task}"
+                )
             else:
-                print(f"Repetition time not found for {subj} {session_str} {task} {run}")
+                warnings.warn(
+                    f"Repetition time not found for {subj} {session_str} {task} {run}"
+                )
             return
         ################################# EXTRACT TIME SERIES #########################
         # extract ROI signals and convert to TIME_SERIES object
@@ -158,6 +164,7 @@ def run_roi_signal_extraction(
                 file_i for file_i in ALL_EVENTS_FILES if f"_{session}_" in file_i
             ]
 
+        events_file_exists = True
         if not len(ALL_EVENTS_FILES) == 1:
             # in some cases the event file is common for all subjects and can be found in f"{bids_root}"
             ALL_EVENTS_FILES_COMMON = os.listdir(f"{bids_root}/")
@@ -169,43 +176,52 @@ def run_roi_signal_extraction(
             if len(ALL_EVENTS_FILES_COMMON) == 1:
                 events_file = f"{bids_root}/{ALL_EVENTS_FILES_COMMON[0]}"
             else:
-                # if the events file is not found, exclude the subject
+                # if the events file is not found, do not exclude the subject, only save time-series data
+                # this will allow including resting state files
                 if run is None:
-                    print(f"Events file not found for {subj} {session_str} {task}")
+                    warnings.warn(
+                        f"Events file not found for {subj} {session_str} {task}"
+                    )
                 else:
-                    print(f"Events file not found for {subj} {session_str} {task} {run}")
-                return
+                    warnings.warn(
+                        f"Events file not found for {subj} {session_str} {task} {run}"
+                    )
+                events_file_exists = False
         else:
             events_file = f"{task_events_root}/{ALL_EVENTS_FILES[0]}"
 
-        # load the tsv events file
-        events = np.genfromtxt(events_file, delimiter="\t", dtype=str)
-        # get the event labels
-        event_labels, Fs_task, event_types = task_utils.events_time_to_labels(
-            events=events,
-            TR_mri=TR_mri,
-            num_time_mri=num_time_mri,
-            event_types=None,
-            oversampling=oversampling,
-            trial_type_label=trial_type_label,
-            rest_labels=rest_labels,
-            return_0_1=False,
-        )
-        # fill task labels with task's index
-        task_labels = np.ones((int(num_time_mri * oversampling), 1)) * TASKS.index(task)
+        if events_file_exists:
+            # load the tsv events file
+            events = np.genfromtxt(events_file, delimiter="\t", dtype=str)
+            # get the event labels
+            event_labels, Fs_task, event_types = task_utils.events_time_to_labels(
+                events=events,
+                TR_mri=TR_mri,
+                num_time_mri=num_time_mri,
+                event_types=None,
+                oversampling=oversampling,
+                trial_type_label=trial_type_label,
+                rest_labels=rest_labels,
+                return_0_1=False,
+            )
+            # fill task labels with task's index
+            task_labels = np.ones((int(num_time_mri * oversampling), 1)) * TASKS.index(
+                task
+            )
         ################################# SAVE #################################
         # save the ROI time series and task data
-        task_data = {
-            "task": task,
-            "task_labels": task_labels,
-            "task_types": TASKS,
-            "event_labels": event_labels,
-            "event_types": event_types,
-            "events": events,
-            "Fs_task": Fs_task,
-            "TR_mri": TR_mri,
-            "num_time_mri": num_time_mri,
-        }
+        if events_file_exists:
+            task_data = {
+                "task": task,
+                "task_labels": task_labels,
+                "task_types": TASKS,
+                "event_labels": event_labels,
+                "event_types": event_types,
+                "events": events,
+                "Fs_task": Fs_task,
+                "TR_mri": TR_mri,
+                "num_time_mri": num_time_mri,
+            }
 
         if session is None:
             subj_session_prefix = f"{subj}"
@@ -222,7 +238,8 @@ def run_roi_signal_extraction(
         if not os.path.exists(f"{output_dir}/"):
             os.makedirs(f"{output_dir}/")
         np.save(f"{output_dir}/{output_file_prefix}_time-series.npy", time_series)
-        np.save(f"{output_dir}/{output_file_prefix}_task-data.npy", task_data)
+        if events_file_exists:
+            np.save(f"{output_dir}/{output_file_prefix}_task-data.npy", task_data)
 
 
 ########################################################################################
