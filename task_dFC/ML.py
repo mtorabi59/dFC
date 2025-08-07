@@ -345,20 +345,20 @@ if __name__ == "__main__":
     else:
         ML_root = dataset_info["ML_root"]
 
-    # The task feature extraction will be executed multiple times in parallel redundantly
-    try:
-        run_task_features_extraction(
-            TASKS=TASKS,
-            RUNS=RUNS,
-            SESSIONS=SESSIONS,
-            roi_root=roi_root,
-            dFC_root=dFC_root,
-            output_root=ML_root,
-        )
-    except Exception as e:
-        print(f"Error in task features extraction: {e}")
-        traceback.print_exc()
-    print("Task features extraction finished.")
+    # # The task feature extraction will be executed multiple times in parallel redundantly
+    # try:
+    #     run_task_features_extraction(
+    #         TASKS=TASKS,
+    #         RUNS=RUNS,
+    #         SESSIONS=SESSIONS,
+    #         roi_root=roi_root,
+    #         dFC_root=dFC_root,
+    #         output_root=ML_root,
+    #     )
+    # except Exception as e:
+    #     print(f"Error in task features extraction: {e}")
+    #     traceback.print_exc()
+    # print("Task features extraction finished.")
 
     job_id = os.getenv("SGE_TASK_ID")  # for SGE
     if job_id is None:
@@ -402,23 +402,23 @@ if __name__ == "__main__":
 
     # print(f"Task presence clustering finished for dFC ID {dFC_id}.")
 
-    print(f"Clustering for visualization started for dFC ID {dFC_id} ...")
-    try:
-        run_clustering_for_visual(
-            dFC_id=dFC_id,
-            TASKS=TASKS,
-            RUNS=RUNS,
-            SESSIONS=SESSIONS,
-            roi_root=roi_root,
-            dFC_root=dFC_root,
-            output_root=ML_root,
-            normalize_dFC=True,
-        )
-    except Exception as e:
-        print(f"Error in clustering for visualization for dFC ID {dFC_id}: {e}")
-        traceback.print_exc()
+    # print(f"Clustering for visualization started for dFC ID {dFC_id} ...")
+    # try:
+    #     run_clustering_for_visual(
+    #         dFC_id=dFC_id,
+    #         TASKS=TASKS,
+    #         RUNS=RUNS,
+    #         SESSIONS=SESSIONS,
+    #         roi_root=roi_root,
+    #         dFC_root=dFC_root,
+    #         output_root=ML_root,
+    #         normalize_dFC=True,
+    #     )
+    # except Exception as e:
+    #     print(f"Error in clustering for visualization for dFC ID {dFC_id}: {e}")
+    #     traceback.print_exc()
 
-    print(f"Clustering for visualization finished for dFC ID {dFC_id}.")
+    # print(f"Clustering for visualization finished for dFC ID {dFC_id}.")
 
     print(f"Task presence prediction finished for dFC ID {dFC_id}.")
 
