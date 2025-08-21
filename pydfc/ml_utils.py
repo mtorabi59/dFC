@@ -305,6 +305,8 @@ def dFC_feature_extraction_subj_lvl(
         features = features[2:-2, :]
         target = target[2:-2]
 
+    features = features.astype(np.float32, copy=False)
+    target = target.astype(np.int8, copy=False)  # labels smaller & faster
     return features, target
 
 
@@ -355,6 +357,10 @@ def dFC_feature_extraction(
             FCS_proba_for_SB=FCS_proba_for_SB,
         )
 
+        # to make computations faster
+        X_subj = X_subj.astype(np.float32, copy=False)
+        y_subj = y_subj.astype(np.int8, copy=False)
+
         subj_label_train.extend([subj for i in range(X_subj.shape[0])])
         if X_train is None and y_train is None:
             X_train = X_subj
@@ -395,10 +401,14 @@ def dFC_feature_extraction(
             FCS_proba_for_SB=FCS_proba_for_SB,
         )
 
+        # to make computations faster
+        X_subj = X_subj.astype(np.float32, copy=False)
+        y_subj = y_subj.astype(np.int8, copy=False)
+
         subj_label_test.extend([subj for i in range(X_subj.shape[0])])
         if X_test is None and y_test is None:
-            X_test = X_subj
-            y_test = y_subj
+            X_test = X_subj.astype(np.float32, copy=False)
+            y_test = y_subj.astype(np.int8, copy=False)
         else:
             X_test = np.concatenate((X_test, X_subj), axis=0)
             y_test = np.concatenate((y_test, y_subj), axis=0)
@@ -459,7 +469,7 @@ def precheck_for_procruste(X_best, X_subj):
     return X_best_new
 
 
-def generalized_procrustes(X_embed_dict):
+def generalized_procrustes(X_embed_dict, max_iter=1000, tol=1e-6):
     """
     Generalized Procrustes Analysis
 
@@ -499,7 +509,7 @@ def generalized_procrustes(X_embed_dict):
         X_list.append(X_scan_embed_new)
 
     # now iteratively find the mean X for transform
-    for iter_num in range(100):
+    for _ in range(10):
 
         try:
             # initialize Procrustes distance
@@ -518,7 +528,7 @@ def generalized_procrustes(X_embed_dict):
             flag = False
             while True:
                 counter += 1
-                if counter > 1e6:
+                if counter > max_iter:
                     # if the algorithm does not converge, break the cycle
                     # to avoid infinite loop
                     flag = True
@@ -538,7 +548,7 @@ def generalized_procrustes(X_embed_dict):
                 _, _, new_distance = procrustes(new_mean, mean_X)
 
                 # if the distance did not change, break the cycle
-                if np.abs(new_distance - current_distance) < 1e-6:
+                if np.abs(new_distance - current_distance) < tol:
                     break
 
                 # align the new_mean to old mean
@@ -549,6 +559,7 @@ def generalized_procrustes(X_embed_dict):
                 current_distance = new_distance
 
             if not flag:
+                # if the algorithm converged, return the mean X
                 return mean_X
         except:
             continue
@@ -618,6 +629,7 @@ def SI_ID(
     search_range=range(2, 50, 5),
     n_neighbors_LE=125,
     LE_embedding_method="embed+procrustes",
+    measure_is_state_based=False,
 ):
     """
     Find the intrinsic dimension of the data based on the silhouette score.
@@ -642,6 +654,7 @@ def SI_ID(
                 n_components=n_components,
                 n_neighbors_LE=n_neighbors_LE,
                 LE_embedding_method=LE_embedding_method,
+                measure_is_state_based=measure_is_state_based,
             )
         except Exception as e:
             warnings.warn(
@@ -666,6 +679,7 @@ def find_intrinsic_dim(
     n_neighbors_LE=125,
     search_range_SI=range(2, 50, 5),
     LE_embedding_method="embed+procrustes",
+    measure_is_state_based=False,
 ):
     """
     Find the number of components to use for embedding the data using LE.
@@ -689,6 +703,7 @@ def find_intrinsic_dim(
                     search_range=search_range_SI,
                     n_neighbors_LE=n_neighbors_LE,
                     LE_embedding_method=LE_embedding_method,
+                    measure_is_state_based=measure_is_state_based,
                 )
                 intrinsic_dim_all.append(subj_estim_ID)
             except Exception as e:
@@ -736,8 +751,10 @@ def LE_transform(X, n_components, n_neighbors, distance_metric="euclidean"):
         include_self=False,
         metric=distance_metric,
     )
-    affinity_matrix = affinity_matrix.toarray()
-    affinity_matrix = np.divide(affinity_matrix + affinity_matrix.T, 2)
+
+    # Symmetrize
+    affinity_matrix = affinity_matrix.maximum(affinity_matrix.T)
+
     LE = SpectralEmbedding(
         n_components=n_components,
         affinity="precomputed",
@@ -931,6 +948,19 @@ def LE_embed_procustes(
     return X_train_embed, X_test_embed
 
 
+def rows_look_redundant(X, sample=100):
+    n = X.shape[0]
+    if n > sample:
+        idx = np.random.choice(n, sample, replace=False)
+        Xs = X[idx]
+    else:
+        Xs = X
+    # Hash rows quickly
+    h = np.apply_along_axis(lambda r: hash(r.tobytes()), 1, Xs)
+    # If more than, say, 50% duplicates -> likely state-based
+    return (len(h) - len(set(h))) / len(h) > 0.5
+
+
 def embed_dFC_features(
     train_subjects,
     test_subjects,
@@ -944,6 +974,7 @@ def embed_dFC_features(
     n_components="auto",
     n_neighbors_LE=125,
     LE_embedding_method="embed+procrustes",
+    measure_is_state_based=False,
 ):
     """
     Embed the dFC features into a lower dimensional space using PCA or LE. For LE, it assumes that the samples of the same subject are contiguous.
@@ -973,7 +1004,7 @@ def embed_dFC_features(
             X_test_embed = None
     elif embedding == "LE":
         # if the dFC features are not unique (state-based), set the LE_embedding_method to "concat+embed"
-        if np.unique(X_train, axis=0).shape[0] < X_train.shape[0] // 2:
+        if measure_is_state_based:
             if LE_embedding_method == "embed+procrustes":
                 warnings.warn(
                     "The dFC features are not unique (state-based). Switching to 'concat+embed' method."
@@ -996,6 +1027,7 @@ def embed_dFC_features(
                 n_neighbors_LE=n_neighbors_LE,
                 search_range_SI=search_range_SI,
                 LE_embedding_method=LE_embedding_method,
+                measure_is_state_based=measure_is_state_based,
             )
 
         if LE_embedding_method == "embed+procrustes":
@@ -1033,7 +1065,10 @@ def embed_dFC_features(
             else:
                 X_test_embed = None
 
-    return X_train_embed, X_test_embed
+    # to make computation faster, we can return the embeddings as float32
+    return X_train_embed.astype(np.float32, copy=False), X_test_embed.astype(
+        np.float32, copy=False
+    )
 
 
 ################################# Classification Framework Functions ####################################
@@ -1085,21 +1120,22 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test, subj_label_tr
     """
     # create a pipeline with a logistic regression model to find the best C
     logistic_reg = make_pipeline(
-        StandardScaler(), LogisticRegression(penalty="l1", solver="saga")
+        StandardScaler(),
+        LogisticRegression(penalty="l1", solver="saga", max_iter=2000, tol=1e-3),
     )
     # create a dictionary of all values we want to test for C
-    param_grid = {"logisticregression__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+    param_grid = {"logisticregression__C": [0.001, 0.01, 0.1, 1, 10, 100]}
 
     # use StratifiedGroupKFold to ensure that the same subject is not in both train and test sets
     # shuffle the data to ensure time points are shuffled
     if subj_label_train is None:
         X_train_shuffled, y_train_shuffled = shuffle(X_train, y_train)
-        cv = StratifiedKFold(n_splits=5)
+        cv = StratifiedKFold(n_splits=3)
     else:
         X_train_shuffled, y_train_shuffled, subj_label_train_shuffled = shuffle(
             X_train, y_train, subj_label_train
         )
-        cv = StratifiedGroupKFold(n_splits=5)
+        cv = StratifiedGroupKFold(n_splits=3)
     # use gridsearch to test all values for C
     lr_gscv = GridSearchCV(logistic_reg, param_grid, cv=cv, n_jobs=-1)
     # fit model to data
@@ -1113,7 +1149,7 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test, subj_label_tr
 
     model = make_pipeline(
         StandardScaler(),
-        LogisticRegression(penalty="l1", C=C, solver="saga"),
+        LogisticRegression(penalty="l1", C=C, solver="saga", max_iter=2000, tol=1e-3),
     )
 
     RESULT = get_classification_results(
@@ -1136,8 +1172,8 @@ def SVM_classify(X_train, y_train, X_test, y_test, subj_label_train=None):
     """
     # define the parameter grid
     param_grid = {
-        "svc__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
-        "svc__gamma": [0.0001, 0.001, 0.01, 1, 10, 100, 1000],
+        "svc__C": [0.01, 0.1, 1, 10],
+        "svc__gamma": ["scale", 0.01, 0.05, 0.1],
     }
 
     # perform grid search
@@ -1476,6 +1512,20 @@ def task_presence_classification(
             FCS_proba_for_SB=True,  # for state-based dFC features, we use FCS_proba
         )
     )
+    measure_is_state_based = None
+    if measure_name in ["SlidingWindow", "Time-Freq"]:
+        measure_is_state_based = False
+    elif measure_name in [
+        "CAP",
+        "Clustering",
+        "ContinuousHMM",
+        "DiscreteHMM",
+        "Windowless",
+    ]:
+        measure_is_state_based = True
+    else:
+        # raise error
+        raise ValueError(f"Unknown measure name: {measure_name}")
 
     ML_scores = {
         "group_lvl": {
@@ -1512,6 +1562,7 @@ def task_presence_classification(
                 n_components="auto",
                 n_neighbors_LE=125,
                 LE_embedding_method="embed+procrustes",
+                measure_is_state_based=measure_is_state_based,
             )
         except Exception as e:
             print(f"Error in embedding dFC features with {embedding}: {e}")
