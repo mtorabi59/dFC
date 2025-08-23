@@ -1066,9 +1066,10 @@ def embed_dFC_features(
                 X_test_embed = None
 
     # to make computation faster, we can return the embeddings as float32
-    return X_train_embed.astype(np.float32, copy=False), X_test_embed.astype(
-        np.float32, copy=False
-    )
+    X_train_embed = X_train_embed.astype(np.float32, copy=False)
+    if X_test_embed is not None:
+        X_test_embed = X_test_embed.astype(np.float32, copy=False)
+    return X_train_embed, X_test_embed
 
 
 ################################# Classification Framework Functions ####################################
