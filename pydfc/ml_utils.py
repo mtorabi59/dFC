@@ -1604,42 +1604,42 @@ def task_presence_classification(
 
         ML_models = {"Logistic regression": log_reg_RESULT, "SVM": SVM_RESULT}
 
-        # permutation tests
-        permutation_scores = {
-            "train": {},
-            "test": {},
-        }
-        for model_name in ML_models:
-            (
-                permutation_train_scores,
-                permutation_test_scores,
-                p_value_train,
-                p_value_test,
-            ) = get_permutation_scores(
-                X_train=X_train_embedded,
-                y_train=y_train,
-                X_test=X_test_embedded,
-                y_test=y_test,
-                classifier_model=ML_models[model_name]["model"],
-                groups_train=subj_label_train,
-                n_permutations=100,
-            )
-            permutation_scores["train"][
-                f"{model_name} permutation p_value"
-            ] = p_value_train
-            permutation_scores["train"][f"{model_name} permutation score mean"] = np.mean(
-                permutation_train_scores
-            )
-            permutation_scores["train"][f"{model_name} permutation score std"] = np.std(
-                permutation_train_scores
-            )
-            permutation_scores["test"][f"{model_name} permutation p_value"] = p_value_test
-            permutation_scores["test"][f"{model_name} permutation score mean"] = np.mean(
-                permutation_test_scores
-            )
-            permutation_scores["test"][f"{model_name} permutation score std"] = np.std(
-                permutation_test_scores
-            )
+        # # permutation tests
+        # permutation_scores = {
+        #     "train": {},
+        #     "test": {},
+        # }
+        # for model_name in ML_models:
+        #     (
+        #         permutation_train_scores,
+        #         permutation_test_scores,
+        #         p_value_train,
+        #         p_value_test,
+        #     ) = get_permutation_scores(
+        #         X_train=X_train_embedded,
+        #         y_train=y_train,
+        #         X_test=X_test_embedded,
+        #         y_test=y_test,
+        #         classifier_model=ML_models[model_name]["model"],
+        #         groups_train=subj_label_train,
+        #         n_permutations=100,
+        #     )
+        #     permutation_scores["train"][
+        #         f"{model_name} permutation p_value"
+        #     ] = p_value_train
+        #     permutation_scores["train"][f"{model_name} permutation score mean"] = np.mean(
+        #         permutation_train_scores
+        #     )
+        #     permutation_scores["train"][f"{model_name} permutation score std"] = np.std(
+        #         permutation_train_scores
+        #     )
+        #     permutation_scores["test"][f"{model_name} permutation p_value"] = p_value_test
+        #     permutation_scores["test"][f"{model_name} permutation score mean"] = np.mean(
+        #         permutation_test_scores
+        #     )
+        #     permutation_scores["test"][f"{model_name} permutation score std"] = np.std(
+        #         permutation_test_scores
+        #     )
 
         # group level scores
         for group in ["train", "test"]:
@@ -1661,11 +1661,11 @@ def task_presence_classification(
                         ML_models[model_name][group][metric]
                     )
 
-            # permutation test results
-            for key in permutation_scores[group]:
-                if not key in ML_scores["group_lvl"]:
-                    ML_scores["group_lvl"][key] = list()
-                ML_scores["group_lvl"][key].append(permutation_scores[group][key])
+            # # permutation test results
+            # for key in permutation_scores[group]:
+            #     if not key in ML_scores["group_lvl"]:
+            #         ML_scores["group_lvl"][key] = list()
+            #     ML_scores["group_lvl"][key].append(permutation_scores[group][key])
 
         # subject level scores
         for subj in SUBJECTS:
