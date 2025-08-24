@@ -1547,6 +1547,9 @@ def task_presence_classification(
             "embedding": list(),
         },
     }
+
+    check_count = 2
+    num_excluded_subjects = 0
     for embedding in ["PCA", "LE"]:
         # embed dFC features
         try:
@@ -1567,6 +1570,14 @@ def task_presence_classification(
             )
         except Exception as e:
             print(f"Error in embedding dFC features with {embedding}: {e}")
+            continue
+
+        # check if both classes are present in train and test sets
+        if len(np.unique(y_train)) < 2 or len(np.unique(y_test)) < 2:
+            print(
+                f"Only one class present in train or test sets for {embedding}. Skipping..."
+            )
+            check_count -= 1
             continue
 
         # Silhouette score
@@ -1670,15 +1681,20 @@ def task_presence_classification(
 
         # subject level scores
         for subj in SUBJECTS:
-            ML_scores["subj_lvl"]["subj_id"].append(subj)
             if subj in train_subjects:
-                ML_scores["subj_lvl"]["group"].append("train")
+                subj_group = "train"
                 features = X_train_embedded[subj_label_train == subj, :]
                 target = y_train[subj_label_train == subj]
             elif subj in test_subjects:
-                ML_scores["subj_lvl"]["group"].append("test")
+                subj_group = "test"
                 features = X_test_embedded[subj_label_test == subj, :]
                 target = y_test[subj_label_test == subj]
+            # check if only one class is present, skip the subject
+            if len(np.unique(target)) < 2:
+                num_excluded_subjects += 1
+                continue
+            ML_scores["subj_lvl"]["group"].append(subj_group)
+            ML_scores["subj_lvl"]["subj_id"].append(subj)
 
             # Silhouette score
             ML_scores["subj_lvl"]["SI"].append(silhouette_score(features, target))
@@ -1709,7 +1725,9 @@ def task_presence_classification(
             ), f"Length of {key} is not equal to others."
 
     # L is supposed to be equal to 2 embeddings (PCA and LE) * 2 groups (train and test)
-    assert L == 2 * 2, f"Length of group_lvl is not equal to 4, but {L}."
+    assert (
+        L == check_count * 2
+    ), f"Length of group_lvl is not equal to {check_count * 2}, but {L}."
 
     L = None
     for key in ML_scores["subj_lvl"]:
@@ -1722,8 +1740,8 @@ def task_presence_classification(
 
     # L is supposed to be equal to number of subjects * 2 embeddings (PCA and LE)
     assert (
-        L == len(SUBJECTS) * 2
-    ), f"Length of subj_lvl is not equal to {len(SUBJECTS) * 2}, but {L}."
+        L == len(SUBJECTS) * check_count - num_excluded_subjects
+    ), f"Length of subj_lvl is not equal to {len(SUBJECTS) * check_count - num_excluded_subjects}, but {L}."
 
     return ML_scores
 
