@@ -1570,6 +1570,7 @@ def task_presence_classification(
             )
         except Exception as e:
             print(f"Error in embedding dFC features with {embedding}: {e}")
+            check_count -= 1
             continue
 
         # check if both classes are present in train and test sets
