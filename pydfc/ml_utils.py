@@ -1430,6 +1430,69 @@ def get_permutation_scores(
     return permutation_train_scores, permutation_test_scores, p_value_train, p_value_test
 
 
+def softmax(x, tau=1.0, axis=1):
+    z = (x - np.max(x, axis=axis, keepdims=True)) / float(tau)
+    np.exp(z, out=z)
+    z_sum = np.sum(z, axis=axis, keepdims=True)
+    z /= z_sum
+    return z
+
+
+def clip_and_renorm(P, eps=1e-6, axis=1):
+    P = np.asarray(P, float)
+    P = np.clip(P, eps, None)
+    P /= P.sum(axis=axis, keepdims=True)
+    return P
+
+
+# ---- log-ratio transforms ----
+def clr_transform(P, eps=1e-6):
+    """Centered log-ratio: log(p) - mean(log(p)) row-wise."""
+    P = clip_and_renorm(P, eps=eps)
+    L = np.log(P)
+    return L - L.mean(axis=1, keepdims=True)  # each row sums to 0
+
+
+def ilr_transform(P, eps=1e-6):
+    """Pivot ILR using an orthonormal basis; returns (n, K-1)."""
+    P = clip_and_renorm(P, eps=eps)
+    L = np.log(P)
+    clr = L - L.mean(axis=1, keepdims=True)
+    K = P.shape[1]
+    V = np.zeros((K, K - 1))
+    # Pivot coordinates basis (orthonormal in Aitchison geometry)
+    for j in range(1, K):
+        V[:j, j - 1] = 1 / j
+        V[j, j - 1] = -1
+        V[:, j - 1] *= np.sqrt(j / (j + 1))
+    return clr @ V  # (n, K-1)
+
+
+def process_SB_features(X, measure_name):
+    """
+    Process state-based features for a given measure.
+
+    The process involves applying a softmax function followed by an ILR transform.
+    This is to ensure that the features are properly normalized and transformed for subsequent analysis.
+
+    State-based feature vectors are compositional (non-negative and sum-to-one). We therefore analyze
+    them in the Aitchison geometry and apply the isometric log-ratio (ILR) transformation (K−1 coordinates).
+    The output has K−1 dimensions.
+    """
+    tau = 1.0  # temperature; 0.5–2.0 is typical
+
+    X_transformed = None
+    if measure_name in ["CAP", "Clustering"]:
+        X_transformed = softmax(-X, tau=tau)
+        # 2) ILR transform
+        X_transformed = ilr_transform(X_transformed)
+    elif measure_name in ["ContinuousHMM", "DiscreteHMM"]:
+        X_transformed = ilr_transform(X)
+    elif measure_name in ["Windowless"]:
+        X_transformed = X.copy()
+    return X_transformed
+
+
 def get_classification_scores(
     target,
     pred,
@@ -1551,27 +1614,31 @@ def task_presence_classification(
     check_count = 2
     num_excluded_subjects = 0
     for embedding in ["PCA", "LE"]:
-        # embed dFC features
-        try:
-            X_train_embedded, X_test_embedded = embed_dFC_features(
-                train_subjects=train_subjects,
-                test_subjects=test_subjects,
-                X_train=X_train,
-                X_test=X_test,
-                y_train=y_train,
-                y_test=y_test,
-                subj_label_train=subj_label_train,
-                subj_label_test=subj_label_test,
-                embedding=embedding,
-                n_components="auto",
-                n_neighbors_LE=125,
-                LE_embedding_method="embed+procrustes",
-                measure_is_state_based=measure_is_state_based,
-            )
-        except Exception as e:
-            print(f"Error in embedding dFC features with {embedding}: {e}")
-            check_count -= 1
-            continue
+        if measure_is_state_based:
+            X_train_embedded = process_SB_features(X=X_train, measure_name=measure_name)
+            X_test_embedded = process_SB_features(X=X_test, measure_name=measure_name)
+        else:
+            # embed dFC features
+            try:
+                X_train_embedded, X_test_embedded = embed_dFC_features(
+                    train_subjects=train_subjects,
+                    test_subjects=test_subjects,
+                    X_train=X_train,
+                    X_test=X_test,
+                    y_train=y_train,
+                    y_test=y_test,
+                    subj_label_train=subj_label_train,
+                    subj_label_test=subj_label_test,
+                    embedding=embedding,
+                    n_components="auto",
+                    n_neighbors_LE=125,
+                    LE_embedding_method="embed+procrustes",
+                    measure_is_state_based=measure_is_state_based,
+                )
+            except Exception as e:
+                print(f"Error in embedding dFC features with {embedding}: {e}")
+                check_count -= 1
+                continue
 
         # check if both classes are present in train and test sets
         if len(np.unique(y_train)) < 2 or len(np.unique(y_test)) < 2:
