@@ -148,24 +148,47 @@ def plot_task_dFC(task_presence, dFC_lst, Fs_mri, TR_step=12):
     plt.show()
 
 
-################################# PCA Functions ####################################
-
-# def BOLD
+################################# Stat Functions ####################################
 
 
-################################# Prediction Functions ####################################
-
-from sklearn.linear_model import LinearRegression
-
-
-def linear_reg(X, y):
+def cohen_d_bold(X, y):
     """
-    X = (n_samples, n_features)
-    y = (n_samples, n_targets)
+    Compute Cohen's d per ROI between task and rest.
+
+    Parameters
+    ----------
+    X : ndarray, shape (n_timepoints, n_ROIs)
+        BOLD signals.
+    y : ndarray, shape (n_timepoints,)
+        Task labels: 0 = rest, 1 = task.
+
+    Returns
+    -------
+    d_values : ndarray, shape (n_ROIs,)
+        Cohen's d per ROI.
     """
-    reg = LinearRegression().fit(X, y)
-    print(reg.score(X, y))
-    return reg.predict(X)
+    task_idx = y == 1
+    rest_idx = y == 0
+
+    X_task = X[task_idx, :]
+    X_rest = X[rest_idx, :]
+
+    mean_task = X_task.mean(axis=0)
+    mean_rest = X_rest.mean(axis=0)
+
+    std_task = X_task.std(axis=0, ddof=1)
+    std_rest = X_rest.std(axis=0, ddof=1)
+
+    n_task = X_task.shape[0]
+    n_rest = X_rest.shape[0]
+
+    pooled_std = np.sqrt(
+        ((n_task - 1) * std_task**2 + (n_rest - 1) * std_rest**2) / (n_task + n_rest - 2)
+    )
+
+    d_values = (mean_task - mean_rest) / pooled_std
+
+    return d_values
 
 
 ################################# Validation Functions ####################################
