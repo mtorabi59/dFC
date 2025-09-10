@@ -378,7 +378,10 @@ def GMM_binarizing(
         )
     # some dFC measures (window-based) have a different TR than the task data
     if TR_array is not None:
-        event_labels_all_task_hrf_reshaped = event_labels_all_task_hrf_reshaped[TR_array]
+        TR_array_corrected = TR_array[TR_array < len(event_labels_all_task_hrf_reshaped)]
+        event_labels_all_task_hrf_reshaped = event_labels_all_task_hrf_reshaped[
+            TR_array_corrected
+        ]
     # now predict on vs. off for the downsampled time points
     probs = gmm.predict_proba(event_labels_all_task_hrf_reshaped)
     # Identify which component corresponds to "on" (higher mean)
@@ -456,22 +459,27 @@ def extract_task_presence(
         # other tasks
         event_labels_all_task_hrf = event_labels_all_task_hrf[:, 1]
 
+    # NOTE that index 0 of task_presence corresponds to 0 sec, but not TR_array
+    TR_array_corrected = None
+    if TR_array is not None:
+        TR_array_corrected = TR_array.astype(int) + 1
+
     if binary:
         if binarizing_method == "median":
             threshold = np.median(event_labels_all_task_hrf)
             task_presence = np.where(event_labels_all_task_hrf > threshold, 1, 0)
             task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
             # some dFC measures (window-based) have a different TR than the task data
-            if TR_array is not None:
-                task_presence = task_presence[TR_array]
+            if TR_array_corrected is not None:
+                task_presence = task_presence[TR_array_corrected]
             indices = np.arange(task_presence.shape[0])
         elif binarizing_method == "mean":
             threshold = np.mean(event_labels_all_task_hrf)
             task_presence = np.where(event_labels_all_task_hrf > threshold, 1, 0)
             task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
             # some dFC measures (window-based) have a different TR than the task data
-            if TR_array is not None:
-                task_presence = task_presence[TR_array]
+            if TR_array_corrected is not None:
+                task_presence = task_presence[TR_array_corrected]
             indices = np.arange(task_presence.shape[0])
         elif binarizing_method == "shift":
             task_presence_ratio = np.mean(event_labels_all_task)
@@ -482,8 +490,8 @@ def extract_task_presence(
             task_presence = np.where(event_labels_all_task_hrf > threshold, 1, 0)
             task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
             # some dFC measures (window-based) have a different TR than the task data
-            if TR_array is not None:
-                task_presence = task_presence[TR_array]
+            if TR_array_corrected is not None:
+                task_presence = task_presence[TR_array_corrected]
             indices = np.arange(task_presence.shape[0])
         elif binarizing_method == "GMM":
             task_presence, indices = GMM_binarizing(
@@ -492,7 +500,7 @@ def extract_task_presence(
                 downsample=True,
                 TR_mri=TR_mri,
                 TR_task=TR_task,
-                TR_array=TR_array,
+                TR_array=TR_array_corrected,
             )
         else:
             raise ValueError(
@@ -502,8 +510,8 @@ def extract_task_presence(
         task_presence = event_labels_all_task_hrf
         task_presence = downsample_events_hrf(task_presence, TR_mri, TR_task)
         # some dFC measures (window-based) have a different TR than the task data
-        if TR_array is not None:
-            task_presence = task_presence[TR_array]
+        if TR_array_corrected is not None:
+            task_presence = task_presence[TR_array_corrected]
         indices = np.arange(task_presence.shape[0])
 
     return task_presence, indices
