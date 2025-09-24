@@ -523,7 +523,7 @@ def calc_relative_task_on(task_presence):
 def calc_task_duration(task_presence, TR_mri):
     """
     task_presence: 0, 1 array
-    return: avg_task_duration, var_task_duration
+    return: list of task_durations
     """
     task_durations = list()
     start = None
@@ -545,7 +545,7 @@ def calc_task_duration(task_presence, TR_mri):
 def calc_rest_duration(task_presence, TR_mri):
     """
     task_presence: 0, 1 array
-    return: avg_rest_duration, var_rest_duration
+    return: list of rest_durations
     """
     rest_durations = list()
     if task_presence[0] == 0:
@@ -555,11 +555,15 @@ def calc_rest_duration(task_presence, TR_mri):
             start = i
         if task_presence[i] == 1 and task_presence[i - 1] == 0:
             end = i
-            rest_durations.append((end - start) * TR_mri)
+            try:
+                rest_durations.append((end - start) * TR_mri)
+            except:
+                print(task_presence[: i + 1])
             start = None
     if task_presence[-1] == 0:
         end = len(task_presence)
-        rest_durations.append((end - start) * TR_mri)
+        if not start is None:
+            rest_durations.append((end - start) * TR_mri)
     rest_durations = np.array(rest_durations)
     return rest_durations
 
