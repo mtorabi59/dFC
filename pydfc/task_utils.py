@@ -555,10 +555,7 @@ def calc_rest_duration(task_presence, TR_mri):
             start = i
         if task_presence[i] == 1 and task_presence[i - 1] == 0:
             end = i
-            try:
-                rest_durations.append((end - start) * TR_mri)
-            except:
-                print(task_presence[: i + 1])
+            rest_durations.append((end - start) * TR_mri)
             start = None
     if task_presence[-1] == 0:
         end = len(task_presence)
