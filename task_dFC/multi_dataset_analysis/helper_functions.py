@@ -1,0 +1,916 @@
+import colorsys
+import math
+import re
+import textwrap
+from pathlib import Path
+
+import matplotlib as mpl
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import matplotlib.transforms as mtransforms
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+###################### Publication style ######################
+
+
+def setup_pub_style():
+    sns.set_theme(context="paper", style="whitegrid")
+    mpl.rcParams.update(
+        {
+            # Fonts & text
+            "font.size": 10,  # base
+            "axes.titlesize": 12,
+            "axes.labelsize": 11,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "figure.titlesize": 13,
+            "axes.titlepad": 8,
+            "axes.labelpad": 6,
+            # Lines/markers
+            "lines.linewidth": 1.5,
+            "lines.markersize": 5,
+            "axes.linewidth": 0.8,
+            "grid.linewidth": 0.6,
+            # Figure/layout
+            "figure.dpi": 150,  # on-screen
+            "savefig.dpi": 500,  # export
+            "savefig.bbox": "tight",
+            "savefig.pad_inches": 0.04,
+            # Vector export: keep text as text in PDF/SVG
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+        }
+    )
+
+
+def savefig_pub(path_png_or_pdf: str):
+    Path(Path(path_png_or_pdf).parent).mkdir(parents=True, exist_ok=True)
+    plt.savefig(path_png_or_pdf)
+    # # Also export vector PDF alongside PNG unless you passed a .pdf
+    # p = Path(path_png_or_pdf)
+    # if p.suffix.lower() != ".pdf":
+    #     plt.savefig(p.with_suffix(".pdf"))
+
+
+###################### ml_results ######################
+
+
+def get_cog_domain_info(simul_or_real: str):
+    """
+    Return:
+        DOMAIN_ORDER: list of domains in preferred order
+        TASK2DOMAIN: dict mapping canonical task codes to domains
+        DOMAIN_BASE: dict mapping domains to base colors (hex)
+    """
+    if simul_or_real == "real":
+        # --- Cognitive-Atlas–aligned domains (order on paper) ---
+        DOMAIN_ORDER = [
+            "Language",
+            "Numerical cognition",
+            "Cognitive control",
+            "Working memory",
+            "Attention",
+            "Decision-making & valuation",
+            "Emotion & social processes",
+            "Cue reactivity / craving",
+            "Pain / nociception",
+            "Sensorimotor",
+            "Perception & naturalistic memory",
+            "Neurofeedback",
+            "Functional localizers",
+            "Other",
+        ]
+
+        # --- Map canonical task codes -> domain ---
+        TASK2DOMAIN = {
+            # Language
+            "audrhyme": "Language",
+            "audsem": "Language",
+            "audspell": "Language",
+            "visrhyme": "Language",
+            "vissem": "Language",
+            "visspell": "Language",
+            "speech": "Language",
+            # Numerical
+            "arithmetic": "Numerical cognition",
+            # Cognitive control
+            "stroop": "Cognitive control",
+            "gstroop": "Cognitive control",
+            "cuedts": "Cognitive control",
+            "axcpt": "Cognitive control",
+            "matching": "Cognitive control",
+            # Working memory
+            "stern": "Working memory",
+            "vswm": "Working memory",
+            "workingmemory": "Working memory",
+            # Attention
+            "spatialdetection": "Attention",
+            "oddball": "Attention",
+            # Decision-making & valuation
+            "bart": "Decision-making & valuation",
+            "risk": "Decision-making & valuation",
+            "itc": "Decision-making & valuation",
+            "delaydiscounting": "Decision-making & valuation",
+            "mgt": "Decision-making & valuation",
+            # Emotion & social
+            "emomatching": "Emotion & social processes",
+            "anticipation": "Emotion & social processes",
+            "fearlearning": "Emotion & social processes",
+            "emotionregulation": "Emotion & social processes",
+            "faces": "Emotion & social processes",
+            # Cue reactivity
+            "cic": "Cue reactivity / craving",
+            # Pain
+            "paingen": "Pain / nociception",
+            # Sensorimotor
+            "motor": "Sensorimotor",
+            "execution": "Sensorimotor",
+            "imagery": "Sensorimotor",
+            "ihg": "Sensorimotor",
+            # Perception & naturalistic memory
+            "expo": "Perception & naturalistic memory",
+            "recall": "Perception & naturalistic memory",
+            # Methodological — Neurofeedback
+            "feedback": "Neurofeedback",
+            # Methodological — Functional localizers
+            "ppalocalizer": "Functional localizers",
+            "floc": "Functional localizers",
+            "fribbids": "Functional localizers",
+            "midloc": "Functional localizers",
+            "localiser": "Functional localizers",
+            "localizer": "Functional localizers",
+        }
+        # base colors per domain (distinct, colorblind-friendly)
+        DOMAIN_BASE = {
+            "Language": "#1f77b4",
+            "Numerical cognition": "#ff7f0e",
+            "Cognitive control": "#02833E",
+            "Working memory": "#d62728",
+            "Attention": "#9467bd",
+            "Decision-making & valuation": "#8c564b",
+            "Emotion & social processes": "#e377c2",
+            "Cue reactivity / craving": "#D337D5",
+            "Pain / nociception": "#bcbd22",
+            "Sensorimotor": "#17becf",
+            "Perception & naturalistic memory": "#1f9e89",
+            "Neurofeedback": "#d0e81f",
+            "Functional localizers": "#35cf33",
+            "Other": "#646464",
+        }
+    elif simul_or_real == "simul":
+        # --- Categories of simulated task paradigms ---
+        DOMAIN_ORDER = [
+            "Simulated Periodic",
+            "Good Paradigm Design, Strong Performance on Real Data",
+            "Good Paradigm Design, Poor Performance on Real Data",
+            "Poor Paradigm Design, Poor Performance on Real Data",
+        ]
+        # --- Map task codes -> category ---
+        TASK2DOMAIN = {
+            # Simulated Periodic
+            "lowfreqlongrest": "Simulated Periodic",
+            "lowfreqshortrest": "Simulated Periodic",
+            "lowfreqshorttask": "Simulated Periodic",
+            # Good Paradigm Design, Strong Performance on Real Data
+            "axcpt": "Good Paradigm Design, Strong Performance on Real Data",
+            "stern": "Good Paradigm Design, Strong Performance on Real Data",
+            "cuedts": "Good Paradigm Design, Strong Performance on Real Data",
+            # Good Paradigm Design, Poor Performance on Real Data
+            "execution": "Good Paradigm Design, Poor Performance on Real Data",
+            "imagery": "Good Paradigm Design, Poor Performance on Real Data",
+            "localizer": "Good Paradigm Design, Poor Performance on Real Data",
+            "ppalocalizer": "Good Paradigm Design, Poor Performance on Real Data",
+            # Poor Paradigm Design, Poor Performance on Real Data
+            "itc": "Poor Paradigm Design, Poor Performance on Real Data",
+            "stroop": "Poor Paradigm Design, Poor Performance on Real Data",
+            "risk": "Poor Paradigm Design, Poor Performance on Real Data",
+        }
+        # base colors per domain (distinct, colorblind-friendly)
+        DOMAIN_BASE = {
+            "Simulated Periodic": "#1f77b4",
+            "Good Paradigm Design, Strong Performance on Real Data": "#ff7f0e",
+            "Good Paradigm Design, Poor Performance on Real Data": "#02833E",
+            "Poor Paradigm Design, Poor Performance on Real Data": "#d62728",
+        }
+    else:
+        raise ValueError(f"Invalid simul_or_real: {simul_or_real}")
+    return DOMAIN_ORDER, TASK2DOMAIN, DOMAIN_BASE
+
+
+def canon_task(task_str: str) -> str:
+    """strip 'task-' and non-letters, lowercase → canonical key"""
+    s = task_str.replace("task-", "")
+    s = re.sub(r"[^a-zA-Z]", "", s)
+    return s.lower()
+
+
+def task_domain_real(task: str) -> str:
+    _, TASK2DOMAIN, _ = get_cog_domain_info("real")
+    return TASK2DOMAIN.get(canon_task(task), "Other")
+
+
+def task_domain_simul(task: str) -> str:
+    _, TASK2DOMAIN, _ = get_cog_domain_info("simul")
+    return TASK2DOMAIN.get(canon_task(task), "Other")
+
+
+def shade_series_same_hue(base_hex: str, n: int, delta_L=0.08, delta_S=0.06):
+    """
+    Same hue; small, symmetric tweaks in lightness/saturation → very similar colors.
+    delta_L/S control how similar the shades are (smaller = more similar).
+    """
+    if n <= 1:
+        return [base_hex]
+    r, g, b = mcolors.to_rgb(base_hex)
+    # colorsys uses HLS (Hue, Lightness, Saturation)
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+
+    # symmetric lightness offsets around original l
+    offs_L = np.linspace(-delta_L, +delta_L, n)
+    # small saturation jitter to avoid identical look
+    offs_S = np.linspace(-delta_S, +delta_S, n)
+
+    cols = []
+    for dL, dS in zip(offs_L, offs_S):
+        li = float(np.clip(l + dL, 0.05, 0.95))
+        si = float(np.clip(s + dS, 0.20, 0.95))
+        r2, g2, b2 = colorsys.hls_to_rgb(h, li, si)
+        cols.append(mcolors.to_hex((r2, g2, b2)))
+    return cols
+
+
+def build_task_order_and_palette(
+    tasks_iterable, simul_or_real, similarity_L=0.08, similarity_S=0.06
+):
+    """Domain-first task order + very-similar shades per domain."""
+    tasks = list(tasks_iterable)
+    if simul_or_real == "real":
+        dom_of = {t: task_domain_real(t) for t in tasks}
+    elif simul_or_real == "simul":
+        dom_of = {t: task_domain_simul(t) for t in tasks}
+
+    DOMAIN_ORDER, _, DOMAIN_BASE = get_cog_domain_info(simul_or_real)
+    # order: by DOMAIN_ORDER, then alphabetical within domain
+    task_order = []
+    for dom in DOMAIN_ORDER:
+        ts = sorted([t for t in tasks if dom_of[t] == dom], key=lambda s: s.lower())
+        task_order.extend(ts)
+
+    # palette: near-identical shades per domain
+    palette = {}
+    for dom in DOMAIN_ORDER:
+        ts = [t for t in task_order if dom_of.get(t, "Other") == dom]
+        if not ts:
+            continue
+        shades = shade_series_same_hue(
+            DOMAIN_BASE[dom], len(ts), delta_L=similarity_L, delta_S=similarity_S
+        )
+        for t, col in zip(ts, shades):
+            palette[t] = col
+    return task_order, palette
+
+
+def domain_sorted_rows(index_tasks, TASKS_to_include, simul_or_real):
+    # preserve only tasks present in the matrix
+    present = [t for t in index_tasks if t in TASKS_to_include]
+    # if simul_or_real != "real":
+    #     return sorted(present, key=lambda s: s.lower())
+    # domain-first, then alphabetical
+    if simul_or_real == "real":
+        dom_of = {t: task_domain_real(t) for t in present}
+    elif simul_or_real == "simul":
+        dom_of = {t: task_domain_simul(t) for t in present}
+    DOMAIN_ORDER, _, _ = get_cog_domain_info(simul_or_real)
+    ordered = []
+    for dom in DOMAIN_ORDER:
+        ts = sorted([t for t in present if dom_of[t] == dom], key=lambda s: s.lower())
+        ordered.extend(ts)
+    return ordered
+
+
+def boldify_axes(ax, xlabel=None, ylabel=None, rotate_xticks=35):
+    if xlabel is not None:
+        ax.set_xlabel(xlabel, fontweight="bold")
+    if ylabel is not None:
+        ax.set_ylabel(ylabel, fontweight="bold")
+    # dFC method names on x-axis
+    if rotate_xticks is not None:
+        plt.setp(
+            ax.get_xticklabels(), fontweight="bold", rotation=rotate_xticks, ha="right"
+        )
+    else:
+        plt.setp(ax.get_xticklabels(), fontweight="bold")
+
+
+def draw_grouped_legend_panel(
+    ax_leg,
+    task_order,
+    domain_of,
+    palette,
+    domain_order,
+    ncols=2,
+    fontsize=8,
+    markersize=5,
+    colpad=0.04,
+):
+    ax_leg.set_axis_off()
+    ax_leg.set_xlim(0, 1)
+    ax_leg.set_ylim(0, 1)
+    items = []
+    for dom in domain_order:
+        ts = [t for t in task_order if domain_of.get(t, "Other") == dom]
+        if not ts:
+            continue
+        items.append(("header", dom))
+        items.extend(("task", t) for t in ts)
+
+    rows = len(items)
+    rows_per_col = max(1, math.ceil(rows / ncols))
+    x_cols = [0.02 + i * (1.0 / ncols) for i in range(ncols)]
+    top = 0.98
+    dy = (top - 0.06) / rows_per_col
+
+    col = 0
+    row_in_col = 0
+    for kind, val in items:
+        if row_in_col >= rows_per_col:
+            col += 1
+            row_in_col = 0
+        if col >= ncols:
+            break
+        x = x_cols[col]
+        y = top - row_in_col * dy
+        if kind == "header":
+            ax_leg.text(
+                x, y, val, fontsize=fontsize, fontweight="bold", ha="left", va="top"
+            )
+        else:
+            t = val
+            color = palette.get(t, "0.4")
+            ax_leg.plot(
+                [x],
+                [y],
+                marker="o",
+                ms=markersize,
+                mfc=color,
+                mec="#222222",
+                mew=0.8,
+                ls="None",
+            )
+            ax_leg.text(x + colpad, y, t, fontsize=fontsize, ha="left", va="center")
+        row_in_col += 1
+
+
+def mean_ci_boot(y, n_boot=3000, ci=95, rng=None):
+    y = np.asarray(y, float)
+    y = y[~np.isnan(y)]
+    if y.size == 0:
+        return np.nan, np.nan, np.nan
+    m = float(np.mean(y))
+    if y.size == 1:
+        return m, m, m
+    if rng is None:
+        rng = np.random.default_rng()  # fresh entropy
+    idx = rng.integers(0, y.size, size=(n_boot, y.size))
+    boots = np.mean(y[idx], axis=1)
+    lo = float(np.percentile(boots, (100 - ci) / 2))
+    hi = float(np.percentile(boots, 100 - (100 - ci) / 2))
+    return m, lo, hi
+
+
+def summarize_methods_across_tasks(
+    df_plot, ycol, method_col="dFC method", ci_func=mean_ci_boot
+):
+    """
+    Return a DataFrame with columns: [method_col, 'mean','lo','hi'].
+    Robust to Pandas quirks; no MultiIndex/unnamed columns.
+    Assumes df_plot has one row per (task, method) already (your BEST table).
+    """
+    rows = []
+    for meth, s in df_plot.groupby(method_col, observed=True)[ycol]:
+        m, lo, hi = ci_func(s.values)
+        rows.append({method_col: meth, "mean": m, "lo": lo, "hi": hi})
+    return pd.DataFrame(rows)
+
+
+def overlay_method_mean_ci(
+    ax,
+    df_plot,
+    ycol,
+    method_col="dFC method",
+    line_halfwidth=0.30,
+    cap_halfwidth=0.12,
+    color="#222",
+    lower=None,
+    upper=None,
+    rng=None,
+):
+    # map x positions from current ticks (call after you set/rotate xticklabels)
+    xticks = ax.get_xticks()
+    xlabs = [t.get_text() for t in ax.get_xticklabels()]
+    xpos = {lab: xticks[i] for i, lab in enumerate(xlabs)}
+
+    # summarize robustly
+    summ = summarize_methods_across_tasks(
+        df_plot, ycol, method_col, ci_func=lambda y: mean_ci_boot(y, rng=rng)
+    )
+
+    # clip to metric bounds if provided
+    def clip(v):
+        if lower is not None:
+            v = max(lower, v)
+        if upper is not None:
+            v = min(upper, v)
+        return v
+
+    for _, r in summ.iterrows():
+        meth = r[method_col]
+        if meth not in xpos or np.isnan(r["mean"]):
+            continue
+        x = xpos[meth]
+        m = clip(r["mean"])
+        lo = clip(r["lo"]) if not np.isnan(r["lo"]) else m
+        hi = clip(r["hi"]) if not np.isnan(r["hi"]) else m
+
+        # mean line (thick) + CI whisker & caps (thin)
+        ax.hlines(
+            m, x - line_halfwidth, x + line_halfwidth, colors=color, lw=2.6, zorder=6
+        )
+        ax.vlines(x, lo, hi, colors=color, lw=1.2, alpha=0.9, zorder=5)
+        ax.hlines(
+            [lo, hi],
+            x - cap_halfwidth,
+            x + cap_halfwidth,
+            colors=color,
+            lw=1.2,
+            alpha=0.9,
+            zorder=5,
+        )
+
+
+def wrap_domain(dom: str, max_len: int = 20) -> str:
+    # First, break on the preferred delimiters
+    s = dom.replace(" & ", " &\n").replace(", ", ",\n")
+    out = []
+    for seg in s.splitlines():
+        # Then wrap remaining long segments on spaces (no hard splits)
+        wrapped = textwrap.wrap(
+            seg, width=max_len, break_long_words=False, break_on_hyphens=True
+        )
+        out.extend(wrapped if wrapped else [""])
+    return "\n".join(out)
+
+
+def add_domains_between_ylabel_and_ticks(
+    ax,
+    row_order,
+    task_to_domain,
+    label_rotation=30,
+    tick_pad_pts=28,
+    ylabel_pad_pts=60,
+    domain_x_frac=-0.11,  # x position for the domain column (axes frac)
+    left_extend_frac=0.02,  # how far past the text the line extends
+    label_x_offset_frac=0.008,  # small nudge right from domain_x_frac
+    label_align="left",  # "left" | "center" | "right"
+    label_kw=None,
+    sep_kw=None,
+):
+    if label_kw is None:
+        label_kw = dict(
+            fontsize=10, fontweight="bold", color="#222", ha="left", va="center"
+        )  # default to left
+    else:
+        # override HA with requested alignment but keep user's other styles
+        label_kw = {
+            **label_kw,
+            "ha": {"left": "left", "center": "center", "right": "right"}[label_align],
+            "va": "center",
+        }
+    if sep_kw is None:
+        sep_kw = dict(color="#777", lw=1.0, alpha=0.9)
+
+    if not row_order:
+        return
+
+    ax.tick_params(axis="y", pad=tick_pad_pts)
+    ax.yaxis.labelpad = ylabel_pad_pts
+
+    # row centers (as before) ...
+    yticks = ax.get_yticks()
+    yticklabs = [t.get_text() for t in ax.get_yticklabels()]
+    if yticklabs and len(yticklabs) == len(row_order):
+        lbl2y = {lab: y for lab, y in zip(yticklabs, yticks)}
+        y_centers = [lbl2y.get(t, np.nan) for t in row_order]
+    else:
+        n = len(row_order)
+        y0, y1 = ax.get_ylim()
+        base = np.linspace(0.5, n - 0.5, n)
+        if y1 < y0:
+            scale = (y0 - y1) / (n - 1)
+            y_centers = y0 - (base - 0.5) * scale
+        else:
+            scale = (y1 - y0) / (n - 1)
+            y_centers = y0 + (base - 0.5) * scale
+
+    doms = [task_to_domain.get(t, "Other") for t in row_order]
+    blocks = []
+    start = 0
+    for i in range(1, len(doms)):
+        if doms[i] != doms[i - 1]:
+            blocks.append((doms[start], start, i - 1))
+            start = i
+    if len(doms):
+        blocks.append((doms[start], start, len(doms) - 1))
+
+    trans_text = mtransforms.blended_transform_factory(ax.transAxes, ax.transData)
+    for dom, i0, i1 in blocks:
+        y_block = float(np.nanmean(y_centers[i0 : i1 + 1]))
+        # left-aligned text slightly to the right of the domain column anchor
+        x_text = domain_x_frac + (label_x_offset_frac if label_align == "left" else 0.0)
+        dom_updated = wrap_domain(dom, max_len=24)
+        ax.text(
+            x_text,
+            y_block,
+            dom_updated,
+            rotation=label_rotation,
+            transform=trans_text,
+            clip_on=False,
+            **label_kw,
+        )
+
+    # separators (heatmap + extension into the domain column)
+    x_min, x_max = ax.get_xlim()
+    trans_sep = mtransforms.blended_transform_factory(ax.transAxes, ax.transData)
+    for i in range(len(doms) - 1):
+        if doms[i + 1] != doms[i]:
+            y_sep = 0.5 * (y_centers[i] + y_centers[i + 1])
+            ax.hlines(y_sep, x_min, x_max, **sep_kw)  # inside heatmap
+            ax.plot(
+                [0.0, domain_x_frac - left_extend_frac],
+                [y_sep, y_sep],
+                transform=trans_sep,
+                clip_on=False,
+                **sep_kw,
+            )  # into domain column
+
+
+###################### task_timing_stats ######################
+
+
+def as_long_df(d, value_col, task_col="task"):
+    rows = []
+    for t, vals in d.items():
+        for v in vals:
+            rows.append({task_col: t, value_col: v})
+    return pd.DataFrame(rows)
+
+
+# --- median labels with matching hue colors (log-safe) ---
+def annotate_medians_by_geometry(
+    ax,
+    df_long,
+    x_col,
+    hue_col,
+    y_col,
+    x_order,
+    hue_order,
+    fmt="{:.0f}",  # ints; change to "{:.2g}" if you prefer
+    y_nudge_factor=1.08,
+    bin_halfwidth=0.6,
+    bbox_alpha=0.9,
+):
+    def _luminance(r, g, b):
+        # simple relative luminance for contrast
+        return 0.299 * r + 0.587 * g + 0.114 * b
+
+    # collect box patches and centers
+    patches = [
+        p for p in getattr(ax, "artists", []) if isinstance(p, mpl.patches.PathPatch)
+    ]
+    if not patches:
+        patches = [p for p in ax.patches if isinstance(p, mpl.patches.PathPatch)]
+
+    boxes = []
+    for p in patches:
+        verts = p.get_path().vertices
+        xs = verts[:, 0]
+        x_center = 0.5 * (xs.min() + xs.max())
+        boxes.append((x_center, p))
+
+    if not boxes:
+        return
+
+    # bin by x tick index (0..len(x_order)-1)
+    boxes_by_tick = {i: [] for i in range(len(x_order))}
+    for x_center, p in boxes:
+        idx = int(round(x_center))
+        if idx in boxes_by_tick and abs(x_center - idx) <= bin_halfwidth:
+            boxes_by_tick[idx].append((x_center, p))
+
+    # medians from data
+    med_dict = df_long.groupby([x_col, hue_col])[y_col].median().to_dict()
+
+    for i, task in enumerate(x_order):
+        group = boxes_by_tick.get(i, [])
+        if not group:
+            continue
+        # left->right inside this task bin
+        group.sort(key=lambda t: t[0])
+
+        for j, hue in enumerate(hue_order):
+            if j >= len(group):
+                break
+            x_center, patch = group[j]
+            med = med_dict.get((task, hue), np.nan)
+            if not (np.isfinite(med) and med > 0):
+                continue
+
+            # extract the exact facecolor of this box (matches legend/palette)
+            fc = patch.get_facecolor()  # RGBA
+            if fc is None or len(fc) < 3:
+                # fallback (rare): use current color cycle
+                fc = ax._get_lines.get_next_color()
+                # normalize to RGBA
+                fc = mpl.colors.to_rgba(fc)
+
+            r, g, b, a = fc
+            # adjust alpha for the textbox so it’s legible
+            fc_box = (r, g, b, bbox_alpha)
+
+            # choose black/white text for contrast
+            txt_color = "black" if _luminance(r, g, b) > 0.6 else "white"
+
+            ax.text(
+                x_center,
+                med * y_nudge_factor,
+                fmt.format(med),
+                ha="center",
+                va="center",
+                fontsize=9,
+                fontweight="bold",
+                color=txt_color,
+                bbox=dict(boxstyle="round,pad=0.2", fc=fc_box, ec="none"),
+                zorder=100,
+                clip_on=False,
+            )
+
+
+# ---------- helpers: median ordering + median labeler (single-category boxplot) ----------
+def order_by_median_dict(d, reverse=True):
+    """Return (ordered_task_names, stats_dict) where stats_dict[task]=(median, std)."""
+    stats = {t: (np.median(vals), np.std(vals)) for t, vals in d.items() if len(vals) > 0}
+    ordered = sorted(stats.keys(), key=lambda t: stats[t][0], reverse=reverse)
+    return ordered, stats
+
+
+def annotate_medians_single_boxplot(
+    ax, df_long, x_col, y_col, order, fmt="{:.2f}", box_alpha=0.90
+):
+    """
+    Annotate the median for each category on a seaborn.boxplot *without hue*.
+    Places the number at the geometric center of each box, using the box facecolor for the label bg.
+    Call this AFTER setting any y-limits (so the nudge uses final limits).
+    """
+
+    # compute medians in plotting order
+    med = df_long.groupby(x_col)[y_col].median().reindex(order)
+
+    # collect PathPatches for boxes (artists in most seaborn versions; fallback to patches)
+    patches = [
+        p for p in getattr(ax, "artists", []) if isinstance(p, mpl.patches.PathPatch)
+    ]
+    if not patches:
+        patches = [p for p in ax.patches if isinstance(p, mpl.patches.PathPatch)]
+
+    n = min(len(patches), len(order))
+    ymin, ymax = ax.get_ylim()
+    dy = 0.02 * (ymax - ymin)  # small additive nudge in data units
+
+    for k in range(n):
+        patch = patches[k]
+        verts = patch.get_path().vertices
+        xs, _ = verts[:, 0], verts[:, 1]
+        x_center = 0.5 * (xs.min() + xs.max())
+
+        m = med.iloc[k]
+        if not np.isfinite(m):
+            continue
+
+        # label background color = box facecolor (match legend/palette)
+        fc = patch.get_facecolor()
+        if fc is None or len(fc) < 3:
+            fc = mpl.colors.to_rgba("white", box_alpha)
+        else:
+            fc = (fc[0], fc[1], fc[2], box_alpha)
+
+        # text color for contrast (simple luminance check)
+        lum = 0.299 * fc[0] + 0.587 * fc[1] + 0.114 * fc[2]
+        txt_color = "black" if lum > 0.6 else "white"
+
+        # keep label inside the axis (avoid hitting the top bound)
+        y_text = min(m + dy, ymax - 0.01 * (ymax - ymin))
+
+        ax.text(
+            x_center,
+            y_text,
+            fmt.format(m),
+            ha="center",
+            va="center",
+            fontsize=9,
+            fontweight="bold",
+            color=txt_color,
+            bbox=dict(boxstyle="round,pad=0.2", fc=fc, ec="none"),
+            zorder=100,
+            clip_on=False,
+        )
+
+
+###################### task_presence_binarization ######################
+
+###################### dfc_visualization ######################
+
+
+def _window_indices(
+    trs, window_len=8, center="middle", center_time=None, center_index=None, interval=None
+):
+    T = len(trs)
+    trs = np.asarray(trs)
+    if interval is not None:
+        t0, t1 = interval
+        idxs = np.where((trs >= t0) & (trs <= t1))[0]
+        if len(idxs) == 0:
+            raise ValueError("interval produced no indices; check units.")
+        return idxs
+    if center_index is not None:
+        c = int(np.clip(center_index, 0, T - 1))
+    elif center_time is not None:
+        c = int(np.argmin(np.abs(trs - center_time)))
+    else:
+        c = (T - 1) // 2
+    half = window_len // 2
+    start = max(0, c - half)
+    end = min(T, start + window_len)
+    start = max(0, end - window_len)
+    return np.arange(start, end, dtype=int)
+
+
+def _common_limits(dfc_dict, robust_percentile=(2, 98), symmetric=True):
+    vals = []
+    for A in dfc_dict.values():
+        R = A.shape[1]
+        iu = np.triu_indices(R, 1)
+        vals.append(A[:, iu[0], iu[1]].ravel())
+    lo, hi = np.percentile(np.concatenate(vals), robust_percentile)
+    if symmetric:
+        m = max(abs(lo), abs(hi))
+        return -m, m
+    return lo, hi
+
+
+def figure_dfc_matrices_window_png(
+    dfc_dict,
+    trs,
+    window_len=8,
+    center="middle",
+    center_time=None,
+    center_index=None,
+    interval=None,
+    cmap="coolwarm",
+    outfile="fig_dfc_window.png",
+    show_region_ticks=False,
+    region_labels=None,
+    draw_network_bounds=None,
+    dpi=600,
+    transparent=False,
+    # style knobs
+    method_label_size=11,
+    tr_label_size=10,
+    cbar_label_size=11,
+    rotate_method_labels=90,
+    method_label_pad=18,  # << controls distance between method names and images
+    wspace=None,  # << override column spacing if needed (None = auto)
+):
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib import gridspec
+
+    mpl.rcParams.update(
+        {
+            "figure.dpi": dpi,
+            "savefig.dpi": dpi,
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+            "font.size": 8,
+            "axes.titlesize": tr_label_size,
+            "axes.labelsize": method_label_size,
+        }
+    )
+
+    methods = list(dfc_dict.keys())
+    R = next(iter(dfc_dict.values())).shape[1]
+
+    idxs = _window_indices(
+        trs,
+        window_len=window_len,
+        center=center,
+        center_time=center_time,
+        center_index=center_index,
+        interval=interval,
+    )
+
+    vmin, vmax = _common_limits(dfc_dict, robust_percentile=(2, 98), symmetric=True)
+    vmin = 0
+
+    # figure sizing
+    col_width = 1.6
+    row_height = 1.5
+    nrows, ncols = len(methods), len(idxs)
+
+    fig = plt.figure(figsize=((ncols + 0.5) * col_width, nrows * row_height))
+
+    # spacing
+    auto_wspace = min(0.35, 0.12 + 0.01 * ncols)
+    wspace = auto_wspace if wspace is None else wspace
+    hspace = 0.25
+
+    # add a dedicated colorbar column on the far right
+    gs = gridspec.GridSpec(
+        nrows,
+        ncols + 1,
+        width_ratios=[1] * ncols + [0.06],  # last slot = colorbar
+        hspace=hspace,
+        wspace=wspace,
+    )
+
+    last_im = None
+    for r, m in enumerate(methods):
+        A = dfc_dict[m]
+        for c, t_idx in enumerate(idxs):
+            ax = fig.add_subplot(gs[r, c])
+            M = A[t_idx].copy()
+            np.fill_diagonal(M, np.nan)
+            im = ax.imshow(M, vmin=vmin, vmax=vmax, cmap=cmap, interpolation="none")
+            last_im = im
+
+            if draw_network_bounds:
+                for b in draw_network_bounds:
+                    ax.axhline(b - 0.5, linewidth=0.4, color="k")
+                    ax.axvline(b - 0.5, linewidth=0.4, color="k")
+
+            if show_region_ticks and region_labels is not None:
+                step = max(1, R // 16)
+                ticks = np.arange(0, R, step)
+                ax.set_xticks(ticks)
+                ax.set_yticks(ticks)
+                ax.set_xticklabels(
+                    [region_labels[i] for i in ticks], rotation=90, fontsize=6
+                )
+                ax.set_yticklabels([region_labels[i] for i in ticks], fontsize=6)
+            else:
+                ax.set_xticks([])
+                ax.set_yticks([])
+            for s in ax.spines.values():
+                s.set_visible(False)
+
+            if r == 0:
+                label = (
+                    f"TR{trs[t_idx]}"
+                    if np.issubdtype(np.asarray(trs).dtype, np.number)
+                    else str(trs[t_idx])
+                )
+                ax.set_title(label, pad=6, fontsize=tr_label_size, fontweight="bold")
+
+            if c == 0:
+                ax.set_ylabel(
+                    m,
+                    rotation=rotate_method_labels,
+                    labelpad=method_label_pad,  # << tighten/loosen here
+                    va="center",
+                    ha="center",
+                    fontsize=method_label_size,
+                    fontweight="bold",
+                )
+                ax.yaxis.set_label_position("left")
+
+    # colorbar in its own axis (no overlap)
+    cax = fig.add_subplot(gs[:, -1])
+    cbar = fig.colorbar(last_im, cax=cax)
+    cbar.set_label("Connectivity", fontsize=cbar_label_size, fontweight="bold")
+    cbar.ax.tick_params(labelsize=max(8, cbar_label_size - 1))
+
+    fig.subplots_adjust(left=0.10, right=0.98, top=0.95, bottom=0.05)
+    fig.savefig(
+        outfile,
+        bbox_inches="tight",
+        pad_inches=0.02,
+        transparent=transparent,
+        facecolor="white",
+    )
+    plt.close(fig)
+    print(
+        f"Saved {outfile}  |  TR columns: {len(idxs)}  |  vmin={vmin:.3f}, vmax={vmax:.3f}  |  dpi={dpi}"
+    )
