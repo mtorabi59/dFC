@@ -160,7 +160,7 @@ def get_cog_domain_info(simul_or_real: str):
             "Functional localizers": "#35cf33",
             "Other": "#646464",
         }
-    elif simul_or_real == "simul":
+    elif simul_or_real == "simulated":
         # --- Categories of simulated task paradigms ---
         DOMAIN_ORDER = [
             "Simulated Periodic",
@@ -213,7 +213,7 @@ def task_domain_real(task: str) -> str:
 
 
 def task_domain_simul(task: str) -> str:
-    _, TASK2DOMAIN, _ = get_cog_domain_info("simul")
+    _, TASK2DOMAIN, _ = get_cog_domain_info("simulated")
     return TASK2DOMAIN.get(canon_task(task), "Other")
 
 
@@ -249,7 +249,7 @@ def build_task_order_and_palette(
     tasks = list(tasks_iterable)
     if simul_or_real == "real":
         dom_of = {t: task_domain_real(t) for t in tasks}
-    elif simul_or_real == "simul":
+    elif simul_or_real == "simulated":
         dom_of = {t: task_domain_simul(t) for t in tasks}
 
     DOMAIN_ORDER, _, DOMAIN_BASE = get_cog_domain_info(simul_or_real)
@@ -281,7 +281,7 @@ def domain_sorted_rows(index_tasks, TASKS_to_include, simul_or_real):
     # domain-first, then alphabetical
     if simul_or_real == "real":
         dom_of = {t: task_domain_real(t) for t in present}
-    elif simul_or_real == "simul":
+    elif simul_or_real == "simulated":
         dom_of = {t: task_domain_simul(t) for t in present}
     DOMAIN_ORDER, _, _ = get_cog_domain_info(simul_or_real)
     ordered = []
