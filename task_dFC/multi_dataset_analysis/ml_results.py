@@ -192,7 +192,7 @@ if __name__ == "__main__":
         # --- domain tagging & task ordering/coloring (only for real data) ---
         if simul_or_real == "real":
             df["domain"] = df["task"].map(task_domain_real)
-        elif simul_or_real == "simul":
+        elif simul_or_real == "simulated":
             df["domain"] = df["task"].map(task_domain_simul)
         # Use tasks present in THIS slice
         task_order, task_palette = build_task_order_and_palette(
@@ -335,7 +335,7 @@ if __name__ == "__main__":
                 markersize=5,
             )
             ax_leg.set_title("Task Paradigm", fontsize=9, pad=4, fontweight="bold")
-        elif simul_or_real == "simul":
+        elif simul_or_real == "simulated":
             domain_of = {t: task_domain_simul(t) for t in task_order}
             draw_grouped_legend_panel(
                 ax_leg,
@@ -408,7 +408,7 @@ if __name__ == "__main__":
             }  # your task_domain helper
             domain_x_frac = -0.8
             ylabel_pad_pts = 130
-        elif simul_or_real == "simul":
+        elif simul_or_real == "simulated":
             task_to_domain = {
                 t: task_domain_simul(t) for t in row_order
             }  # your task_domain helper
@@ -507,7 +507,7 @@ if __name__ == "__main__":
                 task_to_domain = {t: task_domain_real(t) for t in row_order}
                 domain_x_frac = -0.8
                 ylabel_pad_pts = 130
-            elif simul_or_real == "simul":
+            elif simul_or_real == "simulated":
                 task_to_domain = {t: task_domain_simul(t) for t in row_order}
                 domain_x_frac = -1.0
                 ylabel_pad_pts = 110

@@ -67,7 +67,7 @@ if __name__ == "__main__":
         main_root = multi_dataset_info["simulated_data"]["main_root"]
         DATASETS = multi_dataset_info["simulated_data"]["DATASETS"]
         TASKS_to_include = multi_dataset_info["simulated_data"]["TASKS_to_include"]
-    output_root = f"{multi_dataset_info['output_root']}/task_data_stats/{simul_or_real}"
+    output_root = f"{multi_dataset_info['output_root']}/task_timing_stats/{simul_or_real}"
 
     if not os.path.exists(output_root):
         os.makedirs(output_root)
@@ -166,7 +166,7 @@ if __name__ == "__main__":
         "rest_durations_all": rest_durations_all,
         "task_durations_all": task_durations_all,
     }
-    # np.save(f"task_data_stats_{simul_or_real}.npy", DATA)
+    # np.save(f"task_timing_stats_{simul_or_real}.npy", DATA)
 
     # =========================
     # Paper-quality seaborn plots (patched)

@@ -56,9 +56,7 @@ if __name__ == "__main__":
         DATASETS = multi_dataset_info["simulated_data"]["DATASETS"]
         TASKS_to_include = multi_dataset_info["simulated_data"]["TASKS_to_include"]
 
-    output_root = (
-        f"{multi_dataset_info['output_root']}/task_presence_embed/{simul_or_real}"
-    )
+    output_root = f"{multi_dataset_info['output_root']}/LE_embed/{simul_or_real}"
 
     if not os.path.exists(output_root):
         os.makedirs(output_root)
@@ -180,7 +178,7 @@ if __name__ == "__main__":
                             plt.legend()
 
                             plt.savefig(
-                                f"{output_root}/task_presence_embed_{task}_{measure_name}.png",
+                                f"{output_root}/LE_embed_{task}_{measure_name}.png",
                                 dpi=fig_dpi,
                                 bbox_inches=fig_bbox_inches,
                                 pad_inches=fig_pad,
