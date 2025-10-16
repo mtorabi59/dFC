@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -38,6 +39,9 @@ if __name__ == "__main__":
     DATASETS = multi_dataset_info["real_data"]["DATASETS"]
     TASKS_to_include = multi_dataset_info["real_data"]["TASKS_to_include"]
     output_root = f"{multi_dataset_info['output_root']}/CohensD"
+
+    if not os.path.exists(output_root):
+        os.makedirs(output_root)
 
     CohensD_across_task = {
         "task": [],
