@@ -383,8 +383,8 @@ if __name__ == "__main__":
                     cb.ax.tick_params(labelsize=8)
 
                     # if the folder does not exist, create it
-                    if not os.path.exists(f"feature-sample/{measure_name}"):
-                        os.makedirs(f"feature-sample/{measure_name}")
+                    if not os.path.exists(f"{output_root}/{measure_name}"):
+                        os.makedirs(f"{output_root}/{measure_name}")
 
                     plt.savefig(
                         f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-samples_{task}_{group}{raw_or_embedded}.png",
