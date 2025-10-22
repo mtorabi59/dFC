@@ -922,6 +922,17 @@ def figure_dfc_matrices_window_png(
 ###################### sample_matrix plots ######################
 
 
+def nice_step(n, max_ticks=10):
+    """Return a 'nice' step (1-2-5x10^k) to keep ≤ max_ticks across [1..n]."""
+    if n <= 1:
+        return 1
+    raw = max(1.0, n / max(2, (max_ticks - 1)))
+    exp = np.floor(np.log10(raw))
+    frac = raw / (10**exp)
+    base = 1 if frac <= 1 else 2 if frac <= 2 else 5 if frac <= 5 else 10
+    return int(base * (10**exp))
+
+
 def plot_samples_features(
     X,
     y,
@@ -930,7 +941,7 @@ def plot_samples_features(
     feature_order="original",  # "original" | "tstat"
     col_order_from_train=None,  # optional np.ndarray (feature indices) to reuse on test
     ZSCORE=True,
-    V_RANGE=2.0,
+    V_RANGE=None,
     cmap="coolwarm",
     title=None,
     save_path=None,
@@ -1018,20 +1029,39 @@ def plot_samples_features(
     ax_main = fig.add_subplot(gs[0, 0])
     ax_lab = fig.add_subplot(gs[1, 0])
 
+    # --- VRANGE ---
+    if V_RANGE is None:
+        Xflat = np.asarray(Xz, float).ravel()
+        lo, hi = np.nanpercentile(Xflat, [5, 95])  # robust to outliers; tweak if needed
+        V_RANGE = max(abs(lo), abs(hi))  # symmetric around 0 (for diverging cmap)
+
     # ---------- main heatmap ----------
     img = Xz[row_order, :][:, col_order].T  # (features, samples)
     im = ax_main.imshow(
         img, aspect="auto", origin="lower", cmap=cmap, vmin=-V_RANGE, vmax=V_RANGE
     )
     n_features = img.shape[0]
+    last_idx = n_features - 1
+
     if n_features < 10:
-        yticks_step = 1
+        # every feature: labels 1..n, positions 0..n-1
+        labels_1based = np.arange(1, n_features + 1, dtype=int)
     else:
-        yticks_step = 2
-    ticks = np.arange(0, n_features, yticks_step, dtype=int)
-    ax_main.set_yticks(ticks)
-    labels = [str(int(t) + 1) for t in ticks]
-    ax_main.set_yticklabels(labels)
+        step = nice_step(n_features, max_ticks=10)
+        # use round multiples of the step
+        labels_1based = list(np.arange(step, n_features + 1, step, dtype=int))
+        # de-dup & sort (in case step == 1)
+        labels_1based = np.unique(labels_1based)
+
+    # convert 1-based labels to 0-based tick positions
+    ticks_pos = labels_1based - 1
+
+    # lock y-limits so the last tick isn't clipped
+    ax_main.set_ylim(-0.5, last_idx + 0.5)
+
+    # set ticks & labels
+    ax_main.set_yticks(ticks_pos)
+    ax_main.set_yticklabels([f"{v:d}" for v in labels_1based])
     ax_main.set_ylabel("feature", fontsize=12, fontweight="bold")
     ax_main.set_xlabel("sample", fontsize=12, fontweight="bold")
     ax_main.set_xticks([])

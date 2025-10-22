@@ -349,7 +349,7 @@ if __name__ == "__main__":
 
     plt.xlabel("Max |Cohen's d| per Task", fontweight="bold", fontsize=14)
     plt.ylabel("SVM Balanced Accuracy", fontweight="bold", fontsize=14)
-    plt.legend(fontsize=12)
+    # plt.legend(fontsize=12)
     correlation = merged["abs_max"].corr(merged["score"])
     plt.text(
         0.05,
