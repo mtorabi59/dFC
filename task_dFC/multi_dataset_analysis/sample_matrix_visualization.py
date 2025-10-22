@@ -13,8 +13,8 @@ from pydfc.ml_utils import (
 )
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from helper_functions import (
-    plot_samples_features,  # pyright: ignore[reportMissingImports]
+from helper_functions import (  # pyright: ignore[reportMissingImports]
+    plot_samples_features,
 )
 
 use_raw_features = False  # if True, use raw dFC features instead of embedded features
