@@ -6,6 +6,9 @@
 #SBATCH --time=05:00:00
 #SBATCH --mem=32G
 
+# Make sure logs dir exists (in case you submit from elsewhere)
+mkdir -p logs
+
 # === Activate virtual environment ===
 source "/home/mt00/venvs/pydfc/bin/activate"
 
@@ -34,13 +37,20 @@ if [ ! -f "$SCRIPT_PATH" ]; then
     exit 1
 fi
 
+# === Per-script memory selection ===
+if [ "$SCRIPT_NAME" = "sample_matrix_visualization.py" ]; then
+    MEM_FLAG="--mem=64G"
+else
+    MEM_FLAG="--mem=32G"
+fi
+
 # === Run based on script name ===
 case "$SCRIPT_NAME" in
     ml_results.py | dfc_visualization.py | LE_embedding_visualization.py | sample_matrix_visualization.py | task_presence_binarization.py | task_timing_stats.py)
-        python "$SCRIPT_PATH" --multi_dataset_info "$MULTI_DATASET_INFO" --simul_or_real "$SIMUL_OR_REAL"
+        srun $MEM_FLAG python "$SCRIPT_PATH" --multi_dataset_info "$MULTI_DATASET_INFO" --simul_or_real "$SIMUL_OR_REAL"
         ;;
     cohensd.py)
-        python "$SCRIPT_PATH" --multi_dataset_info "$MULTI_DATASET_INFO"
+        srun $MEM_FLAG python "$SCRIPT_PATH" --multi_dataset_info "$MULTI_DATASET_INFO"
         ;;
     *)
         echo "Unknown script: $SCRIPT_NAME"

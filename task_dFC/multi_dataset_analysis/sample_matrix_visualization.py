@@ -1,19 +1,20 @@
 import argparse
 import json
 import os
+import sys
 
-import matplotlib.pyplot as plt
-import matplotlib.transforms as mtransforms
 import numpy as np
-from matplotlib.colors import ListedColormap
-from scipy.cluster.hierarchy import leaves_list, linkage
-from scipy.stats import ttest_ind
 
 from pydfc.ml_utils import (
     dFC_feature_extraction,
     embed_dFC_features,
     find_available_subjects,
     process_SB_features,
+)
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from helper_functions import (
+    plot_samples_features,  # pyright: ignore[reportMissingImports]
 )
 
 use_raw_features = False  # if True, use raw dFC features instead of embedded features
@@ -237,240 +238,51 @@ if __name__ == "__main__":
 
                 # np.save(f"{output_root}/processed_data/{dataset}_{task}_{measure_name}.npy", DATA[task])
 
-                SORT_FEATURES = True
-                ZSCORE = True
-                V_RANGE = 2.0  # heatmap color range after z-scoring
-
                 for group, X, y in zip(
                     ["train", "test"], [X_train, X_test], [y_train, y_test]
                 ):
-
-                    # X: (n_samples, n_features) = LE-transformed dFC features
-                    # y: (n_samples,) binary (0=rest, 1=task)
-                    # Optional: z-score features so the imshow uses comparable scales
-                    Xz = X.copy().astype(float)
-                    if ZSCORE:
-                        Xz = (Xz - Xz.mean(0)) / (Xz.std(0) + 1e-8)
-
-                    # --- supervised feature order ---
-                    t, p = ttest_ind(Xz[y == 1], Xz[y == 0], axis=0, equal_var=False)
-                    if SORT_FEATURES:
-                        if group == "train":
-                            # if test, use train's t-stat order
-                            col_order = np.argsort(
-                                -np.abs(t)
-                            )  # strongest class contrast first
-                    else:
-                        col_order = np.arange(Xz.shape[1])  # original order
-
-                    # --- row order: cluster within each class (cosine is nice for patterns) ---
-                    def order_rows(A):
-                        if len(A) <= 2:
-                            return np.arange(len(A))
-                        return leaves_list(linkage(A, method="average", metric="cosine"))
-
-                    rest_idx = np.where(y == 0)[0]
-                    task_idx = np.where(y == 1)[0]
-                    rest_order = rest_idx[order_rows(Xz[rest_idx])]
-                    task_order = task_idx[order_rows(Xz[task_idx])]
-                    row_order = np.r_[rest_order, task_order]
-                    split = len(rest_order)
-
-                    # --- plot: main heatmap + class strip + top contrast bar ---
-                    fig = plt.figure(figsize=(20, 10))
-                    gs = fig.add_gridspec(
-                        nrows=2,
-                        ncols=2,
-                        height_ratios=[0.07, 1],
-                        width_ratios=[1, 0.03],
-                        hspace=0.05,
-                        wspace=0.05,
-                    )
-                    ax_top = fig.add_subplot(gs[0, 0])
-                    ax_main = fig.add_subplot(gs[1, 0])
-                    ax_lab = fig.add_subplot(gs[1, 1])
-
-                    # top bar: signed t-stat per feature (same column order)
-                    t_ord = t[col_order]
-                    m = np.nanmax(np.abs(t_ord))
-                    im_top = ax_top.imshow(
-                        t_ord[None, :], aspect="auto", cmap="coolwarm", vmin=-m, vmax=m
-                    )
-                    ax_top.set_xticks([])
-                    ax_top.set_yticks([])
-                    ax_top.set_title(
-                        "Feature contrast (t-stat): task − rest", fontsize=10
-                    )
-
-                    # main heatmap
-                    im = ax_main.imshow(
-                        Xz[row_order][:, col_order],
-                        aspect="auto",
-                        cmap="coolwarm",
-                        vmin=-V_RANGE,
-                        vmax=V_RANGE,
-                    )
-                    ax_main.axhline(
-                        split - 0.5, color="k", lw=1
-                    )  # separator between rest/task
-                    ax_main.set_ylabel("samples")
-                    ax_main.set_xticks([])
-
-                    # class strip (right)
-                    cmap_lbl = ListedColormap(
-                        [[0.85, 0.85, 0.85], [0.25, 0.5, 0.9]]
-                    )  # gray=rest, blue=task
-                    ax_lab.imshow(
-                        y[row_order][:, None],
-                        aspect="auto",
-                        cmap=cmap_lbl,
-                        vmin=0,
-                        vmax=1,
-                    )
-                    ax_lab.set_xticks([])
-                    ax_lab.set_yticks([])
-                    ax_lab.set_title("class")
-
-                    # --- vertical centers in the main heatmap (data coords) ---
-                    n_rows = Xz.shape[0]
-                    y_center_rest = (split - 1) / 2.0 if split > 0 else -0.5
-                    y_center_task = (
-                        (split + (n_rows - 1)) / 2.0 if n_rows > split else split - 0.5
-                    )
-
-                    # centers (already computed)
-                    # y_center_rest, y_center_task
-                    # x positions on the strip:
-                    x_right_ax = 1.0 - 0.02
-
-                    # blended: x in ax_lab axes coords, y in ax_main data coords
-                    blended = mtransforms.blended_transform_factory(
-                        ax_lab.transAxes, ax_main.transData
-                    )
-
-                    # left label: place at strip edge, nudge  +6 pts right
-                    ax_main.annotate(
-                        "rest (0)",
-                        xy=(x_right_ax, y_center_rest),
-                        xycoords=blended,
-                        xytext=(6, 0),
-                        textcoords="offset points",  # -> to the right of the strip
-                        ha="left",
-                        va="center",
-                        fontsize=9,
-                        zorder=7,
-                    )
-
-                    # right label: place at strip edge, nudge  +6 pts further right
-                    ax_main.annotate(
-                        "task (1)",
-                        xy=(x_right_ax, y_center_task),
-                        xycoords=blended,
-                        xytext=(6, 0),
-                        textcoords="offset points",  # -> outside the strip on the right
-                        ha="left",
-                        va="center",
-                        fontsize=9,
-                        zorder=7,
-                    )
-
-                    # colorbar (small)
-                    cax = fig.add_axes(
-                        [0.12, 0.06, 0.3, 0.02]
-                    )  # x, y, w, h in figure coords
-                    cb = plt.colorbar(im, cax=cax, orientation="horizontal")
-                    cb.set_label("z-scored feature value", fontsize=9)
-                    cb.ax.tick_params(labelsize=8)
-
                     # if the folder does not exist, create it
                     if not os.path.exists(f"{output_root}/{measure_name}"):
                         os.makedirs(f"{output_root}/{measure_name}")
 
-                    plt.savefig(
-                        f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-samples_{task}_{group}{raw_or_embedded}.png",
-                        dpi=150,
-                        bbox_inches="tight",
-                        pad_inches=0.2,
-                        format="png",
+                    # A) Unsorted (your first vis, but rotated so time is horizontal)
+                    plot_samples_features(
+                        X,
+                        y,
+                        sample_order="original",
+                        feature_order="original",
+                        save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_unsorted_{task}_{group}{raw_or_embedded}.png",
+                        show=False,
                     )
-                    plt.close()
 
-                    # plot unsorted version as well
-                    print(f"Embedded shape: {X.shape}")
+                    # B) Label-sorted (your third vis)
+                    plot_samples_features(
+                        X,
+                        y,
+                        sample_order="label",
+                        feature_order="original",
+                        save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-label_{task}_{group}{raw_or_embedded}.png",
+                        show=False,
+                    )
 
-                    # plot X_embedded and y in an imshow as subplots
+                    # C) Label + within-class clustering + t-stat top bar
                     if group == "train":
-                        w = 30
-                        h = 10
+                        orders = plot_samples_features(
+                            X,
+                            y,
+                            sample_order="label+cluster",
+                            feature_order="tstat",
+                            save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-samples_{task}_{group}{raw_or_embedded}.png",
+                            show=False,
+                        )
                     elif group == "test":
-                        w = 10
-                        h = 10
-                    # fig, axs = plt.subplots(2, 1, figsize=(w, h))
-                    # make bottom subplot skinny like a color strip
-                    fig, axs = plt.subplots(
-                        2,
-                        1,
-                        figsize=(w, h),
-                        sharex=True,
-                        gridspec_kw={"height_ratios": [15, 1], "hspace": 0.1},
-                    )
-
-                    split = np.sum(y == 0)  # number of rest samples
-                    axs[0].imshow(X.T, aspect="auto", origin="lower", cmap="seismic")
-                    axs[0].set_title("LE Embedded Features")
-                    axs[0].set_xlabel("Sample")
-                    axs[0].set_ylabel("Feature")
-
-                    axs[1].imshow(
-                        y[np.newaxis, :], aspect=20, origin="lower", cmap="seismic"
-                    )
-                    axs[1].set_title("Target")
-                    axs[1].set_xticks([])
-                    axs[1].set_yticks([])
-                    plt.savefig(
-                        f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_unsorted_{task}_{group}{raw_or_embedded}.png",
-                        dpi=150,
-                        bbox_inches="tight",
-                        pad_inches=0.2,
-                        format="png",
-                    )
-                    plt.close()
-
-                    # sort the data such that y=1 samples come first
-                    sort_indices = np.argsort(y, kind="stable")
-                    X = X[sort_indices]
-                    y = y[sort_indices]
-
-                    # plot X_embedded and y in an imshow as subplots
-                    # fig, axs = plt.subplots(2, 1, figsize=(w, h))
-                    # make bottom subplot skinny like a color strip
-                    fig, axs = plt.subplots(
-                        2,
-                        1,
-                        figsize=(w, h),
-                        sharex=True,
-                        gridspec_kw={"height_ratios": [15, 1], "hspace": 0.1},
-                    )
-
-                    axs[0].imshow(X.T, aspect="auto", origin="lower", cmap="seismic")
-                    axs[0].axvline(
-                        split - 0.5, color="k", lw=3
-                    )  # separator between rest/task
-                    axs[0].set_title("LE Embedded Features")
-                    axs[0].set_xlabel("Sample")
-                    axs[0].set_ylabel("Feature")
-
-                    axs[1].imshow(
-                        y[np.newaxis, :], aspect=20, origin="lower", cmap="seismic"
-                    )
-                    axs[1].set_title("Target")
-                    axs[1].set_xticks([])
-                    axs[1].set_yticks([])
-                    plt.savefig(
-                        f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-label_{task}_{group}{raw_or_embedded}.png",
-                        dpi=150,
-                        bbox_inches="tight",
-                        pad_inches=0.2,
-                        format="png",
-                    )
-                    plt.close()
+                        # Apply the *same feature order* to test (no leakage from test):
+                        plot_samples_features(
+                            X,
+                            y,
+                            sample_order="label+cluster",  # clustering is per-split; that’s fine
+                            feature_order="tstat",  # we still show the t-bar for reference
+                            col_order_from_train=orders["col_order"],
+                            save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-samples_{task}_{group}{raw_or_embedded}.png",
+                            show=False,
+                        )

@@ -11,6 +11,9 @@ import matplotlib.transforms as mtransforms
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.colors import ListedColormap
+from scipy.cluster.hierarchy import leaves_list, linkage
+from scipy.stats import ttest_ind
 
 ###################### Publication style ######################
 
@@ -914,3 +917,218 @@ def figure_dfc_matrices_window_png(
     print(
         f"Saved {outfile}  |  TR columns: {len(idxs)}  |  vmin={vmin:.3f}, vmax={vmax:.3f}  |  dpi={dpi}"
     )
+
+
+###################### sample_matrix plots ######################
+
+
+def plot_samples_features(
+    X,
+    y,
+    *,
+    sample_order="original",  # "original" | "label" | "label+cluster"
+    feature_order="original",  # "original" | "tstat"
+    col_order_from_train=None,  # optional np.ndarray (feature indices) to reuse on test
+    ZSCORE=True,
+    V_RANGE=2.0,
+    cmap="coolwarm",
+    title=None,
+    save_path=None,
+    show=True,
+):
+    """
+    X: (n_samples, n_features) matrix (features in columns)
+    y: (n_samples,) binary (0=rest, 1=task)
+
+    Samples are shown along the horizontal axis (time-like), features along the vertical axis.
+    If feature_order == "tstat", a slim vertical t-stat bar is shown on the LEFT,
+    aligned 1:1 with feature rows (no top t-bar).
+    """
+    # ---------- prep ----------
+    X = np.asarray(X, float)
+    y = np.asarray(y)
+    n_samples, n_features = X.shape
+
+    # z-score per feature
+    Xz = X.copy()
+    if ZSCORE:
+        mu = Xz.mean(axis=0, keepdims=True)
+        sd = Xz.std(axis=0, keepdims=True) + 1e-8
+        Xz = (Xz - mu) / sd
+
+    # ---------- feature order ----------
+    if feature_order == "tstat":
+        if col_order_from_train is not None:
+            col_order = np.asarray(col_order_from_train, int)
+            t, _ = ttest_ind(Xz[y == 1], Xz[y == 0], axis=0, equal_var=False)
+            t_ord = t[col_order]
+        else:
+            t, _ = ttest_ind(Xz[y == 1], Xz[y == 0], axis=0, equal_var=False)
+            col_order = np.argsort(-np.abs(t))  # strongest contrast first
+            t_ord = t[col_order]
+    else:
+        col_order = np.arange(n_features)
+        t_ord = None  # no t-stat bar
+
+    # ---------- sample order ----------
+    if sample_order == "original":
+        row_order = np.arange(n_samples)
+        split = np.sum(y == 0)
+        draw_separator = False
+    elif sample_order == "label":
+        rest_idx = np.where(y == 0)[0]
+        task_idx = np.where(y == 1)[0]
+        row_order = np.r_[rest_idx, task_idx]
+        split = len(rest_idx)
+        draw_separator = True
+    elif sample_order == "label+cluster":
+
+        def order_rows(A):
+            if len(A) <= 2:
+                return np.arange(len(A))
+            return leaves_list(linkage(A, method="average", metric="cosine"))
+
+        rest_idx = np.where(y == 0)[0]
+        task_idx = np.where(y == 1)[0]
+        rest_order = rest_idx[order_rows(Xz[rest_idx])] if len(rest_idx) else rest_idx
+        task_order = task_idx[order_rows(Xz[task_idx])] if len(task_idx) else task_idx
+        row_order = np.r_[rest_order, task_order]
+        split = len(rest_order)
+        draw_separator = True
+    else:
+        raise ValueError(
+            "sample_order must be one of {'original','label','label+cluster'}"
+        )
+
+    # ---------- figure & layout (no top t-bar) ----------
+    # W = max(10, min(24, n_samples / 30))
+    w_min = 12
+    w_max = 24
+    width_per_100 = 0.5  # additional width per 100 samples
+    W = float(np.clip(w_min + (n_samples / 100.0) * width_per_100, w_min, w_max))
+    H = max(6, min(16, n_features / 30))
+    fig = plt.figure(figsize=(W, H))
+
+    gs = fig.add_gridspec(
+        nrows=2,
+        ncols=1,
+        height_ratios=[1.0, 0.06],  # main heatmap + class strip
+        hspace=0.08,
+    )
+    ax_main = fig.add_subplot(gs[0, 0])
+    ax_lab = fig.add_subplot(gs[1, 0])
+
+    # ---------- main heatmap ----------
+    img = Xz[row_order, :][:, col_order].T  # (features, samples)
+    im = ax_main.imshow(
+        img, aspect="auto", origin="lower", cmap=cmap, vmin=-V_RANGE, vmax=V_RANGE
+    )
+    n_features = img.shape[0]
+    if n_features < 10:
+        yticks_step = 1
+    else:
+        yticks_step = 2
+    ticks = np.arange(0, n_features, yticks_step, dtype=int)
+    ax_main.set_yticks(ticks)
+    labels = [str(int(t) + 1) for t in ticks]
+    ax_main.set_yticklabels(labels)
+    ax_main.set_ylabel("feature", fontsize=12, fontweight="bold")
+    ax_main.set_xlabel("sample", fontsize=12, fontweight="bold")
+    ax_main.set_xticks([])
+    ax_main.tick_params(axis="y", labelsize=10)
+
+    if draw_separator and 0 < split < n_samples:
+        ax_main.axvline(split - 0.5, color="k", lw=1)
+
+    # ---------- bottom class strip ----------
+    y_reordered = y[row_order]
+    cmap_lbl = ListedColormap(
+        [[0.85, 0.85, 0.85], [0.25, 0.5, 0.9]]
+    )  # rest=gray, task=blue
+    ax_lab.imshow(
+        y_reordered[None, :], aspect="auto", origin="lower", cmap=cmap_lbl, vmin=0, vmax=1
+    )
+    ax_lab.set_yticks([])
+    ax_lab.set_xticks([])
+    # ax_lab.set_title("class", fontsize=11, pad=2)
+
+    # show class labels only when there is label grouping
+    if draw_separator:
+        n0 = (y_reordered == 0).sum()
+        n1 = (y_reordered == 1).sum()
+        if n0 > 0:
+            x0 = (n0 - 1) / 2.0
+            ax_lab.annotate(
+                "rest (0)",
+                xy=(x0, -0.35),
+                xycoords=("data", "axes fraction"),
+                ha="center",
+                va="top",
+                fontsize=11,
+                fontweight="bold",
+            )
+        if n1 > 0:
+            x1 = n0 + (n1 - 1) / 2.0
+            ax_lab.annotate(
+                "task (1)",
+                xy=(x1, -0.35),
+                xycoords=("data", "axes fraction"),
+                ha="center",
+                va="top",
+                fontsize=11,
+                fontweight="bold",
+            )
+
+    # --- move the class bar (ax_lab) down a bit ---
+    fig.canvas.draw()  # ensure positions are current
+    lab_box = ax_lab.get_position()  # [x0, y0, width, height] in figure coords
+    down = 0.020  # how much to move down (figure fraction)
+    new_y0 = max(0.01, lab_box.y0 - down)  # keep it inside the figure
+    ax_lab.set_position([lab_box.x0, new_y0, lab_box.width, lab_box.height])
+
+    # (re)grab the updated box for the colorbar placement that comes next
+    lab_box = ax_lab.get_position()
+
+    # ---------- LEFT vertical t-stat bar (only if feature_order=="tstat") ----------
+    if t_ord is not None:
+        fig.canvas.draw()
+        main_box = ax_main.get_position()  # figure coords
+
+        tbar_left_width = 0.010  # ~2% fig width
+        tbar_left_pad = 0.035 / W * 24  # gap from main heatmap, proportional to fig width
+
+        x0 = max(0.01, main_box.x0 - tbar_left_pad - tbar_left_width)
+        y0 = main_box.y0
+        w = tbar_left_width
+        h = main_box.height
+
+        ax_tleft = fig.add_axes([x0, y0, w, h])
+        m = np.nanmax(np.abs(t_ord)) if np.isfinite(t_ord).any() else 1.0
+        ax_tleft.imshow(
+            t_ord[:, None], origin="lower", aspect="auto", cmap=cmap, vmin=-m, vmax=m
+        )
+        ax_tleft.set_xticks([])
+        ax_tleft.set_yticks([])
+        ax_tleft.set_title("t-stat", fontsize=11, pad=2, fontweight="bold")
+
+    # ---------- colorbar (slightly lower so it doesn't overlap class labels) ----------
+    fig.canvas.draw()
+    lab_box = ax_lab.get_position()
+    cbar_h = 0.02
+    cbar_y = max(0.01, lab_box.y0 - 0.085)  # you liked 0.085
+    cax = fig.add_axes([0.12, cbar_y, 0.30, cbar_h])
+    cb = plt.colorbar(im, cax=cax, orientation="horizontal")
+    cb.set_label("z-scored feature value", fontsize=11, fontweight="bold")
+    cb.ax.tick_params(labelsize=10)
+
+    if title:
+        fig.suptitle(title, y=0.995, fontsize=12, fontweight="bold")
+
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.15)
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+    return dict(row_order=row_order, col_order=col_order)
