@@ -487,7 +487,7 @@ if __name__ == "__main__":
             col_order = [m for m in method_order if m in mat_across.columns]
 
             # plot
-            w = max(9.0, 20 / 7 * len(col_order))
+            w = max(9.0, 11 / 7 * len(col_order))
             h = max(7.0, 7 / 20 * len(row_order))
             fig, ax = plt.subplots(figsize=(w, h))
             hm = sns.heatmap(
@@ -506,12 +506,12 @@ if __name__ == "__main__":
             # domain sidebar & separators (your helper)
             if simul_or_real == "real":
                 task_to_domain = {t: task_domain_real(t) for t in row_order}
-                domain_x_frac = -0.8
-                ylabel_pad_pts = 130
+                domain_x_frac = -0.5
+                ylabel_pad_pts = 160
             else:  # "simulated"
                 task_to_domain = {t: task_domain_simul(t) for t in row_order}
-                domain_x_frac = -1.0
-                ylabel_pad_pts = 110
+                domain_x_frac = -0.6
+                ylabel_pad_pts = 140
 
             add_domains_between_ylabel_and_ticks(
                 ax,
