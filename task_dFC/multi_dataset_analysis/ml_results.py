@@ -487,7 +487,7 @@ if __name__ == "__main__":
             col_order = [m for m in method_order if m in mat_across.columns]
 
             # plot
-            w = max(9.0, 9 / 7 * len(col_order))
+            w = max(9.0, 20 / 7 * len(col_order))
             h = max(7.0, 7 / 20 * len(row_order))
             fig, ax = plt.subplots(figsize=(w, h))
             hm = sns.heatmap(
