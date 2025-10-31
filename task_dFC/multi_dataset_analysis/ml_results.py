@@ -447,7 +447,7 @@ if __name__ == "__main__":
         )
         plt.close(fig)
 
-        # ACROSS heatmap: color = median; annotation = Stability & n (ALWAYS range-based)
+        # ACROSS heatmap: color = median; annotation = min–max & n (across runs)
         if df_multi.empty:
             print(
                 f"[ACROSS-RUN] No tasks with ≥2 runs for {embedding} / {metric} — skipping across-run figures."
@@ -460,21 +460,22 @@ if __name__ == "__main__":
                 .reset_index()
             )
 
-            # metric bounds & heatmap scaling
+            # heatmap scaling (avoid name clash with s['vmin'] / s['vmax'])
             if metric == "SI":
-                rng = 2.0  # SI in [-1, 1]
-                vmin, vmax, center = None, 1.0, 0.0
+                cmin, cmax, ccenter = None, 1.0, 0.0  # SI in [-1,1], center at 0
             else:
-                rng = 1.0  # accuracies in [0, 1]
-                vmin, vmax, center = 0.5 - 1e-6, 1.0, 0.5
-
-            # ALWAYS: range-based stability
-            s["stability"] = (1.0 - ((s["vmax"] - s["vmin"]) / rng)).clip(0.0, 1.0)
+                cmin, cmax, ccenter = (
+                    0.5 - 1e-6,
+                    1.0,
+                    0.5,
+                )  # accuracy in [0.5,1], center at chance
 
             # pivots
             mat_across = s.pivot(index="task", columns="dFC method", values="med")
             ann_text = s.assign(
-                label=lambda d: d["stability"].map(lambda v: f"{v:.2f}")
+                label=lambda d: d["vmin"].map(lambda v: f"{v:.2f}")
+                + "\u2013"
+                + d["vmax"].map(lambda v: f"{v:.2f}")
                 + "\n"
                 + d["n"].map(lambda n: f"n={n}")
             ).pivot(index="task", columns="dFC method", values="label")
@@ -491,9 +492,9 @@ if __name__ == "__main__":
             fig, ax = plt.subplots(figsize=(w, h))
             hm = sns.heatmap(
                 mat_across.loc[row_order, col_order],
-                vmin=vmin,
-                vmax=vmax,
-                center=center,
+                vmin=cmin,
+                vmax=cmax,
+                center=ccenter,
                 cmap="coolwarm",
                 annot=ann_text.loc[row_order, col_order],
                 fmt="",
@@ -507,10 +508,11 @@ if __name__ == "__main__":
                 task_to_domain = {t: task_domain_real(t) for t in row_order}
                 domain_x_frac = -0.8
                 ylabel_pad_pts = 130
-            elif simul_or_real == "simulated":
+            else:  # "simulated"
                 task_to_domain = {t: task_domain_simul(t) for t in row_order}
                 domain_x_frac = -1.0
                 ylabel_pad_pts = 110
+
             add_domains_between_ylabel_and_ticks(
                 ax,
                 row_order=row_order,
