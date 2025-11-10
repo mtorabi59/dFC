@@ -122,18 +122,12 @@ if __name__ == "__main__":
                     for key in ML_scores_new[level].keys()
                     if key not in keys_not_to_include
                 }
-                for task in TASKS:
-                    if task not in TASKS_to_include:
+                for i in range(len(ML_scores_new[level]["task"])):
+                    if ML_scores_new[level]["task"][i] not in TASKS_to_include:
                         continue
-                    if task not in ML_scores_new[level]["task"]:
-                        dFC_method = set(ML_scores_new[level]["dFC method"])
-                        print(f"Task {task} not in ML_scores of {dFC_method}. Skipping.")
-                        continue
-                    for i in range(len(ML_scores_new[level]["task"])):
-                        for key in ML_scores_new_updated.keys():
-                            ML_scores_new_updated[key].append(
-                                ML_scores_new[level][key][i]
-                            )
+
+                    for key in ML_scores_new_updated.keys():
+                        ML_scores_new_updated[key].append(ML_scores_new[level][key][i])
 
                 if ALL_ML_SCORES is None:
                     ALL_ML_SCORES = ML_scores_new_updated
