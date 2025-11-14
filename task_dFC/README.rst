@@ -15,16 +15,18 @@ Methods Implemented
 
 The module supports a diverse selection of seven well-established dFC methodologies implemented within the PydFC toolbox :
 
-*   **State-free Methods:** Designed to capture continuous fluctuations in connectivity.
-    *   Sliding Window (SW) .
-    *   Time-Frequency (TF) .
+*   **State-free Methods:** Designed to capture continuous fluctuations in connectivity .
 
-*   **State-based Methods:** Designed to identify recurring, discrete connectivity patterns or states.
-    *   Co-Activation Patterns (CAP) .
-    *   Clustering (SWC) .
-    *   Continuous Hidden Markov Models (CHMM) .
-    *   Discrete Hidden Markov Models (DHMM) .
-    *   Windowless (WL) .
+    *   Sliding Window (SW) [2].
+    *   Time-Frequency (TF) [2].
+
+*   **State-based Methods:** Designed to identify recurring, discrete connectivity patterns or states .
+
+    *   Co-Activation Patterns (CAP) [2].
+    *   Clustering (SWC) [2].
+    *   Continuous Hidden Markov Models (CHMM) [2].
+    *   Discrete Hidden Markov Models (DHMM) [2].
+    *   Windowless (WL) [2].
 
 Analysis Pipeline: Script-Based Workflow
 ---------------------------------------
