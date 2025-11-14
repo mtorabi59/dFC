@@ -1,8 +1,3 @@
-This document provides documentation for the `task_dFC` module of the PydFC toolbox, presented in reStructuredText (.rst) format. This module implements the analytical pipeline described in the associated manuscript, "From Rest to Task: Tracking Moment-to-Moment Cognitive State Using Dynamic Functional Connectivity".
-
-***
-
-```rst
 .. raw:: html
 
    <a href="https://github.com/neurodatascience/dFC"><img src="https://img.shields.io/badge/GitHub-neurodatascience%2FdFC-blue.svg" alt="GitHub Repository"></a>
@@ -41,17 +36,17 @@ The ``task_dFC`` workflow starts assuming that fMRI data (in BIDS format with ``
 **Function:** Extracts regional BOLD time series from preprocessed NIfTI data .
 **Details:** Voxel-wise BOLD signals are parcellated, typically using an atlas such as the Schaefer 100-region atlas, yielding regional time series that serve as the input for dFC assessment.
 
-2. ``FCS_estimate.py``
+1. ``FCS_estimate.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Function:** Estimates Functional Connectivity States (FCS) .
 **Details:** This script fits the dFC model required by **state-based methodologies** (CAP, HMM, Clustering) that rely on identifying **group-level recurring patterns** . The number of brain states for these methods is typically set to five .
 
-3. ``dFC_assessment.py``
+1. ``dFC_assessment.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Function:** Computes time-resolved dFC patterns .
 **Details:** The script applies the seven implemented dFC methodologies (SW, TF, CAP, etc.) to the BOLD signals of each run and subject to obtain the corresponding high-dimensional dFC patterns .
 
-4. ``ML.py``
+1. ``ML.py``
 ~~~~~~~~~~~~~~~~~~~~
 **Function:** Implements the core machine learning pipeline, including cognitive state labeling, feature extraction, supervised classification, and separability analysis .
 
@@ -86,4 +81,3 @@ Based on the analysis implemented via the ``task_dFC`` pipeline across real data
 *   **Time-Frequency** is often the most reliable method, consistently achieving high mean and median accuracies across paradigms, while **Sliding Window** exhibits the most variability but can achieve near-perfect accuracy (e.g., for the localiser task) .
 *   The use of **Laplacian Eigenmaps (LE)** is essential for the high predictive accuracy of state-free methods, as PCA-transformed features often yield chance-level accuracies.
 *   Cognitive states in real data generally show **low intrinsic separability (low SI)** . This underscores that **supervised classifiers (SVM)** are necessary to leverage the subtle high-dimensional dFC structure and achieve accurate prediction .
-```
