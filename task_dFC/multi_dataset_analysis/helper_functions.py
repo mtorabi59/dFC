@@ -923,13 +923,14 @@ def figure_dfc_matrices_window_png(
 
 
 def nice_step(n, max_ticks=10):
-    if n <= max_ticks:
+    """Return a 'nice' step (1-2-5x10^k) to keep ≤ max_ticks across [1..n]."""
+    if n <= 1:
         return 1
-    raw = n / max_ticks
-    base = 10 ** int(np.floor(np.log10(raw)))
-    for m in [1, 2, 5, 10]:
-        if raw <= m * base:
-            return int(m * base)
+    raw = max(1.0, n / max(2, (max_ticks - 1)))
+    exp = np.floor(np.log10(raw))
+    frac = raw / (10**exp)
+    base = 1 if frac <= 1 else 2 if frac <= 2 else 5 if frac <= 5 else 10
+    return int(base * (10**exp))
 
 
 def plot_samples_features(
@@ -938,33 +939,28 @@ def plot_samples_features(
     *,
     sample_order="original",  # "original" | "label" | "label+cluster"
     feature_order="original",  # "original" | "tstat"
-    col_order_from_train=None,  # np.ndarray feature indices (use train order on test)
+    col_order_from_train=None,  # optional np.ndarray (feature indices) to reuse on test
     ZSCORE=True,
     V_RANGE=None,
     cmap="coolwarm",
-    # ---- new options ----
-    show_tbar_when_cluster=True,  # show t-stat strip only when sample_order == "label+cluster"
-    tbar_mode="abs_t",  # "abs_t" (recommended), "t", or "none"
-    tbar_cmap="magma",  # sequential for |t|
-    show_class_means=True,  # show rest/task mean strips when clustered
-    means_cmap=None,  # None -> use main cmap
     title=None,
     save_path=None,
     show=True,
 ):
     """
-    Samples on horizontal axis; features on vertical axis.
+    X: (n_samples, n_features) matrix (features in columns)
+    y: (n_samples,) binary (0=rest, 1=task)
 
-    When sample_order="label+cluster":
-      - Optional left sidebars:
-        * |t| strip for per-feature t-stat magnitude (sequential colormap + its own colorbar)
-        * Rest and Task mean strips (diverging colormap centered at 0; same scale as main heatmap)
+    Samples are shown along the horizontal axis (time-like), features along the vertical axis.
+    If feature_order == "tstat", a slim vertical t-stat bar is shown on the LEFT,
+    aligned 1:1 with feature rows (no top t-bar).
     """
     # ---------- prep ----------
     X = np.asarray(X, float)
     y = np.asarray(y)
     n_samples, n_features = X.shape
 
+    # z-score per feature
     Xz = X.copy()
     if ZSCORE:
         mu = Xz.mean(axis=0, keepdims=True)
@@ -972,7 +968,6 @@ def plot_samples_features(
         Xz = (Xz - mu) / sd
 
     # ---------- feature order ----------
-    t_ord = None
     if feature_order == "tstat":
         if col_order_from_train is not None:
             col_order = np.asarray(col_order_from_train, int)
@@ -980,10 +975,11 @@ def plot_samples_features(
             t_ord = t[col_order]
         else:
             t, _ = ttest_ind(Xz[y == 1], Xz[y == 0], axis=0, equal_var=False)
-            col_order = np.argsort(-np.abs(t))
+            col_order = np.argsort(-np.abs(t))  # strongest contrast first
             t_ord = t[col_order]
     else:
         col_order = np.arange(n_features)
+        t_ord = None  # no t-stat bar
 
     # ---------- sample order ----------
     if sample_order == "original":
@@ -1015,22 +1011,29 @@ def plot_samples_features(
             "sample_order must be one of {'original','label','label+cluster'}"
         )
 
-    # ---------- figure & layout ----------
-    w_min, w_max = 12, 24
-    width_per_100 = 0.5
+    # ---------- figure & layout (no top t-bar) ----------
+    # W = max(10, min(24, n_samples / 30))
+    w_min = 12
+    w_max = 24
+    width_per_100 = 0.5  # additional width per 100 samples
     W = float(np.clip(w_min + (n_samples / 100.0) * width_per_100, w_min, w_max))
     H = max(6, min(16, n_features / 30))
     fig = plt.figure(figsize=(W, H))
 
-    gs = fig.add_gridspec(nrows=2, ncols=1, height_ratios=[1.0, 0.06], hspace=0.08)
+    gs = fig.add_gridspec(
+        nrows=2,
+        ncols=1,
+        height_ratios=[1.0, 0.06],  # main heatmap + class strip
+        hspace=0.08,
+    )
     ax_main = fig.add_subplot(gs[0, 0])
     ax_lab = fig.add_subplot(gs[1, 0])
 
     # --- VRANGE ---
     if V_RANGE is None:
-        flat = np.asarray(Xz, float).ravel()
-        lo, hi = np.nanpercentile(flat, [5, 95])
-        V_RANGE = max(abs(lo), abs(hi))
+        Xflat = np.asarray(Xz, float).ravel()
+        lo, hi = np.nanpercentile(Xflat, [5, 95])  # robust to outliers; tweak if needed
+        V_RANGE = max(abs(lo), abs(hi))  # symmetric around 0 (for diverging cmap)
 
     # ---------- main heatmap ----------
     img = Xz[row_order, :][:, col_order].T  # (features, samples)
@@ -1040,14 +1043,23 @@ def plot_samples_features(
     n_features = img.shape[0]
     last_idx = n_features - 1
 
-    # y-ticks: nice round, 1-based labels, no crowding
     if n_features < 10:
+        # every feature: labels 1..n, positions 0..n-1
         labels_1based = np.arange(1, n_features + 1, dtype=int)
     else:
         step = nice_step(n_features, max_ticks=10)
-        labels_1based = np.unique(np.arange(step, n_features + 1, step, dtype=int))
+        # use round multiples of the step
+        labels_1based = list(np.arange(step, n_features + 1, step, dtype=int))
+        # de-dup & sort (in case step == 1)
+        labels_1based = np.unique(labels_1based)
+
+    # convert 1-based labels to 0-based tick positions
     ticks_pos = labels_1based - 1
+
+    # lock y-limits so the last tick isn't clipped
     ax_main.set_ylim(-0.5, last_idx + 0.5)
+
+    # set ticks & labels
     ax_main.set_yticks(ticks_pos)
     ax_main.set_yticklabels([f"{v:d}" for v in labels_1based])
     ax_main.set_ylabel("feature", fontsize=12, fontweight="bold")
@@ -1059,18 +1071,21 @@ def plot_samples_features(
         ax_main.axvline(split - 0.5, color="k", lw=1)
 
     # ---------- bottom class strip ----------
-    y_re = y[row_order]
+    y_reordered = y[row_order]
     cmap_lbl = ListedColormap(
         [[0.85, 0.85, 0.85], [0.25, 0.5, 0.9]]
     )  # rest=gray, task=blue
     ax_lab.imshow(
-        y_re[None, :], aspect="auto", origin="lower", cmap=cmap_lbl, vmin=0, vmax=1
+        y_reordered[None, :], aspect="auto", origin="lower", cmap=cmap_lbl, vmin=0, vmax=1
     )
     ax_lab.set_yticks([])
     ax_lab.set_xticks([])
+    # ax_lab.set_title("class", fontsize=11, pad=2)
 
+    # show class labels only when there is label grouping
     if draw_separator:
-        n0, n1 = (y_re == 0).sum(), (y_re == 1).sum()
+        n0 = (y_reordered == 0).sum()
+        n1 = (y_reordered == 1).sum()
         if n0 > 0:
             x0 = (n0 - 1) / 2.0
             ax_lab.annotate(
@@ -1094,159 +1109,43 @@ def plot_samples_features(
                 fontweight="bold",
             )
 
-    # move class bar slightly down (keeps labels clear)
-    fig.canvas.draw()
+    # --- move the class bar (ax_lab) down a bit ---
+    fig.canvas.draw()  # ensure positions are current
+    lab_box = ax_lab.get_position()  # [x0, y0, width, height] in figure coords
+    down = 0.020  # how much to move down (figure fraction)
+    new_y0 = max(0.01, lab_box.y0 - down)  # keep it inside the figure
+    ax_lab.set_position([lab_box.x0, new_y0, lab_box.width, lab_box.height])
+
+    # (re)grab the updated box for the colorbar placement that comes next
     lab_box = ax_lab.get_position()
-    ax_lab.set_position(
-        [lab_box.x0, max(0.01, lab_box.y0 - 0.020), lab_box.width, lab_box.height]
-    )
 
-    # ---------- LEFT sidebars (only when clustered) ----------
-    if sample_order == "label+cluster":
-        # compute per-feature means on z-scored features (columns=features)
-        mu0 = (Xz[y == 0].mean(axis=0) if (y == 0).any() else np.zeros(n_features))[
-            col_order
-        ]
-        mu1 = (Xz[y == 1].mean(axis=0) if (y == 1).any() else np.zeros(n_features))[
-            col_order
-        ]
-
+    # ---------- LEFT vertical t-stat bar (only if feature_order=="tstat") ----------
+    if t_ord is not None:
         fig.canvas.draw()
-        main_box = ax_main.get_position()
+        main_box = ax_main.get_position()  # figure coords
 
-        # geometry
-        pad = 0.012  # gap between strips
-        wbar = 0.012  # width of each strip
-        x_right = main_box.x0 - 0.018  # anchor to left of main heatmap
+        tbar_left_width = 0.010  # ~2% fig width
+        tbar_left_pad = 0.035 / W * 24  # gap from main heatmap, proportional to fig width
 
-        # ---------- LEFT sidebars (only when clustered) ----------
-    if sample_order == "label+cluster":
-        # compute per-feature means on z-scored features (columns=features)
-        mu0 = (Xz[y == 0].mean(axis=0) if (y == 0).any() else np.zeros(n_features))[
-            col_order
-        ]
-        mu1 = (Xz[y == 1].mean(axis=0) if (y == 1).any() else np.zeros(n_features))[
-            col_order
-        ]
+        x0 = max(0.01, main_box.x0 - tbar_left_pad - tbar_left_width)
+        y0 = main_box.y0
+        w = tbar_left_width
+        h = main_box.height
 
-        fig.canvas.draw()
-        main_box = ax_main.get_position()
+        ax_tleft = fig.add_axes([x0, y0, w, h])
+        m = np.nanmax(np.abs(t_ord)) if np.isfinite(t_ord).any() else 1.0
+        ax_tleft.imshow(
+            t_ord[:, None], origin="lower", aspect="auto", cmap=cmap, vmin=-m, vmax=m
+        )
+        ax_tleft.set_xticks([])
+        ax_tleft.set_yticks([])
+        ax_tleft.set_title("t-stat", fontsize=11, pad=2, fontweight="bold")
 
-        # geometry
-        pad = 0.012  # gap between strips
-        wbar = 0.012  # width of each strip
-        x_right = main_box.x0 - 0.018  # anchor to left of main heatmap
-
-        # ---- (A) |t| strip ----
-        if (tbar_mode != "none") and (t_ord is not None) and show_tbar_when_cluster:
-            if tbar_mode == "abs_t":
-                tshow = np.abs(t_ord)
-                ttitle = "|t| (task−rest)"
-                tnorm_min, tnorm_max = 0.0, float(np.nanmax(tshow)) or 1.0
-                t_cmap = tbar_cmap  # e.g., "magma"
-            else:
-                # fallback to signed t if you ever toggle it
-                tshow = t_ord
-                ttitle = "t (task−rest)"
-                m = float(np.nanmax(np.abs(tshow))) or 1.0
-                tnorm_min, tnorm_max = -m, m
-                t_cmap = "coolwarm"
-
-            ax_t = fig.add_axes(
-                [x_right - (wbar + pad), main_box.y0, wbar, main_box.height]
-            )
-            ax_t.imshow(
-                tshow[:, None],
-                origin="lower",
-                aspect="auto",
-                cmap=t_cmap,
-                vmin=tnorm_min,
-                vmax=tnorm_max,
-            )
-            ax_t.set_xticks([])
-            ax_t.set_yticks([])
-
-            # make it unmistakable: vertical label + a thin frame
-            ax_t.text(
-                0.5,
-                1.01,
-                ttitle,
-                transform=ax_t.transAxes,
-                ha="center",
-                va="bottom",
-                rotation=90,
-                fontsize=9,
-                fontweight="bold",
-            )
-            for spine in ax_t.spines.values():
-                spine.set_linewidth(0.8)
-                spine.set_alpha(0.9)
-
-        # ---- (B) class mean strips (rest/task) ----
-        if show_class_means:
-            means_cmap = means_cmap or cmap  # default: same as main heatmap
-            # use same color limits as main img so colors are comparable
-            ax_m0 = fig.add_axes([x_right, main_box.y0, wbar, main_box.height])
-            ax_m0.imshow(
-                mu0[:, None],
-                origin="lower",
-                aspect="auto",
-                cmap=means_cmap,
-                vmin=-V_RANGE,
-                vmax=V_RANGE,
-            )
-            ax_m0.set_xticks([])
-            ax_m0.set_yticks([])
-            ax_m0.text(
-                0.5,
-                1.01,
-                "mean\nrest",
-                transform=ax_m0.transAxes,
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                fontweight="bold",
-            )
-            for spine in ax_m0.spines.values():
-                spine.set_linewidth(0.8)
-
-            ax_m1 = fig.add_axes(
-                [x_right + (wbar + pad), main_box.y0, wbar, main_box.height]
-            )
-            ax_m1.imshow(
-                mu1[:, None],
-                origin="lower",
-                aspect="auto",
-                cmap=means_cmap,
-                vmin=-V_RANGE,
-                vmax=V_RANGE,
-            )
-            ax_m1.set_xticks([])
-            ax_m1.set_yticks([])
-            ax_m1.text(
-                0.5,
-                1.01,
-                "mean\ntask",
-                transform=ax_m1.transAxes,
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                fontweight="bold",
-            )
-            for spine in ax_m1.spines.values():
-                spine.set_linewidth(0.8)
-
-            # # zero line reference (thin) – helps interpret sign
-            # # draw in data coords of the strips (y from 0..n_features-1)
-            # for axi in (ax_m0, ax_m1):
-            #     axi.axhline(-0.5, color="k", lw=0.0)  # keep limits stable
-            #     # (we keep the zero reference conceptual; adding a visible long line can clutter)
-
-    # ---------- main colorbar (moved slightly lower to avoid class labels) ----------
+    # ---------- colorbar (slightly lower so it doesn't overlap class labels) ----------
     fig.canvas.draw()
     lab_box = ax_lab.get_position()
     cbar_h = 0.02
-    cbar_y = max(0.01, lab_box.y0 - 0.085)  # your preferred offset
+    cbar_y = max(0.01, lab_box.y0 - 0.085)  # you liked 0.085
     cax = fig.add_axes([0.12, cbar_y, 0.30, cbar_h])
     cb = plt.colorbar(im, cax=cax, orientation="horizontal")
     cb.set_label("z-scored feature value", fontsize=11, fontweight="bold")
