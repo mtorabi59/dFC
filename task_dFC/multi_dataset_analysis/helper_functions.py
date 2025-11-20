@@ -1119,14 +1119,33 @@ def plot_samples_features(
         wbar = 0.012  # width of each strip
         x_right = main_box.x0 - 0.018  # anchor to left of main heatmap
 
+        # ---------- LEFT sidebars (only when clustered) ----------
+    if sample_order == "label+cluster":
+        # compute per-feature means on z-scored features (columns=features)
+        mu0 = (Xz[y == 0].mean(axis=0) if (y == 0).any() else np.zeros(n_features))[
+            col_order
+        ]
+        mu1 = (Xz[y == 1].mean(axis=0) if (y == 1).any() else np.zeros(n_features))[
+            col_order
+        ]
+
+        fig.canvas.draw()
+        main_box = ax_main.get_position()
+
+        # geometry
+        pad = 0.012  # gap between strips
+        wbar = 0.012  # width of each strip
+        x_right = main_box.x0 - 0.018  # anchor to left of main heatmap
+
         # ---- (A) |t| strip ----
         if (tbar_mode != "none") and (t_ord is not None) and show_tbar_when_cluster:
             if tbar_mode == "abs_t":
                 tshow = np.abs(t_ord)
                 ttitle = "|t| (task−rest)"
                 tnorm_min, tnorm_max = 0.0, float(np.nanmax(tshow)) or 1.0
-                t_cmap = tbar_cmap
+                t_cmap = tbar_cmap  # e.g., "magma"
             else:
+                # fallback to signed t if you ever toggle it
                 tshow = t_ord
                 ttitle = "t (task−rest)"
                 m = float(np.nanmax(np.abs(tshow))) or 1.0
@@ -1146,25 +1165,22 @@ def plot_samples_features(
             )
             ax_t.set_xticks([])
             ax_t.set_yticks([])
-            # vertical title + frame so it can’t be confused with the main colorbar
-            ax_t.set_title(ttitle, fontsize=10, pad=2, fontweight="bold", loc="center")
+
+            # make it unmistakable: vertical label + a thin frame
+            ax_t.text(
+                0.5,
+                1.01,
+                ttitle,
+                transform=ax_t.transAxes,
+                ha="center",
+                va="bottom",
+                rotation=90,
+                fontsize=9,
+                fontweight="bold",
+            )
             for spine in ax_t.spines.values():
                 spine.set_linewidth(0.8)
-
-            # a tiny vertical colorbar just for |t|
-            cax_t = fig.add_axes(
-                [ax_t.get_position().x0, max(0.01, main_box.y0 - 0.06), wbar, 0.05]
-            )
-            cb_t = plt.colorbar(
-                plt.cm.ScalarMappable(), cax=cax_t, orientation="horizontal"
-            )
-            cb_t.remove()  # replace with proper mappable:
-            sm_t = plt.cm.ScalarMappable(cmap=t_cmap)
-            sm_t.set_array([])
-            sm_t.set_clim(tnorm_min, tnorm_max)
-            cb_t = plt.colorbar(sm_t, cax=cax_t, orientation="horizontal")
-            cb_t.set_label("|t|" if tbar_mode == "abs_t" else "t", fontsize=9)
-            cb_t.ax.tick_params(labelsize=8)
+                spine.set_alpha(0.9)
 
         # ---- (B) class mean strips (rest/task) ----
         if show_class_means:
@@ -1181,7 +1197,16 @@ def plot_samples_features(
             )
             ax_m0.set_xticks([])
             ax_m0.set_yticks([])
-            ax_m0.set_title("mean\nrest", fontsize=9, pad=0, fontweight="bold")
+            ax_m0.text(
+                0.5,
+                1.01,
+                "mean\nrest",
+                transform=ax_m0.transAxes,
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                fontweight="bold",
+            )
             for spine in ax_m0.spines.values():
                 spine.set_linewidth(0.8)
 
@@ -1198,15 +1223,24 @@ def plot_samples_features(
             )
             ax_m1.set_xticks([])
             ax_m1.set_yticks([])
-            ax_m1.set_title("mean\ntask", fontsize=9, pad=0, fontweight="bold")
+            ax_m1.text(
+                0.5,
+                1.01,
+                "mean\ntask",
+                transform=ax_m1.transAxes,
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                fontweight="bold",
+            )
             for spine in ax_m1.spines.values():
                 spine.set_linewidth(0.8)
 
-            # zero line reference (thin) – helps interpret sign
-            # draw in data coords of the strips (y from 0..n_features-1)
-            for axi in (ax_m0, ax_m1):
-                axi.axhline(-0.5, color="k", lw=0.0)  # keep limits stable
-                # (we keep the zero reference conceptual; adding a visible long line can clutter)
+            # # zero line reference (thin) – helps interpret sign
+            # # draw in data coords of the strips (y from 0..n_features-1)
+            # for axi in (ax_m0, ax_m1):
+            #     axi.axhline(-0.5, color="k", lw=0.0)  # keep limits stable
+            #     # (we keep the zero reference conceptual; adding a visible long line can clutter)
 
     # ---------- main colorbar (moved slightly lower to avoid class labels) ----------
     fig.canvas.draw()
