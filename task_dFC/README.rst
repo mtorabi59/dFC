@@ -77,4 +77,4 @@ The ``task_dFC`` workflow starts assuming that fMRI data (in BIDS format with ``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Function:** Contains scripts for aggregating and comparing results across multiple datasets and paradigms.
 
-**Details:** Facilitates **large-scale benchmarking** by calculating aggregate performance statistics (e.g., accuracy distribution) across the 17 datasets and 29 task paradigms analyzed.
+**Details:** Facilitates **large-scale benchmarking** by calculating aggregate performance statistics (e.g., accuracy distribution) across datasets and task paradigms analyzed.
