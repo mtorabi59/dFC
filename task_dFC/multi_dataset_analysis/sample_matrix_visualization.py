@@ -67,7 +67,7 @@ if __name__ == "__main__":
     if not os.path.exists(output_root):
         os.makedirs(output_root)
 
-    for dataset in DATASETS:
+    for dataset in ["ds004848"]:
         dataset_info_file = f"{main_root}/{dataset}/codes/dataset_info.json"
         roi_root = f"{main_root}/{dataset}/derivatives/ROI_timeseries"
         dFC_root = f"{main_root}/{dataset}/derivatives/dFC_assessed"
