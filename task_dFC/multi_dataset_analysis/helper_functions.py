@@ -1062,10 +1062,11 @@ def plot_samples_features(
     # set ticks & labels
     ax_main.set_yticks(ticks_pos)
     ax_main.set_yticklabels([f"{v:d}" for v in labels_1based])
-    ax_main.set_ylabel("feature", fontsize=12, fontweight="bold")
-    ax_main.set_xlabel("sample", fontsize=12, fontweight="bold")
-    ax_main.set_xticks([])
-    ax_main.tick_params(axis="y", labelsize=10)
+    ax_main.set_ylabel("feature", fontsize=18, fontweight="bold")
+    ax_main.set_xlabel("sample", fontsize=18, fontweight="bold")
+    # ax_main.set_xticks([])
+    ax_main.tick_params(axis="y", labelsize=18)
+    ax_main.tick_params(axis="x", labelsize=18)
 
     if draw_separator and 0 < split < n_samples:
         ax_main.axvline(split - 0.5, color="k", lw=1)
@@ -1094,7 +1095,7 @@ def plot_samples_features(
                 xycoords=("data", "axes fraction"),
                 ha="center",
                 va="top",
-                fontsize=11,
+                fontsize=18,
                 fontweight="bold",
             )
         if n1 > 0:
@@ -1105,7 +1106,7 @@ def plot_samples_features(
                 xycoords=("data", "axes fraction"),
                 ha="center",
                 va="top",
-                fontsize=11,
+                fontsize=18,
                 fontweight="bold",
             )
 
@@ -1148,8 +1149,8 @@ def plot_samples_features(
     cbar_y = max(0.01, lab_box.y0 - 0.085)  # you liked 0.085
     cax = fig.add_axes([0.12, cbar_y, 0.30, cbar_h])
     cb = plt.colorbar(im, cax=cax, orientation="horizontal")
-    cb.set_label("z-scored feature value", fontsize=11, fontweight="bold")
-    cb.ax.tick_params(labelsize=10)
+    cb.set_label("z-scored feature value", fontsize=18, fontweight="bold")
+    cb.ax.tick_params(labelsize=18)
 
     if title:
         fig.suptitle(title, y=0.995, fontsize=12, fontweight="bold")
