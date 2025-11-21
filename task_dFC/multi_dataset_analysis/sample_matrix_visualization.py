@@ -15,6 +15,7 @@ from pydfc.ml_utils import (
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from helper_functions import (  # pyright: ignore[reportMissingImports]
     plot_samples_features,
+    save_scalar_colorbar,
 )
 
 use_raw_features = False  # if True, use raw dFC features instead of embedded features
@@ -286,3 +287,11 @@ if __name__ == "__main__":
                             save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-samples_{task}_{group}{raw_or_embedded}.png",
                             show=False,
                         )
+
+                    save_scalar_colorbar(
+                        cmap="coolwarm",
+                        vmin=-1.6,
+                        vmax=1.6,  # use the same V_RANGE you use in plots
+                        label="z-scored feature value",
+                        filename=f"{output_root}/zscore_colorbar.png",
+                    )

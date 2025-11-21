@@ -23,11 +23,11 @@ def setup_pub_style():
     mpl.rcParams.update(
         {
             # Fonts & text
-            "font.size": 10,  # base
+            "font.size": 18,  # base
             "axes.titlesize": 12,
             "axes.labelsize": 11,
-            "xtick.labelsize": 9,
-            "ytick.labelsize": 9,
+            "xtick.labelsize": 18,
+            "ytick.labelsize": 18,
             "legend.fontsize": 9,
             "figure.titlesize": 13,
             "axes.titlepad": 8,
@@ -167,9 +167,9 @@ def get_cog_domain_info(simul_or_real: str):
         # --- Categories of simulated task paradigms ---
         DOMAIN_ORDER = [
             "Simulated Periodic",
-            "Good Paradigm Design, Strong Performance on Real Data",
-            "Good Paradigm Design, Poor Performance on Real Data",
-            "Poor Paradigm Design, Poor Performance on Real Data",
+            "Optimal Paradigm Design, Strong Performance on Real Data",
+            "Optimal Paradigm Design, Limited Performance on Real Data",
+            "Sub-Optimal Paradigm Design, Limited Performance on Real Data",
         ]
         # --- Map task codes -> category ---
         TASK2DOMAIN = {
@@ -177,26 +177,26 @@ def get_cog_domain_info(simul_or_real: str):
             "lowfreqlongrest": "Simulated Periodic",
             "lowfreqshortrest": "Simulated Periodic",
             "lowfreqshorttask": "Simulated Periodic",
-            # Good Paradigm Design, Strong Performance on Real Data
-            "axcpt": "Good Paradigm Design, Strong Performance on Real Data",
-            "stern": "Good Paradigm Design, Strong Performance on Real Data",
-            "cuedts": "Good Paradigm Design, Strong Performance on Real Data",
-            # Good Paradigm Design, Poor Performance on Real Data
-            "execution": "Good Paradigm Design, Poor Performance on Real Data",
-            "imagery": "Good Paradigm Design, Poor Performance on Real Data",
-            "localizer": "Good Paradigm Design, Poor Performance on Real Data",
-            "ppalocalizer": "Good Paradigm Design, Poor Performance on Real Data",
-            # Poor Paradigm Design, Poor Performance on Real Data
-            "itc": "Poor Paradigm Design, Poor Performance on Real Data",
-            "stroop": "Poor Paradigm Design, Poor Performance on Real Data",
-            "risk": "Poor Paradigm Design, Poor Performance on Real Data",
+            # Optimal Paradigm Design, Strong Performance on Real Data
+            "axcpt": "Optimal Paradigm Design, Strong Performance on Real Data",
+            "stern": "Optimal Paradigm Design, Strong Performance on Real Data",
+            "cuedts": "Optimal Paradigm Design, Strong Performance on Real Data",
+            # Optimal Paradigm Design, Limited Performance on Real Data
+            "execution": "Optimal Paradigm Design, Limited Performance on Real Data",
+            "imagery": "Optimal Paradigm Design, Limited Performance on Real Data",
+            "localizer": "Optimal Paradigm Design, Limited Performance on Real Data",
+            "ppalocalizer": "Optimal Paradigm Design, Limited Performance on Real Data",
+            # Sub-Optimal Paradigm Design, Limited Performance on Real Data
+            "itc": "Sub-Optimal Paradigm Design, Limited Performance on Real Data",
+            "stroop": "Sub-Optimal Paradigm Design, Limited Performance on Real Data",
+            "risk": "Sub-Optimal Paradigm Design, Limited Performance on Real Data",
         }
         # base colors per domain (distinct, colorblind-friendly)
         DOMAIN_BASE = {
             "Simulated Periodic": "#1f77b4",
-            "Good Paradigm Design, Strong Performance on Real Data": "#ff7f0e",
-            "Good Paradigm Design, Poor Performance on Real Data": "#02833E",
-            "Poor Paradigm Design, Poor Performance on Real Data": "#d62728",
+            "Optimal Paradigm Design, Strong Performance on Real Data": "#ff7f0e",
+            "Optimal Paradigm Design, Limited Performance on Real Data": "#02833E",
+            "Sub-Optimal Paradigm Design, Limited Performance on Real Data": "#d62728",
         }
     else:
         raise ValueError(f"Invalid simul_or_real: {simul_or_real}")
@@ -1037,7 +1037,7 @@ def plot_samples_features(
 
     # ---------- main heatmap ----------
     img = Xz[row_order, :][:, col_order].T  # (features, samples)
-    im = ax_main.imshow(
+    ax_main.imshow(
         img, aspect="auto", origin="lower", cmap=cmap, vmin=-V_RANGE, vmax=V_RANGE
     )
     n_features = img.shape[0]
@@ -1063,13 +1063,13 @@ def plot_samples_features(
     ax_main.set_yticks(ticks_pos)
     ax_main.set_yticklabels([f"{v:d}" for v in labels_1based])
     ax_main.set_ylabel("feature", fontsize=18, fontweight="bold")
-    ax_main.set_xlabel("sample", fontsize=18, fontweight="bold")
+    # ax_main.set_xlabel("sample", fontsize=18, fontweight="bold")
     # ax_main.set_xticks([])
     ax_main.tick_params(axis="y", labelsize=18)
     ax_main.tick_params(axis="x", labelsize=18)
 
     if draw_separator and 0 < split < n_samples:
-        ax_main.axvline(split - 0.5, color="k", lw=1)
+        ax_main.axvline(split - 0.5, color="k", lw=2)
 
     # ---------- bottom class strip ----------
     y_reordered = y[row_order]
@@ -1113,9 +1113,17 @@ def plot_samples_features(
     # --- move the class bar (ax_lab) down a bit ---
     fig.canvas.draw()  # ensure positions are current
     lab_box = ax_lab.get_position()  # [x0, y0, width, height] in figure coords
-    down = 0.070  # how much to move down (figure fraction)
+    down = 0.050  # how much to move down (figure fraction)
     new_y0 = max(0.01, lab_box.y0 - down)  # keep it inside the figure
     ax_lab.set_position([lab_box.x0, new_y0, lab_box.width, lab_box.height])
+
+    # after you position ax_lab (i.e., after ax_lab.set_position([...]))
+    ax_lab.xaxis.set_label_position("top")
+    ax_lab.set_xlabel("sample", labelpad=6, fontweight="bold", fontsize=18)
+    # keep the strip clean
+    ax_lab.tick_params(
+        axis="x", which="both", length=0, labelbottom=False, labeltop=False
+    )
 
     # (re)grab the updated box for the colorbar placement that comes next
     lab_box = ax_lab.get_position()
@@ -1142,16 +1150,6 @@ def plot_samples_features(
         ax_tleft.set_yticks([])
         ax_tleft.set_title("t-stat", fontsize=11, pad=2, fontweight="bold")
 
-    # ---------- colorbar (slightly lower so it doesn't overlap class labels) ----------
-    fig.canvas.draw()
-    lab_box = ax_lab.get_position()
-    cbar_h = 0.02
-    cbar_y = max(0.01, lab_box.y0 - 0.085)  # you liked 0.085
-    cax = fig.add_axes([0.12, cbar_y, 0.30, cbar_h])
-    cb = plt.colorbar(im, cax=cax, orientation="horizontal")
-    cb.set_label("z-scored feature value", fontsize=18, fontweight="bold")
-    cb.ax.tick_params(labelsize=18)
-
     if title:
         fig.suptitle(title, y=0.995, fontsize=12, fontweight="bold")
 
@@ -1163,3 +1161,43 @@ def plot_samples_features(
         plt.close(fig)
 
     return dict(row_order=row_order, col_order=col_order)
+
+
+def save_scalar_colorbar(
+    cmap="coolwarm",
+    vmin=-2.0,
+    vmax=2.0,  # use the same V_RANGE you use in plots
+    label="z-scored feature value",
+    filename="zscore_colorbar.png",
+    orientation="horizontal",
+    figsize=(6, 0.4),  # width, height in inches
+    dpi=300,
+    ticks=None,
+):
+    """
+    Saves a standalone scalar colorbar image you can reuse in the paper.
+    """
+    # Make a dummy mappable with the correct colormap and limits
+    from matplotlib.cm import ScalarMappable
+    from matplotlib.colors import Normalize
+
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    ax = fig.add_axes(
+        [0.05, 0.35, 0.90, 0.30]
+        if orientation == "horizontal"
+        else [0.35, 0.05, 0.30, 0.90]
+    )
+
+    sm = ScalarMappable(norm=Normalize(vmin=vmin, vmax=vmax), cmap=cmap)
+    sm.set_array([])
+
+    cb = plt.colorbar(sm, cax=ax, orientation=orientation)
+    cb.set_label(label, fontsize=18, fontweight="bold")
+
+    if ticks is not None:
+        cb.set_ticks(ticks)
+        cb.set_ticklabels([str(t) for t in ticks])
+    cb.ax.tick_params(labelsize=18)
+
+    fig.savefig(filename, bbox_inches="tight", pad_inches=0.02)
+    plt.close(fig)
