@@ -1113,7 +1113,7 @@ def plot_samples_features(
     # --- move the class bar (ax_lab) down a bit ---
     fig.canvas.draw()  # ensure positions are current
     lab_box = ax_lab.get_position()  # [x0, y0, width, height] in figure coords
-    down = 0.020  # how much to move down (figure fraction)
+    down = 0.070  # how much to move down (figure fraction)
     new_y0 = max(0.01, lab_box.y0 - down)  # keep it inside the figure
     ax_lab.set_position([lab_box.x0, new_y0, lab_box.width, lab_box.height])
 
