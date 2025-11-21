@@ -18,7 +18,7 @@ from helper_functions import (  # pyright: ignore[reportMissingImports]
     save_scalar_colorbar,
 )
 
-use_raw_features = True  # if True, use raw dFC features instead of embedded features
+use_raw_features = False  # if True, use raw dFC features instead of embedded features
 normalize_dFC = True
 FCS_proba_for_SB = True
 train_test_ratio = 0.8
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     if not os.path.exists(output_root):
         os.makedirs(output_root)
 
-    for dataset in ["ds004848"]:
+    for dataset in DATASETS:
         dataset_info_file = f"{main_root}/{dataset}/codes/dataset_info.json"
         roi_root = f"{main_root}/{dataset}/derivatives/ROI_timeseries"
         dFC_root = f"{main_root}/{dataset}/derivatives/dFC_assessed"
