@@ -271,7 +271,7 @@ if __name__ == "__main__":
                             X,
                             y,
                             sample_order="label+cluster",
-                            feature_order="tstat",
+                            feature_order="original",
                             save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-samples_{task}_{group}{raw_or_embedded}.png",
                             show=False,
                         )
@@ -281,7 +281,7 @@ if __name__ == "__main__":
                             X,
                             y,
                             sample_order="label+cluster",  # clustering is per-split; that’s fine
-                            feature_order="tstat",  # we still show the t-bar for reference
+                            feature_order="original",  # we still show the t-bar for reference
                             col_order_from_train=orders["col_order"],
                             save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-samples_{task}_{group}{raw_or_embedded}.png",
                             show=False,
