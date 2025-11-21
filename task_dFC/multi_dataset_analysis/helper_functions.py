@@ -972,14 +972,14 @@ def plot_samples_features(
         if col_order_from_train is not None:
             col_order = np.asarray(col_order_from_train, int)
             t, _ = ttest_ind(Xz[y == 1], Xz[y == 0], axis=0, equal_var=False)
-            t_ord = t[col_order]
+            # t_ord = t[col_order]
         else:
             t, _ = ttest_ind(Xz[y == 1], Xz[y == 0], axis=0, equal_var=False)
             col_order = np.argsort(-np.abs(t))  # strongest contrast first
-            t_ord = t[col_order]
+            # t_ord = t[col_order]
     else:
         col_order = np.arange(n_features)
-        t_ord = None  # no t-stat bar
+        # t_ord = None  # no t-stat bar
 
     # ---------- sample order ----------
     if sample_order == "original":
@@ -1119,27 +1119,27 @@ def plot_samples_features(
     # (re)grab the updated box for the colorbar placement that comes next
     lab_box = ax_lab.get_position()
 
-    # ---------- LEFT vertical t-stat bar (only if feature_order=="tstat") ----------
-    if t_ord is not None:
-        fig.canvas.draw()
-        main_box = ax_main.get_position()  # figure coords
+    # # ---------- LEFT vertical t-stat bar (only if feature_order=="tstat") ----------
+    # if t_ord is not None:
+    #     fig.canvas.draw()
+    #     main_box = ax_main.get_position()  # figure coords
 
-        tbar_left_width = 0.010  # ~2% fig width
-        tbar_left_pad = 0.035 / W * 24  # gap from main heatmap, proportional to fig width
+    #     tbar_left_width = 0.010  # ~2% fig width
+    #     tbar_left_pad = 0.035 / W * 24  # gap from main heatmap, proportional to fig width
 
-        x0 = max(0.01, main_box.x0 - tbar_left_pad - tbar_left_width)
-        y0 = main_box.y0
-        w = tbar_left_width
-        h = main_box.height
+    #     x0 = max(0.01, main_box.x0 - tbar_left_pad - tbar_left_width)
+    #     y0 = main_box.y0
+    #     w = tbar_left_width
+    #     h = main_box.height
 
-        ax_tleft = fig.add_axes([x0, y0, w, h])
-        m = np.nanmax(np.abs(t_ord)) if np.isfinite(t_ord).any() else 1.0
-        ax_tleft.imshow(
-            t_ord[:, None], origin="lower", aspect="auto", cmap=cmap, vmin=-m, vmax=m
-        )
-        ax_tleft.set_xticks([])
-        ax_tleft.set_yticks([])
-        ax_tleft.set_title("t-stat", fontsize=11, pad=2, fontweight="bold")
+    #     ax_tleft = fig.add_axes([x0, y0, w, h])
+    #     m = np.nanmax(np.abs(t_ord)) if np.isfinite(t_ord).any() else 1.0
+    #     ax_tleft.imshow(
+    #         t_ord[:, None], origin="lower", aspect="auto", cmap=cmap, vmin=-m, vmax=m
+    #     )
+    #     ax_tleft.set_xticks([])
+    #     ax_tleft.set_yticks([])
+    #     ax_tleft.set_title("t-stat", fontsize=11, pad=2, fontweight="bold")
 
     # ---------- colorbar (slightly lower so it doesn't overlap class labels) ----------
     fig.canvas.draw()
