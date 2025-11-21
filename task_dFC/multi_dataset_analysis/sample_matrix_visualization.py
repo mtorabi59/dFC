@@ -18,7 +18,7 @@ from helper_functions import (  # pyright: ignore[reportMissingImports]
     save_scalar_colorbar,
 )
 
-use_raw_features = False  # if True, use raw dFC features instead of embedded features
+use_raw_features = True  # if True, use raw dFC features instead of embedded features
 normalize_dFC = True
 FCS_proba_for_SB = True
 train_test_ratio = 0.8
