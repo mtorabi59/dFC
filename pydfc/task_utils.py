@@ -509,7 +509,7 @@ def extract_task_presence(
     return task_presence, indices
 
 
-################################# Task Features ####################################
+################################# Task Design Features ####################################
 
 
 def calc_relative_task_on(task_presence):
@@ -574,3 +574,155 @@ def calc_transition_freq(task_presence):
     num_of_transitions = np.sum(transitions)
     relative_transition_freq = num_of_transitions / len(task_presence)
     return num_of_transitions, relative_transition_freq
+
+
+def noise_model(f, alpha=1.0):
+    # 1/f^alpha normalized to unit median (cheap default)
+    spec = 1.0 / np.maximum(f, 1e-6) ** alpha
+    med = np.median(spec[f > 0])
+    return spec / med
+
+
+def compute_periodicity_index(
+    event_labels,
+    TR_task,
+    fmin=0.0,
+    fmax=None,
+    no_hrf=False,
+    TR_mri=None,
+):
+    """
+    Compute a noise-free periodicity index for a task timing time course.
+
+    Parameters
+    ----------
+    event_labels : array, shape (T,)
+        Event labels time course.
+    TR_task : float
+        Repetition time (seconds).
+    fmin, fmax : float
+        Frequency band (Hz) to consider. If fmax is None, Nyquist is used.
+    no_hrf : bool
+        If True, do not convolve with HRF.
+    TR_mri : float
+        Repetition time of MRI (seconds), required if no_hrf is False.
+
+    Returns
+    -------
+    results : dict
+        {
+          'periodicity_index': float in [0, 1], higher = more periodic,
+          'spectral_entropy': float in [0, 1], lower = more periodic,
+          'peak_freq': float, frequency of dominant peak (Hz),
+          'peak_dominance': float in [0, 1], peak power / total power
+        }
+    """
+    if no_hrf:
+        task_tc = np.multiply(event_labels != 0, 1)
+    else:
+        event_labels_all_task = np.multiply(event_labels != 0, 1)
+        task_tc = event_labels_conv_hrf(
+            event_labels=event_labels_all_task,
+            TR_mri=TR_mri,
+            TR_task=TR_task,
+            no_hrf=False,
+        )
+    task_tc = np.asarray(task_tc)
+    T = len(task_tc)
+
+    # Detrend and mean-center
+    x = task_tc - np.mean(task_tc)
+
+    # FFT
+    freqs = np.fft.rfftfreq(T, d=TR_task)
+    fft_vals = np.fft.rfft(x)
+    power = np.abs(fft_vals) ** 2
+
+    # Restrict frequency range
+    if fmax is None:
+        fmax = 0.5 / TR_task  # Nyquist
+    mask = (freqs >= fmin) & (freqs <= fmax)
+    freqs = freqs[mask]
+    power = power[mask]
+
+    # Avoid division by zero
+    if np.all(power == 0):
+        return {
+            "periodicity_index": 0.0,
+            "spectral_entropy": 1.0,
+            "peak_freq": 0.0,
+            "peak_dominance": 0.0,
+        }
+
+    # Normalize spectrum to probability distribution
+    p = power / power.sum()
+
+    # Spectral entropy (normalized to [0,1])
+    eps = 1e-12
+    H = -(p * np.log(p + eps)).sum() / np.log(len(p))  # in [0,1], higher = more "flat"
+
+    # Dominant peak and its dominance
+    peak_idx = np.argmax(power)
+    peak_freq = freqs[peak_idx]
+    peak_power = power[peak_idx]
+    peak_dominance = peak_power / power.sum()  # 0–1
+
+    # Define periodicity index: high when entropy is low and peak is dominant
+    periodicity_index = (1.0 - H) * peak_dominance
+
+    return {
+        "periodicity_index": float(periodicity_index),
+        "spectral_entropy": float(H),
+        "peak_freq": float(peak_freq),
+        "peak_dominance": float(peak_dominance),
+    }
+
+
+def compute_optimality_index(
+    event_labels, TR_task, TR_mri, fmin=0.0, fmax=None, alpha=1.0
+):
+    """
+    Worsley-style optimality: how well the design energy overlaps HRF^2 / noise.
+    """
+    time_length_HRF = 32.0  # in sec
+    oversampling = TR_mri / TR_task
+
+    task_tc = np.multiply(event_labels != 0, 1)
+    hrf_tc = glm.first_level.spm_hrf(
+        tr=TR_mri, oversampling=oversampling, time_length=time_length_HRF, onset=0.0
+    )
+
+    task_tc = np.asarray(task_tc)
+    hrf_tc = np.asarray(hrf_tc)
+
+    T = len(task_tc)
+    if len(hrf_tc) < T:
+        # zero-pad HRF to length T
+        hrf_tc = np.pad(hrf_tc, (0, T - len(hrf_tc)), mode="constant")
+    else:
+        hrf_tc = hrf_tc[:T]
+
+    freqs = np.fft.rfftfreq(T, d=TR_task)
+    # noise: estimate by 1/f
+    noise_psd = noise_model(freqs, alpha=alpha)
+
+    design_spectrum = np.abs(np.fft.rfft(task_tc)) ** 2
+    hrf_spectrum = np.abs(np.fft.rfft(hrf_tc)) ** 2
+
+    if fmax is None:
+        fmax = 0.5 / TR_task
+    mask = (freqs >= fmin) & (freqs <= fmax)
+    freqs = freqs[mask]
+    design_spectrum = design_spectrum[mask]
+    hrf_spectrum = hrf_spectrum[mask]
+    noise_psd = np.asarray(noise_psd)[mask]
+
+    # avoid division by zero
+    eps = 1e-12
+    snr_weight = hrf_spectrum / (noise_psd + eps)
+
+    # Optimality index ~ ∑ design_power * (HRF^2 / noise)
+    oi = np.sum(design_spectrum * snr_weight)
+
+    # normalize (optional) so it's in [0,1] across paradigms
+    return float(oi)

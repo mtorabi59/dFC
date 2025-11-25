@@ -17,6 +17,8 @@ from pydfc.task_utils import (
     calc_task_duration,
     calc_transition_freq,
     cohen_d_bold,
+    compute_optimality_index,
+    compute_periodicity_index,
     extract_task_presence,
 )
 
@@ -80,6 +82,8 @@ if __name__ == "__main__":
     transition_freq_all = {}
     rest_durations_all = {}
     task_durations_all = {}
+    PI_all = {}
+    OI_all = {}
     for dataset in DATASETS:
 
         print(f"Processing dataset: {dataset}")
@@ -149,6 +153,21 @@ if __name__ == "__main__":
                         task_durations = calc_task_duration(
                             event_labels, TR_mri=1 / task_data["Fs_task"]
                         )
+                        # Periodicity Index (low entropy => high periodicity)
+                        out = compute_periodicity_index(
+                            event_labels=event_labels,
+                            TR_task=1 / task_data["Fs_task"],
+                            no_hrf=False,
+                            TR_mri=task_data["TR_mri"],
+                        )
+                        PI = out["periodicity_index"]
+
+                        # Optimality Index (how close the task design is to the optimal design)
+                        OI = compute_optimality_index(
+                            event_labels=event_labels,
+                            TR_task=1 / task_data["Fs_task"],
+                            TR_mri=task_data["TR_mri"],
+                        )
 
                         if not task in task_ratio_all:
                             task_ratio_all[task] = []
@@ -158,17 +177,25 @@ if __name__ == "__main__":
                             rest_durations_all[task] = []
                         if not task in task_durations_all:
                             task_durations_all[task] = []
+                        if not task in PI_all:
+                            PI_all[task] = []
+                        if not task in OI_all:
+                            OI_all[task] = []
                         task_ratio_all[task].append(relative_task_on)
                         transition_freq_all[task].append(relative_transition_freq)
                         # rest_durations and task_durations are lists
                         rest_durations_all[task].extend(rest_durations)
                         task_durations_all[task].extend(task_durations)
+                        PI_all[task].append(PI)
+                        OI_all[task].append(OI)
 
     task_design_features = {
         "task_ratio_all": task_ratio_all,
         "transition_freq_all": transition_freq_all,
         "rest_durations_all": rest_durations_all,
         "task_durations_all": task_durations_all,
+        "PI_all": PI_all,
+        "OI_all": OI_all,
     }
 
     CohensD_across_task = {}
@@ -376,19 +403,24 @@ if __name__ == "__main__":
     metric = "SVM balanced accuracy"
     GROUP = "test"
 
-    all_scores = {}
-    for i in range(len(ALL_ML_SCORES["task"])):
-        if (
-            ALL_ML_SCORES["embedding"][i] == embedding
-            and ALL_ML_SCORES["group"][i] == GROUP
-        ):
+    METHODS = set(ALL_ML_SCORES["dFC method"])
+    all_scores = {method: {} for method in METHODS}
+    for method in METHODS:
+        for i in range(len(ALL_ML_SCORES["task"])):
+            if (
+                ALL_ML_SCORES["embedding"][i] == embedding
+                and ALL_ML_SCORES["group"][i] == GROUP
+                and ALL_ML_SCORES["dFC method"][i] == method
+            ):
+                if ALL_ML_SCORES["task"][i] not in all_scores[method]:
+                    all_scores[method][ALL_ML_SCORES["task"][i]] = []
+                all_scores[method][ALL_ML_SCORES["task"][i]].append(
+                    ALL_ML_SCORES[metric][i]
+                )
 
-            if ALL_ML_SCORES["task"][i] not in all_scores:
-                all_scores[ALL_ML_SCORES["task"][i]] = []
-            all_scores[ALL_ML_SCORES["task"][i]].append(ALL_ML_SCORES[metric][i])
-
-    # all_scores is a list of scores across methods and runs
-    all_scores = {k: np.array(v) for k, v in all_scores.items()}
+    # all_scores[<method>][<task>] is a list of scores across runs
+    for method in all_scores:
+        all_scores[method] = {k: np.array(v) for k, v in all_scores[method].items()}
 
     # we have task design features in task_design_features[task_ratio_all][task], task_design_features[transition_freq_all][task], task_design_features[rest_durations_all][task], task_design_features[task_durations_all][task]
     # we have CohensD in CohensD_across_task[task]
@@ -402,8 +434,9 @@ if __name__ == "__main__":
         "task_durations_mean": [],
         "rest_durations_std": [],
         "task_durations_std": [],
+        "PI_mean": [],
+        "OI_mean": [],
         "cohen_d_max": [],
-        "classfication_score_mean": [],
     }
     for task in TASKS_to_include:
         task_ratio = np.mean(task_design_features["task_ratio_all"][task])
@@ -412,8 +445,9 @@ if __name__ == "__main__":
         task_durations_mean = np.mean(task_design_features["task_durations_all"][task])
         rest_durations_std = np.std(task_design_features["rest_durations_all"][task])
         task_durations_std = np.std(task_design_features["task_durations_all"][task])
+        PI_mean = np.mean(PI_all[task])
+        OI_mean = np.mean(OI_all[task])
         cohen_d_max = np.max(np.abs(CohensD_across_task[task]))
-        classfication_score_mean = np.mean(all_scores[task])
 
         DATA["task"].append(task)
         DATA["task_ratio"].append(task_ratio)
@@ -422,8 +456,19 @@ if __name__ == "__main__":
         DATA["task_durations_mean"].append(task_durations_mean)
         DATA["rest_durations_std"].append(rest_durations_std)
         DATA["task_durations_std"].append(task_durations_std)
+        DATA["PI_mean"].append(PI_mean)
+        DATA["OI_mean"].append(OI_mean)
         DATA["cohen_d_max"].append(cohen_d_max)
-        DATA["classfication_score_mean"].append(classfication_score_mean)
+
+        # Also add ML scores
+        for method in all_scores:
+            if f"classfication_score_{method}" not in DATA:
+                DATA[f"classfication_score_{method}"] = []
+            if task in all_scores[method]:
+                score_mean = np.mean(all_scores[method][task])
+            else:
+                score_mean = np.nan
+            DATA[f"classfication_score_{method}"].append(score_mean)
 
     # save DATA
     np.save(f"{output_root}/performance_predictor_data.npy", DATA)
