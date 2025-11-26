@@ -158,7 +158,6 @@ if __name__ == "__main__":
                             event_labels=event_labels,
                             TR_task=1 / task_data["Fs_task"],
                             no_hrf=False,
-                            TR_mri=task_data["TR_mri"],
                         )
                         PI = out["periodicity_index"]
 

@@ -589,7 +589,6 @@ def compute_periodicity_index(
     fmin=0.0,
     fmax=None,
     no_hrf=False,
-    TR_mri=None,
 ):
     """
     Compute a noise-free periodicity index for a task timing time course.
@@ -604,8 +603,6 @@ def compute_periodicity_index(
         Frequency band (Hz) to consider. If fmax is None, Nyquist is used.
     no_hrf : bool
         If True, do not convolve with HRF.
-    TR_mri : float
-        Repetition time of MRI (seconds), required if no_hrf is False.
 
     Returns
     -------
@@ -623,7 +620,7 @@ def compute_periodicity_index(
         event_labels_all_task = np.multiply(event_labels != 0, 1)
         task_tc = event_labels_conv_hrf(
             event_labels=event_labels_all_task,
-            TR_mri=TR_mri,
+            TR_mri=TR_task,
             TR_task=TR_task,
             no_hrf=False,
         )
