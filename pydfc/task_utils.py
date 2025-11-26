@@ -617,11 +617,13 @@ def compute_periodicity_index(
     if no_hrf:
         task_tc = np.multiply(event_labels != 0, 1)
     else:
-        event_labels_all_task = np.multiply(event_labels != 0, 1)
-        task_tc = event_labels_conv_hrf(
-            event_labels=event_labels_all_task,
-            TR_mri=TR_task,
+        task_tc, _ = extract_task_presence(
+            event_labels=event_labels,
             TR_task=TR_task,
+            TR_mri=TR_task,
+            TR_array=None,
+            binary=False,
+            binarizing_method="GMM",
             no_hrf=False,
         )
     task_tc = np.asarray(task_tc)
