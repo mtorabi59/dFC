@@ -162,11 +162,12 @@ if __name__ == "__main__":
                         PI = out["periodicity_index"]
 
                         # Optimality Index (how close the task design is to the optimal design)
-                        OI = compute_optimality_index(
+                        out = compute_optimality_index(
                             event_labels=event_labels,
                             TR_task=1 / task_data["Fs_task"],
                             TR_mri=task_data["TR_mri"],
                         )
+                        OI = out["OI_norm"]
 
                         if not task in task_ratio_all:
                             task_ratio_all[task] = []

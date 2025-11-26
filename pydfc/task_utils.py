@@ -681,47 +681,121 @@ def compute_optimality_index(
     event_labels, TR_task, TR_mri, fmin=0.0, fmax=None, alpha=1.0
 ):
     """
-    Worsley-style optimality: how well the design energy overlaps HRF^2 / noise.
+    Compute a Worsley-style optimality index (OI) and normalized OI
+    relative to an ideal sinusoidal design at the dominant frequency.
+
+    Returns:
+    --------
+    {
+      "OI": float,
+      "OI_ideal": float,
+      "OI_norm": float,
+      "peak_freq": float
+    }
     """
-    time_length_HRF = 32.0  # in sec
+
+    # -------------------------
+    # 1. Preprocess Task Timing
+    # -------------------------
+    task_tc = np.multiply(event_labels != 0, 1).astype(float).flatten()
+    T = len(task_tc)
+
+    # -------------------------
+    # 2. HRF Model
+    # -------------------------
+    time_length_HRF = 32.0
     oversampling = TR_mri / TR_task
 
-    task_tc = np.multiply(event_labels != 0, 1)
     hrf_tc = glm.first_level.spm_hrf(
         tr=TR_mri, oversampling=oversampling, time_length=time_length_HRF, onset=0.0
     )
-
-    task_tc = np.asarray(task_tc)
     hrf_tc = np.asarray(hrf_tc)
 
-    T = len(task_tc)
+    # Pad or truncate HRF to length T
     if len(hrf_tc) < T:
-        # zero-pad HRF to length T
         hrf_tc = np.pad(hrf_tc, (0, T - len(hrf_tc)), mode="constant")
     else:
         hrf_tc = hrf_tc[:T]
 
+    # -------------------------
+    # 3. Frequency grid + noise PSD
+    # -------------------------
     freqs = np.fft.rfftfreq(T, d=TR_task)
-    # noise: estimate by 1/f
-    noise_psd = noise_model(freqs, alpha=alpha)
 
+    # simple 1/f^alpha noise
+    noise_psd = (freqs + 1e-6) ** (-alpha)
+
+    # -------------------------
+    # 4. FFT-based spectra
+    # -------------------------
     design_spectrum = np.abs(np.fft.rfft(task_tc)) ** 2
     hrf_spectrum = np.abs(np.fft.rfft(hrf_tc)) ** 2
 
+    # -------------------------
+    # 5. Frequency mask
+    # -------------------------
     if fmax is None:
         fmax = 0.5 / TR_task
+
     mask = (freqs >= fmin) & (freqs <= fmax)
-    freqs = freqs[mask]
-    design_spectrum = design_spectrum[mask]
-    hrf_spectrum = hrf_spectrum[mask]
-    noise_psd = np.asarray(noise_psd)[mask]
+    freqs_m = freqs[mask]
+    design_spectrum_m = design_spectrum[mask]
+    hrf_spectrum_m = hrf_spectrum[mask]
+    noise_psd_m = noise_psd[mask]
 
-    # avoid division by zero
     eps = 1e-12
-    snr_weight = hrf_spectrum / (noise_psd + eps)
+    snr_weight = hrf_spectrum_m / (noise_psd_m + eps)
 
-    # Optimality index ~ ∑ design_power * (HRF^2 / noise)
-    oi = np.sum(design_spectrum * snr_weight)
+    # -------------------------
+    # 6. ORIGINAL (TASK) OI
+    # -------------------------
+    OI = np.sum(design_spectrum_m * snr_weight)
 
-    # normalize (optional) so it's in [0,1] across paradigms
-    return float(oi)
+    # -------------------------
+    # 7. IDEAL OI (sinusoid at peak frequency)
+    # -------------------------
+
+    # Remove DC by ignoring freq = 0
+    nonzero_mask = freqs_m > 0
+    if not np.any(nonzero_mask):
+        # no nonzero frequencies in the band
+        return {
+            "OI": float(OI),
+            "OI_ideal": 0.0,
+            "OI_norm": 0.0,
+            "peak_freq": 0.0,
+        }
+
+    freqs_nz = freqs_m[nonzero_mask]
+    design_spectrum_nz = design_spectrum_m[nonzero_mask]
+
+    # Find dominant non-DC frequency
+    peak_idx = np.argmax(design_spectrum_nz)
+    peak_freq = freqs_nz[peak_idx]
+
+    # Build ideal sinusoid
+    t = np.arange(T) * TR_task
+    ideal_tc = np.sin(2 * np.pi * peak_freq * t)
+
+    # FFT of ideal design
+    ideal_spectrum = np.abs(np.fft.rfft(ideal_tc)) ** 2
+    ideal_spectrum_m = ideal_spectrum[mask]
+
+    # Ideal OI
+    OI_ideal = np.sum(ideal_spectrum_m * snr_weight)
+
+    # -------------------------
+    # 8. Normalized OI
+    # -------------------------
+    if OI_ideal < eps:
+        OI_norm = 0.0
+    else:
+        OI_norm = OI / OI_ideal
+        OI_norm = max(0.0, min(1.0, float(OI_norm)))  # clamp to [0,1]
+
+    return {
+        "OI": float(OI),
+        "OI_ideal": float(OI_ideal),
+        "OI_norm": float(OI_norm),
+        "peak_freq": float(peak_freq),
+    }
