@@ -471,4 +471,4 @@ if __name__ == "__main__":
             DATA[f"classfication_score_{method}"].append(score_mean)
 
     # save DATA
-    np.save(f"{output_root}/performance_predictor_data.npy", DATA)
+    np.save(f"{output_root}/performance_predictor_data_{simul_or_real}.npy", DATA)
