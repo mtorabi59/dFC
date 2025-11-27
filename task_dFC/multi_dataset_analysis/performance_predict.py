@@ -81,6 +81,8 @@ if __name__ == "__main__":
 
     task_ratio_all = {}
     transition_freq_all = {}
+    rest_durations_original_all = {}
+    task_durations_original_all = {}
     rest_durations_all = {}
     task_durations_all = {}
     PI_all = {}
@@ -147,13 +149,20 @@ if __name__ == "__main__":
                         num_of_transitions, relative_transition_freq = (
                             calc_transition_freq(task_presence[indices])
                         )
-                        # calculate rest and task durations based original event labels
+                        # calculate rest and task durations based on original event labels
                         event_labels = np.multiply(task_data["event_labels"] != 0, 1)
-                        rest_durations = calc_rest_duration(
+                        rest_durations_original = calc_rest_duration(
                             event_labels, TR_mri=1 / task_data["Fs_task"]
                         )
-                        task_durations = calc_task_duration(
+                        task_durations_original = calc_task_duration(
                             event_labels, TR_mri=1 / task_data["Fs_task"]
+                        )
+                        # calculate rest and task durations based on binary task presence
+                        rest_durations = calc_rest_duration(
+                            task_presence[indices], TR_mri=task_data["TR_mri"]
+                        )
+                        task_durations = calc_task_duration(
+                            task_presence[indices], TR_mri=task_data["TR_mri"]
                         )
                         # Periodicity Index (low entropy => high periodicity)
                         out = compute_periodicity_index(
@@ -182,6 +191,10 @@ if __name__ == "__main__":
                             task_ratio_all[task] = []
                         if not task in transition_freq_all:
                             transition_freq_all[task] = []
+                        if not task in rest_durations_original_all:
+                            rest_durations_original_all[task] = []
+                        if not task in task_durations_original_all:
+                            task_durations_original_all[task] = []
                         if not task in rest_durations_all:
                             rest_durations_all[task] = []
                         if not task in task_durations_all:
@@ -195,6 +208,8 @@ if __name__ == "__main__":
                         task_ratio_all[task].append(relative_task_on)
                         transition_freq_all[task].append(relative_transition_freq)
                         # rest_durations and task_durations are lists
+                        rest_durations_original_all[task].extend(rest_durations_original)
+                        task_durations_original_all[task].extend(task_durations_original)
                         rest_durations_all[task].extend(rest_durations)
                         task_durations_all[task].extend(task_durations)
                         PI_all[task].append(PI)
@@ -204,6 +219,8 @@ if __name__ == "__main__":
     task_design_features = {
         "task_ratio_all": task_ratio_all,
         "transition_freq_all": transition_freq_all,
+        "rest_durations_original_all": rest_durations_original_all,
+        "task_durations_original_all": task_durations_original_all,
         "rest_durations_all": rest_durations_all,
         "task_durations_all": task_durations_all,
         "PI_all": PI_all,
@@ -443,6 +460,10 @@ if __name__ == "__main__":
         "task": [],
         "task_ratio": [],
         "transition_freq": [],
+        "rest_durations_original_mean": [],
+        "task_durations_original_mean": [],
+        "rest_durations_original_std": [],
+        "task_durations_original_std": [],
         "rest_durations_mean": [],
         "task_durations_mean": [],
         "rest_durations_std": [],
@@ -455,6 +476,18 @@ if __name__ == "__main__":
     for task in TASKS_to_include:
         task_ratio = np.mean(task_design_features["task_ratio_all"][task])
         transition_freq = np.mean(task_design_features["transition_freq_all"][task])
+        rest_durations_original_mean = np.mean(
+            task_design_features["rest_durations_original_all"][task]
+        )
+        task_durations_original_mean = np.mean(
+            task_design_features["task_durations_original_all"][task]
+        )
+        rest_durations_original_std = np.std(
+            task_design_features["rest_durations_original_all"][task]
+        )
+        task_durations_original_std = np.std(
+            task_design_features["task_durations_original_all"][task]
+        )
         rest_durations_mean = np.mean(task_design_features["rest_durations_all"][task])
         task_durations_mean = np.mean(task_design_features["task_durations_all"][task])
         rest_durations_std = np.std(task_design_features["rest_durations_all"][task])
@@ -467,6 +500,10 @@ if __name__ == "__main__":
         DATA["task"].append(task)
         DATA["task_ratio"].append(task_ratio)
         DATA["transition_freq"].append(transition_freq)
+        DATA["rest_durations_original_mean"].append(rest_durations_original_mean)
+        DATA["task_durations_original_mean"].append(task_durations_original_mean)
+        DATA["rest_durations_original_std"].append(rest_durations_original_std)
+        DATA["task_durations_original_std"].append(task_durations_original_std)
         DATA["rest_durations_mean"].append(rest_durations_mean)
         DATA["task_durations_mean"].append(task_durations_mean)
         DATA["rest_durations_std"].append(rest_durations_std)
