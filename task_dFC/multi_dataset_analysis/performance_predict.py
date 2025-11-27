@@ -20,6 +20,7 @@ from pydfc.task_utils import (
     compute_optimality_index,
     compute_periodicity_index,
     extract_task_presence,
+    periodicity_autocorr,
 )
 
 fig_bbox_inches = "tight"
@@ -171,7 +172,7 @@ if __name__ == "__main__":
                         OI = out["OI_norm"]
 
                         # Periodicity via autocorrelation
-                        out = compute_periodicity_index(
+                        out = periodicity_autocorr(
                             event_labels=event_labels,
                             TR_task=1 / task_data["Fs_task"],
                         )
