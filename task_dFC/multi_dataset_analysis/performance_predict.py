@@ -449,6 +449,7 @@ if __name__ == "__main__":
         "task_durations_std": [],
         "PI_mean": [],
         "OI_mean": [],
+        "PAC_mean": [],
         "cohen_d_max": [],
     }
     for task in TASKS_to_include:
