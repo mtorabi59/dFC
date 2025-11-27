@@ -13,6 +13,7 @@ import numpy as np
 from nilearn import glm
 from scipy import signal
 from sklearn.mixture import GaussianMixture
+from statsmodels.tsa.stattools import acf
 
 from .dfc_utils import TR_intersection, rank_norm, visualize_conn_mat
 
@@ -798,4 +799,75 @@ def compute_optimality_index(
         "OI_ideal": float(OI_ideal),
         "OI_norm": float(OI_norm),
         "peak_freq": float(peak_freq),
+    }
+
+
+from scipy.ndimage import uniform_filter1d
+from scipy.signal import find_peaks
+
+
+def periodicity_autocorr(event_labels, TR_task, max_lag=None):
+    """
+    Measure how periodic a 0/1 event label time course is using autocorrelation.
+
+    Parameters
+    ----------
+    event_labels : array-like
+        array of 0/1 labels (e.g., rest=0, task=1).
+    TR_task : float
+        Repetition time (seconds).
+    max_lag : int or None
+        Maximum lag to compute autocorrelation. If None, uses len(x)//2.
+
+    Returns
+    -------
+    periodicity : float
+        Strength of the strongest non-zero autocorrelation peak (in [−1, 1]).
+    best_lag : int
+        Lag (in samples) at which this peak occurs.
+    r : np.ndarray
+        Autocorrelation values from lag 0..max_lag.
+    """
+    x, _ = extract_task_presence(
+        event_labels=event_labels,
+        TR_task=TR_task,
+        TR_mri=TR_task,
+        TR_array=None,
+        binary=False,
+        binarizing_method="GMM",
+        no_hrf=False,
+    )
+
+    # Optional: center to remove bias from unbalanced 0/1 ratio
+    x = x - x.mean()
+
+    if max_lag is None:
+        max_lag = len(x) // 2
+
+    # r[0] = 1 by definition
+    r = acf(x, nlags=max_lag, fft=False)
+
+    # Find true peaks (periodic peaks) ---
+    peaks, _ = find_peaks(r)
+
+    if len(peaks) == 0:
+        return {"periodicity": 0.0, "best_lag": None, "r": r}
+
+    # skip lag 0
+    peaks = peaks[peaks > 0]
+
+    if len(peaks) == 0:
+        return {"periodicity": 0.0, "best_lag": None, "r": r}
+
+    best_lag = peaks[np.argmax(r[peaks])]
+
+    # # Ignore lag 0, find strongest positive correlation
+    # r_nonzero = r[1:]
+    # best_lag = np.argmax(r_nonzero) + 1
+    periodicity = r[best_lag]
+
+    return {
+        "periodicity": periodicity,
+        "best_lag": best_lag,
+        "r": r,
     }

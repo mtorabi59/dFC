@@ -84,6 +84,7 @@ if __name__ == "__main__":
     task_durations_all = {}
     PI_all = {}
     OI_all = {}
+    PAC_all = {}
     for dataset in DATASETS:
 
         print(f"Processing dataset: {dataset}")
@@ -169,6 +170,13 @@ if __name__ == "__main__":
                         )
                         OI = out["OI_norm"]
 
+                        # Periodicity via autocorrelation
+                        out = compute_periodicity_index(
+                            event_labels=event_labels,
+                            TR_task=1 / task_data["Fs_task"],
+                        )
+                        PAC = out["periodicity"]
+
                         if not task in task_ratio_all:
                             task_ratio_all[task] = []
                         if not task in transition_freq_all:
@@ -181,6 +189,8 @@ if __name__ == "__main__":
                             PI_all[task] = []
                         if not task in OI_all:
                             OI_all[task] = []
+                        if not task in PAC_all:
+                            PAC_all[task] = []
                         task_ratio_all[task].append(relative_task_on)
                         transition_freq_all[task].append(relative_transition_freq)
                         # rest_durations and task_durations are lists
@@ -188,6 +198,7 @@ if __name__ == "__main__":
                         task_durations_all[task].extend(task_durations)
                         PI_all[task].append(PI)
                         OI_all[task].append(OI)
+                        PAC_all[task].append(PAC)
 
     task_design_features = {
         "task_ratio_all": task_ratio_all,
@@ -196,6 +207,7 @@ if __name__ == "__main__":
         "task_durations_all": task_durations_all,
         "PI_all": PI_all,
         "OI_all": OI_all,
+        "PAC_all": PAC_all,
     }
 
     CohensD_across_task = {}
@@ -447,6 +459,7 @@ if __name__ == "__main__":
         task_durations_std = np.std(task_design_features["task_durations_all"][task])
         PI_mean = np.mean(PI_all[task])
         OI_mean = np.mean(OI_all[task])
+        PAC_mean = np.mean(PAC_all[task])
         cohen_d_max = np.max(np.abs(CohensD_across_task[task]))
 
         DATA["task"].append(task)
@@ -458,6 +471,7 @@ if __name__ == "__main__":
         DATA["task_durations_std"].append(task_durations_std)
         DATA["PI_mean"].append(PI_mean)
         DATA["OI_mean"].append(OI_mean)
+        DATA["PAC_mean"].append(PAC_mean)
         DATA["cohen_d_max"].append(cohen_d_max)
 
         # Also add ML scores
