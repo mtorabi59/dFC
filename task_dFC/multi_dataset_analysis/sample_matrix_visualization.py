@@ -265,6 +265,23 @@ if __name__ == "__main__":
                         save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-label_{task}_{group}{raw_or_embedded}.png",
                         show=False,
                     )
+                    if (
+                        task == "task-localiser"
+                        and group == "train"
+                        and raw_or_embedded == ""
+                        and simul_or_real == "real"
+                        and (
+                            measure_name == "SlidingWindow" or measure_name == "Time-Freq"
+                        )
+                    ):
+                        plot_samples_features(
+                            X,
+                            y,
+                            sample_order="label",
+                            feature_order="original",
+                            save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-label_{task}_{group}{raw_or_embedded}.svg",
+                            show=False,
+                        )
 
                     # C) Label + within-class clustering + t-stat top bar
                     if group == "train":
