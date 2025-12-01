@@ -14,6 +14,7 @@ import seaborn as sns
 from matplotlib.colors import ListedColormap
 from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.stats import ttest_ind
+from sklearn.neighbors import NearestNeighbors
 
 ###################### Publication style ######################
 
@@ -1201,3 +1202,50 @@ def save_scalar_colorbar(
 
     fig.savefig(filename, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
+
+
+def nearest_neighbor_match(X, y):
+    """Compute the fraction of samples whose nearest neighbor (by correlation) has the same class label."""
+    label_match = []
+    for i, sample in enumerate(X):
+        class_label = y[i]
+        # find the nearest sample using nearest neighbor
+        nbrs = NearestNeighbors(
+            n_neighbors=2, algorithm="auto", metric="correlation"
+        ).fit(X)
+        indices = nbrs.kneighbors(sample.reshape(1, -1), return_distance=False)
+        nearest_index = indices[0][1]  # index 0 is the sample itself
+        # find the label of the nearest sample
+        nearest_label = y[nearest_index]
+        label_match.append(class_label == nearest_label)
+    return np.mean(label_match)
+
+
+def other_class_max_corr(X, y):
+    """Compute, for each sample, the maximum correlation with samples from the other class.
+    Return summary statistics: median, fraction above 0.9, 95th percentile, and fraction of z-scores > 1.645.
+    """
+    all_corrs = []
+    for i, sample in enumerate(X):
+        class_label = y[i]
+        other_class_label = 1 - class_label
+        # find the correlation of that sample with each of the samples from the other class
+        corrs = [
+            np.corrcoef(sample.flatten(), other_sample.flatten())[0, 1]
+            for j, other_sample in enumerate(X)
+            if y[j] == other_class_label
+        ]
+        all_corrs.append(np.max(corrs))
+
+    all_corrs = np.asarray(all_corrs)
+    median = np.median(all_corrs)
+    above_90 = np.mean(np.array(all_corrs) > 0.9)
+    percentile_95 = np.percentile(all_corrs, 95)
+
+    mean_corr = all_corrs.mean()
+    std_corr = all_corrs.std(ddof=1)  # unbiased std
+
+    z = (all_corrs - mean_corr) / std_corr
+    high_frac = np.mean(z > 1.645) * 100
+
+    return median, above_90, percentile_95, high_frac

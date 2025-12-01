@@ -14,6 +14,8 @@ from pydfc.ml_utils import (
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from helper_functions import (  # pyright: ignore[reportMissingImports]
+    nearest_neighbor_match,
+    other_class_max_corr,
     plot_samples_features,
     save_scalar_colorbar,
 )
@@ -68,6 +70,15 @@ if __name__ == "__main__":
     if not os.path.exists(output_root):
         os.makedirs(output_root)
 
+    pattern_distinctiveness = {
+        "dFC method": [],
+        "task": [],
+        "NN_label_match": [],
+        "other_class_max_corr_median": [],
+        "other_class_max_corr_above_90": [],
+        "other_class_max_corr_95th_percentile": [],
+        "other_class_max_corr_high_frac": [],
+    }
     for dataset in DATASETS:
         dataset_info_file = f"{main_root}/{dataset}/codes/dataset_info.json"
         roi_root = f"{main_root}/{dataset}/derivatives/ROI_timeseries"
@@ -238,6 +249,21 @@ if __name__ == "__main__":
                     continue
 
                 # np.save(f"{output_root}/processed_data/{dataset}_{task}_{measure_name}.npy", DATA[task])
+                NN_label_match = nearest_neighbor_match(X_train, y_train)
+                median, above_90, percentile_95, high_frac = other_class_max_corr(
+                    X_train, y_train
+                )
+                pattern_distinctiveness["dFC method"].append(measure_name)
+                pattern_distinctiveness["task"].append(task)
+                pattern_distinctiveness["NN_label_match"].append(NN_label_match)
+                pattern_distinctiveness["other_class_max_corr_median"].append(median)
+                pattern_distinctiveness["other_class_max_corr_above_90"].append(above_90)
+                pattern_distinctiveness["other_class_max_corr_95th_percentile"].append(
+                    percentile_95
+                )
+                pattern_distinctiveness["other_class_max_corr_high_frac"].append(
+                    high_frac
+                )
 
                 for group, X, y in zip(
                     ["train", "test"], [X_train, X_test], [y_train, y_test]
@@ -312,3 +338,9 @@ if __name__ == "__main__":
                         label="z-scored feature value",
                         filename=f"{output_root}/zscore_colorbar.png",
                     )
+
+    # Save pattern distinctiveness results
+    np.save(
+        f"{output_root}/pattern_distinctiveness{raw_or_embedded}.npy",
+        pattern_distinctiveness,
+    )
