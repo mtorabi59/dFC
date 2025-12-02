@@ -938,7 +938,7 @@ def plot_samples_features(
     X,
     y,
     *,
-    sample_order="original",  # "original" | "label" | "label+cluster"
+    sample_order="original",  # "original" | "label" | "label+cluster" | "cluster"
     feature_order="original",  # "original" | "tstat"
     col_order_from_train=None,  # optional np.ndarray (feature indices) to reuse on test
     ZSCORE=True,
@@ -1007,6 +1007,20 @@ def plot_samples_features(
         row_order = np.r_[rest_order, task_order]
         split = len(rest_order)
         draw_separator = True
+    elif sample_order == "cluster":
+
+        def order_rows(A):
+            if len(A) <= 2:
+                return np.arange(len(A))
+            return leaves_list(linkage(A, method="average", metric="cosine"))
+
+        all_idx = np.arange(n_samples)
+        # rest_order = rest_idx[order_rows(Xz[rest_idx])] if len(rest_idx) else rest_idx
+        # task_order = task_idx[order_rows(Xz[task_idx])] if len(task_idx) else task_idx
+
+        row_order = all_idx[order_rows(Xz[all_idx])]
+        split = np.sum(y == 0)
+        draw_separator = False
     else:
         raise ValueError(
             "sample_order must be one of {'original','label','label+cluster'}"
@@ -1222,30 +1236,41 @@ def nearest_neighbor_match(X, y):
 
 
 def other_class_max_corr(X, y):
-    """Compute, for each sample, the maximum correlation with samples from the other class.
-    Return summary statistics: median, fraction above 0.9, 95th percentile, and fraction of z-scores > 1.645.
     """
-    all_corrs = []
-    for i, sample in enumerate(X):
-        class_label = y[i]
-        other_class_label = 1 - class_label
-        # find the correlation of that sample with each of the samples from the other class
-        corrs = [
-            np.corrcoef(sample.flatten(), other_sample.flatten())[0, 1]
-            for j, other_sample in enumerate(X)
-            if y[j] == other_class_label
-        ]
-        all_corrs.append(np.max(corrs))
+    Fast computation of max cross-class correlation per sample and summary stats.
+    X: array of shape (n_samples, n_features)
+    y: array of 0/1 labels
+    """
+    X = np.asarray(X)
+    y = np.asarray(y)
 
-    all_corrs = np.asarray(all_corrs)
+    # 1) Normalize each sample to zero-mean, unit-norm (required for correlation)
+    X_norm = X - X.mean(axis=1, keepdims=True)
+    X_norm /= np.linalg.norm(X_norm, axis=1, keepdims=True) + 1e-12  # avoid div-by-zero
+
+    # 2) Compute full correlation matrix using dot product
+    #    correlation = (x_i ⋅ x_j) after normalization
+    corr_matrix = X_norm @ X_norm.T  # shape (N, N)
+
+    # 3) For each sample, extract correlations to the other class only
+    y = y.astype(int)
+    other_mask = y[:, None] != y[None, :]  # shape (N, N): True where classes differ
+
+    # Mask out same-class or self-corrs
+    cross_corrs = np.where(other_mask, corr_matrix, -np.inf)
+
+    # 4) Max correlation for each sample with the other class
+    all_corrs = np.max(cross_corrs, axis=1)
+
+    # ---- Summary statistics ----
     median = np.median(all_corrs)
-    above_90 = np.mean(np.array(all_corrs) > 0.9)
+    above_90 = np.mean(all_corrs > 0.9)
     percentile_95 = np.percentile(all_corrs, 95)
 
     mean_corr = all_corrs.mean()
-    std_corr = all_corrs.std(ddof=1)  # unbiased std
+    std_corr = all_corrs.std(ddof=1)
 
-    z = (all_corrs - mean_corr) / std_corr
+    z = (all_corrs - mean_corr) / (std_corr + 1e-12)
     high_frac = np.mean(z > 1.645) * 100
 
     return median, above_90, percentile_95, high_frac
