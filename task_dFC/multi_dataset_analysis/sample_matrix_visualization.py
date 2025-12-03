@@ -126,6 +126,10 @@ if __name__ == "__main__":
                             dFC_id=dFC_id,
                         )
 
+                        if task == "task-paingen":
+                            # due to computational load, only use 120 subjects for this task
+                            SUBJECTS = SUBJECTS[:120]
+
                         # randomly select train_test_ratio of the subjects for training
                         # and rest for testing using numpy.random.choice
                         train_subjects = np.random.choice(
@@ -254,19 +258,24 @@ if __name__ == "__main__":
                 NN1_label_match, NN5_label_match, NN10_label_match = (
                     nearest_neighbor_match(X_train, y_train)
                 )
-                if task == "task-paingen":
-                    # due to memory issue, use the slow version for this task
-                    median, above_90, percentile_95, high_frac = other_class_max_corr(
-                        X_train,
-                        y_train,
-                        method="slow",
-                    )
-                else:
-                    median, above_90, percentile_95, high_frac = other_class_max_corr(
-                        X_train,
-                        y_train,
-                        method="fast",
-                    )
+                median, above_90, percentile_95, high_frac = other_class_max_corr(
+                    X_train,
+                    y_train,
+                    method="fast",
+                )
+                # if task == "task-paingen":
+                #     # due to memory issue, use the slow version for this task
+                #     median, above_90, percentile_95, high_frac = other_class_max_corr(
+                #         X_train,
+                #         y_train,
+                #         method="slow",
+                #     )
+                # else:
+                #     median, above_90, percentile_95, high_frac = other_class_max_corr(
+                #         X_train,
+                #         y_train,
+                #         method="fast",
+                #     )
                 pattern_distinctiveness["dFC method"].append(measure_name)
                 pattern_distinctiveness["task"].append(task)
                 pattern_distinctiveness["NN1_label_match"].append(NN1_label_match)
@@ -355,8 +364,8 @@ if __name__ == "__main__":
                         filename=f"{output_root}/zscore_colorbar.png",
                     )
 
-    # Save pattern distinctiveness results
-    np.save(
-        f"{output_root}/pattern_distinctiveness{raw_or_embedded}.npy",
-        pattern_distinctiveness,
-    )
+        # Save pattern distinctiveness results
+        np.save(
+            f"{output_root}/pattern_distinctiveness{raw_or_embedded}.npy",
+            pattern_distinctiveness,
+        )
