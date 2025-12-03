@@ -1218,10 +1218,6 @@ def save_scalar_colorbar(
     plt.close(fig)
 
 
-import numpy as np
-from sklearn.neighbors import NearestNeighbors
-
-
 def nearest_neighbor_match(X, y):
     """
     Compute fraction of matching labels for k=1,5,10 nearest neighbors.
