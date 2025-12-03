@@ -73,7 +73,9 @@ if __name__ == "__main__":
     pattern_distinctiveness = {
         "dFC method": [],
         "task": [],
-        "NN_label_match": [],
+        "NN1_label_match": [],
+        "NN5_label_match": [],
+        "NN10_label_match": [],
         "other_class_max_corr_median": [],
         "other_class_max_corr_above_90": [],
         "other_class_max_corr_95th_percentile": [],
@@ -249,13 +251,27 @@ if __name__ == "__main__":
                     continue
 
                 # np.save(f"{output_root}/processed_data/{dataset}_{task}_{measure_name}.npy", DATA[task])
-                NN_label_match = nearest_neighbor_match(X_train, y_train)
-                median, above_90, percentile_95, high_frac = other_class_max_corr(
-                    X_train, y_train
+                NN1_label_match, NN5_label_match, NN10_label_match = (
+                    nearest_neighbor_match(X_train, y_train)
                 )
+                if task == "task-paingen":
+                    # due to memory issue, use the slow version for this task
+                    median, above_90, percentile_95, high_frac = other_class_max_corr(
+                        X_train,
+                        y_train,
+                        method="slow",
+                    )
+                else:
+                    median, above_90, percentile_95, high_frac = other_class_max_corr(
+                        X_train,
+                        y_train,
+                        method="fast",
+                    )
                 pattern_distinctiveness["dFC method"].append(measure_name)
                 pattern_distinctiveness["task"].append(task)
-                pattern_distinctiveness["NN_label_match"].append(NN_label_match)
+                pattern_distinctiveness["NN1_label_match"].append(NN1_label_match)
+                pattern_distinctiveness["NN5_label_match"].append(NN5_label_match)
+                pattern_distinctiveness["NN10_label_match"].append(NN10_label_match)
                 pattern_distinctiveness["other_class_max_corr_median"].append(median)
                 pattern_distinctiveness["other_class_max_corr_above_90"].append(above_90)
                 pattern_distinctiveness["other_class_max_corr_95th_percentile"].append(

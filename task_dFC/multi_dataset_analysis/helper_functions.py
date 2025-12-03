@@ -1218,49 +1218,93 @@ def save_scalar_colorbar(
     plt.close(fig)
 
 
+import numpy as np
+from sklearn.neighbors import NearestNeighbors
+
+
 def nearest_neighbor_match(X, y):
-    """Compute the fraction of samples whose nearest neighbor (by correlation) has the same class label."""
-    label_match = []
-    for i, sample in enumerate(X):
-        class_label = y[i]
-        # find the nearest sample using nearest neighbor
-        nbrs = NearestNeighbors(
-            n_neighbors=2, algorithm="auto", metric="correlation"
-        ).fit(X)
-        indices = nbrs.kneighbors(sample.reshape(1, -1), return_distance=False)
-        nearest_index = indices[0][1]  # index 0 is the sample itself
-        # find the label of the nearest sample
-        nearest_label = y[nearest_index]
-        label_match.append(class_label == nearest_label)
-    return np.mean(label_match)
-
-
-def other_class_max_corr(X, y):
     """
-    Fast computation of max cross-class correlation per sample and summary stats.
-    X: array of shape (n_samples, n_features)
-    y: array of 0/1 labels
+    Compute fraction of matching labels for k=1,5,10 nearest neighbors.
+    For k>1, this returns fraction of *all neighbor votes* that match the label.
     """
     X = np.asarray(X)
     y = np.asarray(y)
 
-    # 1) Normalize each sample to zero-mean, unit-norm (required for correlation)
-    X_norm = X - X.mean(axis=1, keepdims=True)
-    X_norm /= np.linalg.norm(X_norm, axis=1, keepdims=True) + 1e-12  # avoid div-by-zero
+    # Fit once with max k
+    max_k = 10
+    nbrs = NearestNeighbors(
+        n_neighbors=max_k + 1,
+        metric="correlation",
+        algorithm="auto",
+    ).fit(X)
 
-    # 2) Compute full correlation matrix using dot product
-    #    correlation = (x_i ⋅ x_j) after normalization
-    corr_matrix = X_norm @ X_norm.T  # shape (N, N)
+    # Compute neighbors for all samples once
+    indices = nbrs.kneighbors(X, return_distance=False)[:, 1:]  # drop self
 
-    # 3) For each sample, extract correlations to the other class only
-    y = y.astype(int)
-    other_mask = y[:, None] != y[None, :]  # shape (N, N): True where classes differ
+    # Labels of all neighbors: shape (N, 10)
+    neighbor_labels = y[indices]
 
-    # Mask out same-class or self-corrs
-    cross_corrs = np.where(other_mask, corr_matrix, -np.inf)
+    # Expand y to shape (N,1) for vectorized comparison
+    y_col = y.reshape(-1, 1)
 
-    # 4) Max correlation for each sample with the other class
-    all_corrs = np.max(cross_corrs, axis=1)
+    # Boolean match matrix: (N,10)
+    match_matrix = neighbor_labels == y_col
+
+    # Compute metrics
+    match_1 = np.mean(match_matrix[:, :1])  # first neighbor
+    match_5 = np.mean(match_matrix[:, :5])  # first 5 neighbors
+    match_10 = np.mean(match_matrix[:, :10])  # all 10 neighbors
+
+    return match_1, match_5, match_10
+
+
+def other_class_max_corr(X, y, method="fast"):
+    """
+    Fast computation of max cross-class correlation per sample and summary stats.
+    X: array of shape (n_samples, n_features)
+    y: array of 0/1 labels
+    method: "slow" (loop-based) or "fast" (matrix-based)
+    use slow when n_samples is large and memory is limited; fast is much quicker for moderate n_samples
+    Returns: median, fraction_above_0.9, 95th_percentile, fraction_z_gt_1.645
+    """
+    X = np.asarray(X)
+    y = np.asarray(y)
+
+    if method == "slow":
+        all_corrs = []
+        for i, sample in enumerate(X):
+            class_label = y[i]
+            other_class_label = 1 - class_label
+            # find the correlation of that sample with each of the samples from the other class
+            corrs = [
+                np.corrcoef(sample.flatten(), other_sample.flatten())[0, 1]
+                for j, other_sample in enumerate(X)
+                if y[j] == other_class_label
+            ]
+            all_corrs.append(np.max(corrs))
+        all_corrs = np.asarray(all_corrs)
+    elif method == "fast":
+        # 1) Normalize each sample to zero-mean, unit-norm (required for correlation)
+        X_norm = X - X.mean(axis=1, keepdims=True)
+        X_norm /= (
+            np.linalg.norm(X_norm, axis=1, keepdims=True) + 1e-12
+        )  # avoid div-by-zero
+
+        # 2) Compute full correlation matrix using dot product
+        #    correlation = (x_i ⋅ x_j) after normalization
+        corr_matrix = X_norm @ X_norm.T  # shape (N, N)
+
+        # 3) For each sample, extract correlations to the other class only
+        y = y.astype(int)
+        other_mask = y[:, None] != y[None, :]  # shape (N, N): True where classes differ
+
+        # Mask out same-class or self-corrs
+        cross_corrs = np.where(other_mask, corr_matrix, -np.inf)
+
+        # 4) Max correlation for each sample with the other class
+        all_corrs = np.max(cross_corrs, axis=1)
+    else:
+        raise ValueError("method must be 'slow' or 'fast'")
 
     # ---- Summary statistics ----
     median = np.median(all_corrs)
