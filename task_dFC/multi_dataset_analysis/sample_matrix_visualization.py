@@ -263,19 +263,6 @@ if __name__ == "__main__":
                     y_train,
                     method="fast",
                 )
-                # if task == "task-paingen":
-                #     # due to memory issue, use the slow version for this task
-                #     median, above_90, percentile_95, high_frac = other_class_max_corr(
-                #         X_train,
-                #         y_train,
-                #         method="slow",
-                #     )
-                # else:
-                #     median, above_90, percentile_95, high_frac = other_class_max_corr(
-                #         X_train,
-                #         y_train,
-                #         method="fast",
-                #     )
                 pattern_distinctiveness["dFC method"].append(measure_name)
                 pattern_distinctiveness["task"].append(task)
                 pattern_distinctiveness["NN1_label_match"].append(NN1_label_match)
