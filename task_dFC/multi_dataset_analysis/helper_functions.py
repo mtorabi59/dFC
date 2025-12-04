@@ -72,7 +72,7 @@ def get_cog_domain_info(simul_or_real: str):
     if simul_or_real == "real":
         # --- Cognitive-Atlas–aligned domains (order on paper) ---
         DOMAIN_ORDER = [
-            "Arousal and Regulatory Systems",
+            "Arousal & Regulatory Systems",
             "Cognitive Systems",
             "Negative Valence System",
             "Positive Valence System",
