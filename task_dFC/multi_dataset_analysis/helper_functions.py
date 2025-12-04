@@ -72,105 +72,64 @@ def get_cog_domain_info(simul_or_real: str):
     if simul_or_real == "real":
         # --- Cognitive-Atlas–aligned domains (order on paper) ---
         DOMAIN_ORDER = [
-            "Language",
-            "Numerical cognition",
-            "Cognitive control",
-            "Working memory",
-            "Attention",
-            "Decision-making & valuation",
-            "Emotion & social processes",
-            "Cue reactivity / craving",
-            "Pain / nociception",
-            "Sensorimotor",
-            "Perception & naturalistic memory",
-            "Neurofeedback",
-            "Functional localizers",
-            "Other",
+            "Arousal and Regulatory Systems",
+            "Cognitive Systems",
+            "Negative Valence System",
+            "Positive Valence System",
+            "Sensorimotor Systems",
         ]
 
         # --- Map canonical task codes -> domain ---
         TASK2DOMAIN = {
-            # Language
-            "audrhyme": "Language",
-            "audsem": "Language",
-            "audspell": "Language",
-            "visrhyme": "Language",
-            "vissem": "Language",
-            "visspell": "Language",
-            "speech": "Language",
-            # Numerical
-            "arithmetic": "Numerical cognition",
-            # Cognitive control
-            "stroop": "Cognitive control",
-            "gstroop": "Cognitive control",
-            "cuedts": "Cognitive control",
-            "axcpt": "Cognitive control",
-            "matching": "Cognitive control",
-            # Working memory
-            "stern": "Working memory",
-            "vswm": "Working memory",
-            "workingmemory": "Working memory",
-            # Attention
-            "spatialdetection": "Attention",
-            "oddball": "Attention",
-            # Decision-making & valuation
-            "bart": "Decision-making & valuation",
-            "risk": "Decision-making & valuation",
-            "itc": "Decision-making & valuation",
-            "delaydiscounting": "Decision-making & valuation",
-            "mgt": "Decision-making & valuation",
-            # Emotion & social
-            "emomatching": "Emotion & social processes",
-            "anticipation": "Emotion & social processes",
-            "fearlearning": "Emotion & social processes",
-            "emotionregulation": "Emotion & social processes",
-            "faces": "Emotion & social processes",
-            # Cue reactivity
-            "cic": "Cue reactivity / craving",
-            # Pain
-            "paingen": "Pain / nociception",
+            # Language & Regulatory Systems
+            "emotionregulation": "Arousal & Regulatory Systems",
+            # Cognitive Systems
+            "audsem": "Cognitive Systems",
+            "visrhyme": "Cognitive Systems",
+            "vissem": "Cognitive Systems",
+            "visspell": "Cognitive Systems",
+            "arithmetic": "Cognitive Systems",
+            "stroop": "Cognitive Systems",
+            "cuedts": "Cognitive Systems",
+            "axcpt": "Cognitive Systems",
+            "matching": "Cognitive Systems",
+            "stern": "Cognitive Systems",
+            "st": "Cognitive Systems",
+            "vswm": "Cognitive Systems",
+            "expo": "Cognitive Systems",
+            "recall": "Cognitive Systems",
+            "feedback": "Cognitive Systems",
+            "ppalocalizer": "Cognitive Systems",
+            "localiser": "Cognitive Systems",
+            "localizer": "Cognitive Systems",
+            # Positive Valence System
+            "cic": "Positive Valence System",
+            "fribbids": "Positive Valence System",
+            "risk": "Positive Valence System",
+            "itc": "Positive Valence System",
+            # Negative Valence System
+            "fearlearning": "Negative Valence System",
+            "paingen": "Negative Valence System",
             # Sensorimotor
-            "motor": "Sensorimotor",
-            "execution": "Sensorimotor",
-            "imagery": "Sensorimotor",
-            "ihg": "Sensorimotor",
-            # Perception & naturalistic memory
-            "expo": "Perception & naturalistic memory",
-            "recall": "Perception & naturalistic memory",
-            # Methodological — Neurofeedback
-            "feedback": "Neurofeedback",
-            # Methodological — Functional localizers
-            "ppalocalizer": "Functional localizers",
-            "floc": "Functional localizers",
-            "fribbids": "Functional localizers",
-            "midloc": "Functional localizers",
-            "localiser": "Functional localizers",
-            "localizer": "Functional localizers",
+            "motor": "Sensorimotor Systems",
+            "execution": "Sensorimotor Systems",
+            "imagery": "Sensorimotor Systems",
+            "ihg": "Sensorimotor Systems",
         }
         # base colors per domain (distinct, colorblind-friendly)
         DOMAIN_BASE = {
-            "Language": "#1f77b4",
-            "Numerical cognition": "#ff7f0e",
-            "Cognitive control": "#02833E",
-            "Working memory": "#d62728",
-            "Attention": "#9467bd",
-            "Decision-making & valuation": "#8c564b",
-            "Emotion & social processes": "#e377c2",
-            "Cue reactivity / craving": "#D337D5",
-            "Pain / nociception": "#bcbd22",
-            "Sensorimotor": "#17becf",
-            "Perception & naturalistic memory": "#1f9e89",
-            "Neurofeedback": "#d0e81f",
-            "Functional localizers": "#35cf33",
-            "Other": "#646464",
+            "Arousal & Regulatory Systems": "#1f77b4",
+            "Cognitive Systems": "#ff7f0e",
+            "Positive Valence System": "#02833E",
+            "Negative Valence System": "#d62728",
+            "Sensorimotor Systems": "#9467bd",
         }
     elif simul_or_real == "simulated":
         # --- Categories of simulated task paradigms ---
         DOMAIN_ORDER = [
             "Simulated Periodic",
-            "Optimal Paradigm Design, Strong Performance on Real Data",
-            "Optimal Paradigm Design, Limited Performance on Real Data",
-            "Sub-Optimal Paradigm Design, Limited Performance on Real Data",
+            "Strong Performance on Real Data",
+            "Weak Performance on Real Data",
         ]
         # --- Map task codes -> category ---
         TASK2DOMAIN = {
@@ -179,25 +138,24 @@ def get_cog_domain_info(simul_or_real: str):
             "lowfreqshortrest": "Simulated Periodic",
             "lowfreqshorttask": "Simulated Periodic",
             # Optimal Paradigm Design, Strong Performance on Real Data
-            "axcpt": "Optimal Paradigm Design, Strong Performance on Real Data",
-            "stern": "Optimal Paradigm Design, Strong Performance on Real Data",
-            "cuedts": "Optimal Paradigm Design, Strong Performance on Real Data",
-            # Optimal Paradigm Design, Limited Performance on Real Data
-            "execution": "Optimal Paradigm Design, Limited Performance on Real Data",
-            "imagery": "Optimal Paradigm Design, Limited Performance on Real Data",
-            "localizer": "Optimal Paradigm Design, Limited Performance on Real Data",
-            "ppalocalizer": "Optimal Paradigm Design, Limited Performance on Real Data",
-            # Sub-Optimal Paradigm Design, Limited Performance on Real Data
-            "itc": "Sub-Optimal Paradigm Design, Limited Performance on Real Data",
-            "stroop": "Sub-Optimal Paradigm Design, Limited Performance on Real Data",
-            "risk": "Sub-Optimal Paradigm Design, Limited Performance on Real Data",
+            "axcpt": "Strong Performance on Real Data",
+            "stern": "Strong Performance on Real Data",
+            "cuedts": "Strong Performance on Real Data",
+            # Optimal Paradigm Design, Weak Performance on Real Data
+            "execution": "Weak Performance on Real Data",
+            "imagery": "Weak Performance on Real Data",
+            "localizer": "Weak Performance on Real Data",
+            "ppalocalizer": "Weak Performance on Real Data",
+            # Sub-Optimal Paradigm Design, Weak Performance on Real Data
+            "itc": "Weak Performance on Real Data",
+            "stroop": "Weak Performance on Real Data",
+            "risk": "Weak Performance on Real Data",
         }
         # base colors per domain (distinct, colorblind-friendly)
         DOMAIN_BASE = {
             "Simulated Periodic": "#1f77b4",
-            "Optimal Paradigm Design, Strong Performance on Real Data": "#ff7f0e",
-            "Optimal Paradigm Design, Limited Performance on Real Data": "#02833E",
-            "Sub-Optimal Paradigm Design, Limited Performance on Real Data": "#d62728",
+            "Strong Performance on Real Data": "#02833E",
+            "Weak Performance on Real Data": "#d62728",
         }
     else:
         raise ValueError(f"Invalid simul_or_real: {simul_or_real}")
