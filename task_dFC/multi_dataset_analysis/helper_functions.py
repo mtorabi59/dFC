@@ -118,11 +118,11 @@ def get_cog_domain_info(simul_or_real: str):
         }
         # base colors per domain (distinct, colorblind-friendly)
         DOMAIN_BASE = {
-            "Arousal & Regulatory Systems": "#1f77b4",
+            "Arousal & Regulatory Systems": "#9467bd",
             "Cognitive Systems": "#ff7f0e",
             "Positive Valence System": "#02833E",
             "Negative Valence System": "#d62728",
-            "Sensorimotor Systems": "#9467bd",
+            "Sensorimotor Systems": "#1f77b4",
         }
     elif simul_or_real == "simulated":
         # --- Categories of simulated task paradigms ---
