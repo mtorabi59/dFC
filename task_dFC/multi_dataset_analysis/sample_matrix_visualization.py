@@ -130,6 +130,14 @@ if __name__ == "__main__":
                             # due to computational load, only use 120 subjects for this task
                             SUBJECTS = SUBJECTS[:120]
 
+                        if (
+                            task == "task-lowFreqLongRest"
+                            or task == "task-lowFreqShortRest"
+                            or task == "task-lowFreqShortTask"
+                        ):
+                            # due to computational load, only use 100 subjects for this task
+                            SUBJECTS = SUBJECTS[:100]
+
                         # randomly select train_test_ratio of the subjects for training
                         # and rest for testing using numpy.random.choice
                         train_subjects = np.random.choice(
