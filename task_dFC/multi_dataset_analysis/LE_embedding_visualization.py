@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import silhouette_score
@@ -165,17 +166,41 @@ if __name__ == "__main__":
                             print(X_embedded.shape)
 
                             # plot
+                            # ---- publication style (light touch) ----
+                            mpl.rcParams.update(
+                                {
+                                    "legend.fontsize": 10,
+                                    "axes.linewidth": 0.9,
+                                    "pdf.fonttype": 42,
+                                    "ps.fonttype": 42,  # keep text as text in PDF/SVG
+                                    "savefig.bbox": "tight",
+                                    "savefig.dpi": 300,
+                                    "figure.dpi": 150,
+                                }
+                            )
                             fig = plt.figure(figsize=(7, 7))
                             ax = fig.add_subplot(111, projection="3d")
+
+                            colors = ("#B1B1B1", "#2F5BD3")
+
                             for label in np.unique(y):
                                 ax.scatter(
                                     X_embedded[y == label, 0],
                                     X_embedded[y == label, 1],
                                     X_embedded[y == label, 2],
                                     label=["rest", "task"][label],
-                                    s=20,
+                                    s=50,
+                                    c=[colors[label]],
+                                    edgecolors="#202020",
+                                    linewidths=0.25,
+                                    depthshade=False,
                                 )
                             plt.legend()
+
+                            # remove tick labels
+                            ax.set_xticklabels([])
+                            ax.set_yticklabels([])
+                            ax.set_zticklabels([])
 
                             plt.savefig(
                                 f"{output_root}/LE_embed_{task}_{measure_name}.png",
