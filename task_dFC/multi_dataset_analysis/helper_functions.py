@@ -1212,98 +1212,290 @@ def nearest_neighbor_match(X, y):
     return match_1, match_5, match_10
 
 
-def other_class_max_corr(X, y, method="fast", metric="cosine"):
+# def other_class_max_corr(X, y, method="fast", metric="cosine"):
+#     """
+#     Compute max cross-class similarity (Pearson or cosine) per sample and summary stats.
+
+#     Parameters
+#     ----------
+#     X : array, shape (n_samples, n_features)
+#     y : array, shape (n_samples,)
+#     method : "slow" or "fast"
+#         slow  = loop-based (OOM-safe but slow)
+#         fast  = matrix-based (very fast but uses O(N^2) memory)
+#     metric : "pearson" or "cosine"
+#         pearson = correlation after mean-centering
+#         cosine  = correlation without mean-centering
+
+#     Returns
+#     -------
+#     median, fraction_above_0.9, 95th_percentile, fraction_z_gt_1.645
+#     """
+#     X = np.asarray(X, dtype=float)
+#     y = np.asarray(y)
+
+#     # ======================================================
+#     # Helper: compute normalized X depending on metric
+#     # ======================================================
+#     def normalize(X):
+#         if metric == "pearson":
+#             Xn = X - X.mean(axis=1, keepdims=True)
+#         elif metric == "cosine":
+#             Xn = X.copy()
+#         else:
+#             raise ValueError("metric must be 'pearson' or 'cosine'")
+
+#         norms = np.linalg.norm(Xn, axis=1, keepdims=True) + 1e-12
+#         return Xn / norms
+
+#     # ======================================================
+#     # SLOW METHOD (loop-based, safe for large N)
+#     # ======================================================
+#     if method == "slow":
+#         all_corrs = []
+#         for i, sample in enumerate(X):
+#             class_label = y[i]
+#             other_class_label = 1 - class_label
+
+#             # extract opposite-class samples
+#             X_other = X[y == other_class_label]
+
+#             # normalize sample and opposite-class samples based on metric
+#             s = sample.reshape(1, -1)
+#             s_norm = normalize(s)[0]
+#             X_other_norm = normalize(X_other)
+
+#             # dot products = cosine or Pearson similarity
+#             corrs = X_other_norm @ s_norm
+
+#             all_corrs.append(np.max(corrs))
+
+#         all_corrs = np.asarray(all_corrs)
+
+#     # ======================================================
+#     # FAST METHOD (matrix multiplication)
+#     # ======================================================
+#     elif method == "fast":
+#         X_norm = normalize(X)  # normalize entire matrix according to metric
+
+#         # similarity matrix
+#         sim_matrix = X_norm @ X_norm.T  # (N × N)
+
+#         # mask for opposite-class pairs
+#         y = y.astype(int)
+#         other_mask = y[:, None] != y[None, :]
+
+#         # mask same-class and diagonal
+#         cross_sims = np.where(other_mask, sim_matrix, -np.inf)
+
+#         # max similarity to opposite class
+#         all_corrs = np.max(cross_sims, axis=1)
+
+#     else:
+#         raise ValueError("method must be 'slow' or 'fast'")
+
+#     # ======================================================
+#     # Summary statistics
+#     # ======================================================
+#     median = np.median(all_corrs)
+#     above_90 = np.mean(all_corrs > 0.9)
+#     percentile_95 = np.percentile(all_corrs, 95)
+
+#     mean_corr = all_corrs.mean()
+#     std_corr = all_corrs.std(ddof=1)
+#     z = (all_corrs - mean_corr) / (std_corr + 1e-12)
+#     high_frac = np.mean(z > 1.645) * 100
+
+#     return median, above_90, percentile_95, high_frac
+
+
+def other_class_corr(X, y, method="fast", metric="cosine"):
     """
-    Compute max cross-class similarity (Pearson or cosine) per sample and summary stats.
+    Compute cross-class similarity (Pearson or cosine) for ALL opposite-class pairs
+    (each pair counted only once) and summarize their distribution.
 
     Parameters
     ----------
     X : array, shape (n_samples, n_features)
     y : array, shape (n_samples,)
     method : "slow" or "fast"
-        slow  = loop-based (OOM-safe but slow)
-        fast  = matrix-based (very fast but uses O(N^2) memory)
+        slow  = loop-based (avoids full N×N matrix, but slower)
+        fast  = matrix-based (computes class0×class1 block)
     metric : "pearson" or "cosine"
-        pearson = correlation after mean-centering
-        cosine  = correlation without mean-centering
+        pearson = correlation after mean-centering each row
+        cosine  = cosine similarity without mean-centering
 
     Returns
     -------
-    median, fraction_above_0.9, 95th_percentile, fraction_z_gt_1.645
+    fraction_above_0.9, fraction_above_0.95, fraction_above_0.99, fraction_above_0.999
+    0.0–1.0 fractions over ALL unique cross-class similarities.
     """
     X = np.asarray(X, dtype=float)
     y = np.asarray(y)
 
-    # ======================================================
-    # Helper: compute normalized X depending on metric
-    # ======================================================
-    def normalize(X):
+    # ------------------------------------------------------
+    # Helper: row-wise normalization
+    # ------------------------------------------------------
+    def normalize_rows(X_):
         if metric == "pearson":
-            Xn = X - X.mean(axis=1, keepdims=True)
+            Xn = X_ - X_.mean(axis=1, keepdims=True)
         elif metric == "cosine":
-            Xn = X.copy()
+            Xn = X_.copy()
         else:
             raise ValueError("metric must be 'pearson' or 'cosine'")
 
         norms = np.linalg.norm(Xn, axis=1, keepdims=True) + 1e-12
         return Xn / norms
 
-    # ======================================================
-    # SLOW METHOD (loop-based, safe for large N)
-    # ======================================================
+    # Binary labels assumed: 0/1 (or two unique values)
+    unique_labels = np.unique(y)
+    if unique_labels.size != 2:
+        raise ValueError("This function assumes exactly two classes.")
+
+    label_a, label_b = unique_labels
+
+    idx_a = np.where(y == label_a)[0]
+    idx_b = np.where(y == label_b)[0]
+
+    # ------------------------------------------------------
+    # SLOW METHOD (loop over one class only)
+    # ------------------------------------------------------
     if method == "slow":
         all_corrs = []
-        for i, sample in enumerate(X):
-            class_label = y[i]
-            other_class_label = 1 - class_label
 
-            # extract opposite-class samples
-            X_other = X[y == other_class_label]
+        X_b = X[idx_b]
+        X_b_norm = normalize_rows(X_b)
 
-            # normalize sample and opposite-class samples based on metric
-            s = sample.reshape(1, -1)
-            s_norm = normalize(s)[0]
-            X_other_norm = normalize(X_other)
+        for i in idx_a:
+            s = X[i].reshape(1, -1)
+            s_norm = normalize_rows(s)[0]
 
-            # dot products = cosine or Pearson similarity
-            corrs = X_other_norm @ s_norm
+            # similarities between this sample and ALL samples in other class
+            corrs = X_b_norm @ s_norm  # shape: (n_b,)
 
-            all_corrs.append(np.max(corrs))
+            all_corrs.extend(corrs.tolist())
 
         all_corrs = np.asarray(all_corrs)
 
-    # ======================================================
-    # FAST METHOD (matrix multiplication)
-    # ======================================================
+    # ------------------------------------------------------
+    # FAST METHOD (block matrix classA × classB)
+    # ------------------------------------------------------
     elif method == "fast":
-        X_norm = normalize(X)  # normalize entire matrix according to metric
+        X_norm = normalize_rows(X)
 
-        # similarity matrix
-        sim_matrix = X_norm @ X_norm.T  # (N × N)
+        Xa = X_norm[idx_a]  # (n_a, F)
+        Xb = X_norm[idx_b]  # (n_b, F)
 
-        # mask for opposite-class pairs
-        y = y.astype(int)
-        other_mask = y[:, None] != y[None, :]
+        # similarities for all unique cross-class pairs (label_a vs label_b)
+        # shape: (n_a, n_b)
+        sim_block = Xa @ Xb.T
 
-        # mask same-class and diagonal
-        cross_sims = np.where(other_mask, sim_matrix, -np.inf)
-
-        # max similarity to opposite class
-        all_corrs = np.max(cross_sims, axis=1)
+        # flatten: each pair counted exactly once
+        all_corrs = sim_block.ravel()
 
     else:
         raise ValueError("method must be 'slow' or 'fast'")
 
-    # ======================================================
-    # Summary statistics
-    # ======================================================
-    median = np.median(all_corrs)
+    # ------------------------------------------------------
+    # Summary statistics over ALL unique cross-class similarities
+    # ------------------------------------------------------
     above_90 = np.mean(all_corrs > 0.9)
-    percentile_95 = np.percentile(all_corrs, 95)
+    above_95 = np.mean(all_corrs > 0.95)
+    above_99 = np.mean(all_corrs > 0.99)
+    above_999 = np.mean(all_corrs > 0.999)
 
-    mean_corr = all_corrs.mean()
-    std_corr = all_corrs.std(ddof=1)
-    z = (all_corrs - mean_corr) / (std_corr + 1e-12)
-    high_frac = np.mean(z > 1.645) * 100
+    return above_90, above_95, above_99, above_999
 
-    return median, above_90, percentile_95, high_frac
+
+from sklearn.covariance import LedoitWolf
+from sklearn.model_selection import StratifiedKFold
+
+
+def ldc_crossvalidated(X, y, n_splits=2, random_state=None):
+    """
+    Cross-validated Mahalanobis distance (LDC) between two classes.
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        Data matrix. Rows are samples, columns are features.
+    y : array-like, shape (n_samples,)
+        Class labels. Must contain exactly TWO unique labels.
+    n_splits : int, default=2
+        Number of CV splits (partitions). 2 is the classic LDC setup.
+    random_state : int or None
+        Seed for reproducible splits.
+
+    Returns
+    -------
+    ldc : float
+        Cross-validated Mahalanobis distance (LDC).
+        Unbiased estimate of squared distance between class means
+        in noise-whitened space (optionally divided by n_features).
+    pairwise_ldcs : np.ndarray, shape (n_pairs,)
+        LDC values for each fold-pair used in the averaging.
+    """
+    X = np.asarray(X, dtype=float)
+    y = np.asarray(y)
+
+    # ----- 1) Check binary labels -----
+    unique_labels = np.unique(y)
+    if unique_labels.size != 2:
+        raise ValueError("ldc_crossvalidated currently assumes exactly two classes.")
+    label_a, label_b = unique_labels
+
+    n_samples, n_features = X.shape
+
+    # ----- 2) Estimate noise covariance (within-class) -----
+    # Subtract class means to get residuals, then estimate covariance on residuals.
+    X_resid = X.copy()
+    for lbl in unique_labels:
+        mask = y == lbl
+        X_resid[mask] -= X_resid[mask].mean(axis=0, keepdims=True)
+
+    # Shrinkage covariance for stability in high-dim / low-n regimes
+    lw = LedoitWolf().fit(X_resid)
+    Sigma = lw.covariance_
+
+    # ----- 3) Compute whitening transform W such that Sigma^{-1} = W^T W -----
+    # Using Cholesky: Sigma = L L^T  =>  Sigma^{-1} = L^{-T} L^{-1}
+    # Choose W = L^{-1}; then W^T W = Sigma^{-1}.
+    L = np.linalg.cholesky(Sigma)
+    # Solve L * M = I for M, then W = M
+    W = np.linalg.inv(L)  # (n_features x n_features)
+
+    # Whitened data
+    Xw = X @ W  # each row is whitened pattern
+
+    # ----- 4) Cross-validation splits -----
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+    deltas = []  # mean-difference vectors per fold in whitened space
+
+    for train_idx, _ in skf.split(Xw, y):
+        X_fold = Xw[train_idx]
+        y_fold = y[train_idx]
+
+        # class means in this fold
+        mu_a = X_fold[y_fold == label_a].mean(axis=0)
+        mu_b = X_fold[y_fold == label_b].mean(axis=0)
+
+        delta = mu_a - mu_b  # difference of class means
+        deltas.append(delta)
+
+    deltas = np.vstack(deltas)  # shape (n_splits, n_features)
+
+    # ----- 5) Cross-validated Mahalanobis distance (LDC) -----
+    # For each pair of independent partitions f != g:
+    #   LDC_fg = delta_f^T delta_g / n_features
+    # Average over all unique pairs.
+    pairwise_ldcs = []
+    for i in range(len(deltas)):
+        for j in range(i + 1, len(deltas)):
+            ldc_ij = np.dot(deltas[i], deltas[j]) / n_features
+            pairwise_ldcs.append(ldc_ij)
+
+    pairwise_ldcs = np.asarray(pairwise_ldcs)
+    ldc = pairwise_ldcs.mean()
+
+    return ldc
