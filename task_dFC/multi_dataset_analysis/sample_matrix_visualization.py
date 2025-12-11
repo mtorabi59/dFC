@@ -127,8 +127,8 @@ if __name__ == "__main__":
                         )
 
                         if task == "task-paingen":
-                            # due to computational load, only use 120 subjects for this task
-                            SUBJECTS = SUBJECTS[:120]
+                            # due to computational load, only use 100 subjects for this task
+                            SUBJECTS = SUBJECTS[:100]
 
                         if (
                             task == "task-lowFreqLongRest"

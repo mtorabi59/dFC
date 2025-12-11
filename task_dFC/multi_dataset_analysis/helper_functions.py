@@ -1212,62 +1212,97 @@ def nearest_neighbor_match(X, y):
     return match_1, match_5, match_10
 
 
-def other_class_max_corr(X, y, method="fast"):
+def other_class_max_corr(X, y, method="fast", metric="cosine"):
     """
-    Fast computation of max cross-class correlation per sample and summary stats.
-    X: array of shape (n_samples, n_features)
-    y: array of 0/1 labels
-    method: "slow" (loop-based) or "fast" (matrix-based)
-    use slow when n_samples is large and memory is limited; fast is much quicker for moderate n_samples
-    Returns: median, fraction_above_0.9, 95th_percentile, fraction_z_gt_1.645
+    Compute max cross-class similarity (Pearson or cosine) per sample and summary stats.
+
+    Parameters
+    ----------
+    X : array, shape (n_samples, n_features)
+    y : array, shape (n_samples,)
+    method : "slow" or "fast"
+        slow  = loop-based (OOM-safe but slow)
+        fast  = matrix-based (very fast but uses O(N^2) memory)
+    metric : "pearson" or "cosine"
+        pearson = correlation after mean-centering
+        cosine  = correlation without mean-centering
+
+    Returns
+    -------
+    median, fraction_above_0.9, 95th_percentile, fraction_z_gt_1.645
     """
-    X = np.asarray(X)
+    X = np.asarray(X, dtype=float)
     y = np.asarray(y)
 
+    # ======================================================
+    # Helper: compute normalized X depending on metric
+    # ======================================================
+    def normalize(X):
+        if metric == "pearson":
+            Xn = X - X.mean(axis=1, keepdims=True)
+        elif metric == "cosine":
+            Xn = X.copy()
+        else:
+            raise ValueError("metric must be 'pearson' or 'cosine'")
+
+        norms = np.linalg.norm(Xn, axis=1, keepdims=True) + 1e-12
+        return Xn / norms
+
+    # ======================================================
+    # SLOW METHOD (loop-based, safe for large N)
+    # ======================================================
     if method == "slow":
         all_corrs = []
         for i, sample in enumerate(X):
             class_label = y[i]
             other_class_label = 1 - class_label
-            # find the correlation of that sample with each of the samples from the other class
-            corrs = [
-                np.corrcoef(sample.flatten(), other_sample.flatten())[0, 1]
-                for j, other_sample in enumerate(X)
-                if y[j] == other_class_label
-            ]
+
+            # extract opposite-class samples
+            X_other = X[y == other_class_label]
+
+            # normalize sample and opposite-class samples based on metric
+            s = sample.reshape(1, -1)
+            s_norm = normalize(s)[0]
+            X_other_norm = normalize(X_other)
+
+            # dot products = cosine or Pearson similarity
+            corrs = X_other_norm @ s_norm
+
             all_corrs.append(np.max(corrs))
+
         all_corrs = np.asarray(all_corrs)
+
+    # ======================================================
+    # FAST METHOD (matrix multiplication)
+    # ======================================================
     elif method == "fast":
-        # 1) Normalize each sample to zero-mean, unit-norm (required for correlation)
-        X_norm = X - X.mean(axis=1, keepdims=True)
-        X_norm /= (
-            np.linalg.norm(X_norm, axis=1, keepdims=True) + 1e-12
-        )  # avoid div-by-zero
+        X_norm = normalize(X)  # normalize entire matrix according to metric
 
-        # 2) Compute full correlation matrix using dot product
-        #    correlation = (x_i ⋅ x_j) after normalization
-        corr_matrix = X_norm @ X_norm.T  # shape (N, N)
+        # similarity matrix
+        sim_matrix = X_norm @ X_norm.T  # (N × N)
 
-        # 3) For each sample, extract correlations to the other class only
+        # mask for opposite-class pairs
         y = y.astype(int)
-        other_mask = y[:, None] != y[None, :]  # shape (N, N): True where classes differ
+        other_mask = y[:, None] != y[None, :]
 
-        # Mask out same-class or self-corrs
-        cross_corrs = np.where(other_mask, corr_matrix, -np.inf)
+        # mask same-class and diagonal
+        cross_sims = np.where(other_mask, sim_matrix, -np.inf)
 
-        # 4) Max correlation for each sample with the other class
-        all_corrs = np.max(cross_corrs, axis=1)
+        # max similarity to opposite class
+        all_corrs = np.max(cross_sims, axis=1)
+
     else:
         raise ValueError("method must be 'slow' or 'fast'")
 
-    # ---- Summary statistics ----
+    # ======================================================
+    # Summary statistics
+    # ======================================================
     median = np.median(all_corrs)
     above_90 = np.mean(all_corrs > 0.9)
     percentile_95 = np.percentile(all_corrs, 95)
 
     mean_corr = all_corrs.mean()
     std_corr = all_corrs.std(ddof=1)
-
     z = (all_corrs - mean_corr) / (std_corr + 1e-12)
     high_frac = np.mean(z > 1.645) * 100
 
