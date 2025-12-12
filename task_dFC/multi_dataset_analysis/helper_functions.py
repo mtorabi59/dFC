@@ -1086,13 +1086,13 @@ def plot_samples_features(
     # --- move the class bar (ax_lab) down a bit ---
     fig.canvas.draw()  # ensure positions are current
     lab_box = ax_lab.get_position()  # [x0, y0, width, height] in figure coords
-    down = 0.050  # how much to move down (figure fraction)
+    down = 0.070  # how much to move down (figure fraction)
     new_y0 = max(0.01, lab_box.y0 - down)  # keep it inside the figure
     ax_lab.set_position([lab_box.x0, new_y0, lab_box.width, lab_box.height])
 
     # after you position ax_lab (i.e., after ax_lab.set_position([...]))
     ax_lab.xaxis.set_label_position("top")
-    ax_lab.set_xlabel("sample", labelpad=6, fontweight="bold", fontsize=18)
+    ax_lab.set_xlabel("sample", labelpad=4, fontweight="bold", fontsize=18)
     # keep the strip clean
     ax_lab.tick_params(
         axis="x", which="both", length=0, labelbottom=False, labeltop=False

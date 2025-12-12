@@ -14,9 +14,6 @@ from pydfc.ml_utils import (
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from helper_functions import (  # pyright: ignore[reportMissingImports]
-    ldc_crossvalidated,
-    nearest_neighbor_match,
-    other_class_corr,
     plot_samples_features,
     save_scalar_colorbar,
 )
@@ -71,18 +68,18 @@ if __name__ == "__main__":
     if not os.path.exists(output_root):
         os.makedirs(output_root)
 
-    pattern_distinctiveness = {
-        "dFC method": [],
-        "task": [],
-        "NN1_label_match": [],
-        "NN5_label_match": [],
-        "NN10_label_match": [],
-        "other_class_corr_above_90": [],
-        "other_class_corr_above_95": [],
-        "other_class_corr_above_99": [],
-        "other_class_corr_above_999": [],
-        "LDC": [],
-    }
+    # pattern_distinctiveness = {
+    #     "dFC method": [],
+    #     "task": [],
+    #     "NN1_label_match": [],
+    #     "NN5_label_match": [],
+    #     "NN10_label_match": [],
+    #     "other_class_corr_above_90": [],
+    #     "other_class_corr_above_95": [],
+    #     "other_class_corr_above_99": [],
+    #     "other_class_corr_above_999": [],
+    #     "LDC": [],
+    # }
     for dataset in DATASETS:
         dataset_info_file = f"{main_root}/{dataset}/codes/dataset_info.json"
         roi_root = f"{main_root}/{dataset}/derivatives/ROI_timeseries"
@@ -264,26 +261,32 @@ if __name__ == "__main__":
                     print(f"Skipping task {task} due to embedding error.")
                     continue
 
-                # np.save(f"{output_root}/processed_data/{dataset}_{task}_{measure_name}.npy", DATA[task])
-                NN1_label_match, NN5_label_match, NN10_label_match = (
-                    nearest_neighbor_match(X_train, y_train)
+                if not os.path.exists(f"{output_root}/processed_data"):
+                    os.makedirs(f"{output_root}/processed_data")
+                np.save(
+                    f"{output_root}/processed_data/{dataset}_{task}_{measure_name}.npy",
+                    DATA[task],
                 )
-                above_90, above_95, above_99, above_999 = other_class_corr(
-                    X_train,
-                    y_train,
-                    method="fast",
-                )
-                ldc = ldc_crossvalidated(X_train, y_train, n_splits=4)
-                pattern_distinctiveness["dFC method"].append(measure_name)
-                pattern_distinctiveness["task"].append(task)
-                pattern_distinctiveness["NN1_label_match"].append(NN1_label_match)
-                pattern_distinctiveness["NN5_label_match"].append(NN5_label_match)
-                pattern_distinctiveness["NN10_label_match"].append(NN10_label_match)
-                pattern_distinctiveness["other_class_corr_above_90"].append(above_90)
-                pattern_distinctiveness["other_class_corr_above_95"].append(above_95)
-                pattern_distinctiveness["other_class_corr_above_99"].append(above_99)
-                pattern_distinctiveness["other_class_corr_above_999"].append(above_999)
-                pattern_distinctiveness["LDC"].append(ldc)
+
+                # NN1_label_match, NN5_label_match, NN10_label_match = (
+                #     nearest_neighbor_match(X_train, y_train)
+                # )
+                # above_90, above_95, above_99, above_999 = other_class_corr(
+                #     X_train,
+                #     y_train,
+                #     method="fast",
+                # )
+                # ldc = ldc_crossvalidated(X_train, y_train, n_splits=4)
+                # pattern_distinctiveness["dFC method"].append(measure_name)
+                # pattern_distinctiveness["task"].append(task)
+                # pattern_distinctiveness["NN1_label_match"].append(NN1_label_match)
+                # pattern_distinctiveness["NN5_label_match"].append(NN5_label_match)
+                # pattern_distinctiveness["NN10_label_match"].append(NN10_label_match)
+                # pattern_distinctiveness["other_class_corr_above_90"].append(above_90)
+                # pattern_distinctiveness["other_class_corr_above_95"].append(above_95)
+                # pattern_distinctiveness["other_class_corr_above_99"].append(above_99)
+                # pattern_distinctiveness["other_class_corr_above_999"].append(above_999)
+                # pattern_distinctiveness["LDC"].append(ldc)
 
                 for group, X, y in zip(
                     ["train", "test"], [X_train, X_test], [y_train, y_test]
@@ -359,8 +362,8 @@ if __name__ == "__main__":
                         filename=f"{output_root}/zscore_colorbar.png",
                     )
 
-        # Save pattern distinctiveness results
-        np.save(
-            f"{output_root}/pattern_distinctiveness_{simul_or_real}{raw_or_embedded}.npy",
-            pattern_distinctiveness,
-        )
+        # # Save pattern distinctiveness results
+        # np.save(
+        #     f"{output_root}/pattern_distinctiveness_{simul_or_real}{raw_or_embedded}.npy",
+        #     pattern_distinctiveness,
+        # )
