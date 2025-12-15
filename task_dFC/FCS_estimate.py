@@ -59,6 +59,10 @@ def run_FCS_estimate(
         session=session,
         run=run,
     )
+
+    if BOLD is None:
+        print(f"No BOLD data found for task: {task}, session: {session}, run: {run}.")
+        return
     ################################ Measures of dFC #################################
 
     MEASURES_lst, hyper_param_info = multi_analysis_utils.measures_initializer(
