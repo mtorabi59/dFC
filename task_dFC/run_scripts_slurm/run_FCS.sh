@@ -4,6 +4,7 @@
 #SBATCH --output=logs/fcs_out.txt  # Standard output log
 #SBATCH --error=logs/fcs_err.txt   # Standard error log
 #SBATCH --time=7-00:00:00                # Walltime for each task (7 days)
+#SBATCH --cpus-per-task=8  # Number of CPU cores per task
 #SBATCH --mem=64G                     # Memory request per node
 
 DATASET_INFO="./dataset_info.json"
