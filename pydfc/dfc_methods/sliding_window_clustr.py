@@ -8,6 +8,7 @@ Created on Jun 29 2023
 import time
 
 import numpy as np
+from joblib import Parallel, delayed
 from scipy.special import softmax
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -143,76 +144,100 @@ class SLIDING_WINDOW_CLUSTR(BaseDFCMethod):
         assert (
             type(time_series) is TIME_SERIES
         ), "time_series must be of TIME_SERIES class."
-
         time_series = self.manipulate_time_series4FCS(time_series)
 
-        # start timing
         tic = time.time()
 
-        base_dFC = None
-        if self.params["clstr_base_measure"] == "Time-Freq":
-            base_dFC = TIME_FREQ(**self.params)
-        if self.params["clstr_base_measure"] == "SlidingWindow":
-            base_dFC = SLIDING_WINDOW(**self.params)
-
-        # 1-level clustering
-        # dFC_raw = base_dFC.estimate_dFC( \
-        #         time_series=time_series \
-        #         )
-        # self.FCS_, self.kmeans_ = self.cluster_FC( \
-        # dFC_raw.get_dFC_mat(TRs=self.dFC_raw.TR_array), \
-        # n_regions = dFC_raw.n_regions \
-        # )
-
-        # 2-level clustering
         SUBJECTs = time_series.subj_id_lst
-        FCS_1st_level = None
-        SW_dFC = None
-        for subject in SUBJECTs:
 
-            dFC_raw = base_dFC.estimate_dFC(
-                time_series=time_series.get_subj_ts(subjs_id=subject)
-            )
+        # --- worker ---
+        def _process_one_subject(ts_sub):
 
-            # test
-            if dFC_raw.n_time < self.params["n_subj_clstrs"]:
-                print(
-                    "Number of subject-level clusters cannot be more than SW dFC samples! n_subj_clstrs was changed to "
-                    + str(dFC_raw.n_time)
-                    + ". This change will cause problems in similarity assessment."
-                )
-                self.params["n_subj_clstrs"] = dFC_raw.n_time
+            subj_id = ts_sub.subj_id_lst[0]
+            # build base measure inside worker (safer for multiprocessing)
+            if self.params["clstr_base_measure"] == "Time-Freq":
+                base_dFC = TIME_FREQ(**self.params)
+            elif self.params["clstr_base_measure"] == "SlidingWindow":
+                base_dFC = SLIDING_WINDOW(**self.params)
+            else:
+                raise ValueError("Base method not recognized.")
 
-            FCS, _ = self.cluster_FC(
-                FCS_raw=dFC_raw.get_dFC_mat(TRs=dFC_raw.TR_array),
-                n_clusters=self.params["n_subj_clstrs"],
+            dFC_raw = base_dFC.estimate_dFC(time_series=ts_sub)
+
+            # subject-level clusters: do NOT mutate self.params in parallel
+            n_subj_clstrs = self.params["n_subj_clstrs"]
+            if dFC_raw.n_time < n_subj_clstrs:
+                # keep behavior: cap clusters to available samples
+                n_subj_clstrs = dFC_raw.n_time
+
+            sw_mat = dFC_raw.get_dFC_mat()  # shape: (n_win, n, n)
+
+            FCS_sub, _ = self.cluster_FC(
+                FCS_raw=sw_mat,
+                n_clusters=n_subj_clstrs,
                 n_regions=dFC_raw.n_regions,
             )
 
-            if SW_dFC is None:
-                SW_dFC = dFC_raw.get_dFC_mat(TRs=dFC_raw.TR_array)
-            else:
-                SW_dFC = np.concatenate(
-                    (SW_dFC, dFC_raw.get_dFC_mat(TRs=dFC_raw.TR_array)), axis=0
-                )
-            if FCS_1st_level is None:
-                FCS_1st_level = FCS
-            else:
-                FCS_1st_level = np.concatenate((FCS_1st_level, FCS), axis=0)
+            # return what we need for level-2 clustering + later labeling
+            return (subj_id, FCS_sub, sw_mat)
 
+        # choose parallelism
+        n_jobs = self.params["n_jobs"] if self.params["n_jobs"] is not None else 1
+        backend = (
+            self.params["backend"] if self.params["backend"] is not None else "loky"
+        )  # "loky"=processes
+
+        if n_jobs == 1:
+            # no parallelism
+            results = []
+            for subj in SUBJECTs:
+                res = _process_one_subject(time_series.get_subj_ts(subjs_id=subj))
+                results.append(res)
+        else:
+            # parallelism
+            results = Parallel(n_jobs=n_jobs, backend=backend)(
+                delayed(_process_one_subject)(time_series.get_subj_ts(subjs_id=subj))
+                for subj in SUBJECTs
+            )
+
+        # unpack + concatenate once (much faster than repeated concatenate)
+        # NOTE: results may come back in any order; we make the order same as SUBJECTs
+        FCS_1st_level_list = []
+        SW_dFC = None
+        for subj in SUBJECTs:
+            for res in results:
+                if res[0] == subj:
+                    FCS_1st_level_list.append(res[1])  # FCS_sub
+                    if SW_dFC is None:
+                        SW_dFC = res[2]  # sw_mat
+                    else:
+                        SW_dFC = np.concatenate((SW_dFC, res[2]), axis=0)
+                    break  # found the subject
+
+        FCS_1st_level = np.concatenate(FCS_1st_level_list, axis=0)
+
+        assert (
+            FCS_1st_level.shape[1] == FCS_1st_level.shape[2]
+        ), "FCS matrices must be square."
+        assert (
+            FCS_1st_level.shape[1] == time_series.n_regions
+        ), "FCS matrices size must match number of regions."
+        assert SW_dFC.shape[1] == SW_dFC.shape[2], "dFC matrices must be square."
+        assert (
+            SW_dFC.shape[1] == time_series.n_regions
+        ), "dFC matrices size must match number of regions."
+
+        # 2nd-level clustering (unchanged)
         self.FCS_, self.kmeans_ = self.cluster_FC(
             FCS_raw=FCS_1st_level,
             n_clusters=self.params["n_states"],
-            n_regions=dFC_raw.n_regions,
+            n_regions=time_series.n_regions,
         )
-        self.Z = self.kmeans_.predict(self.dFC_mat2vec(SW_dFC).astype(np.float32))
-
-        # mean activation of states
+        self.Z = self.kmeans_.predict(
+            self.dFC_mat2vec(SW_dFC).astype(np.float32)
+        )  # we need it for set_mean_activity
         self.set_mean_activity(time_series)
-
-        # record time
         self.set_FCS_fit_time(time.time() - tic)
-
         return self
 
     def estimate_dFC(self, time_series):
