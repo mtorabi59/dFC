@@ -74,8 +74,10 @@ def run_FCS_estimate(
     # to differentiate between the measures
     if len(MEASURES_lst) == 1:
         only_one_measure = True
+        n_jobs = None
     else:
         only_one_measure = False
+        n_jobs = params_multi_analysis["n_jobs"]
 
     if not only_one_measure:
         # we assume only one hyperparameter is altered
@@ -95,7 +97,7 @@ def run_FCS_estimate(
     MEASURES_fit_lst = multi_analysis_utils.estimate_group_FCS(
         time_series=BOLD,
         MEASURES_lst=MEASURES_lst,
-        n_jobs=params_multi_analysis["n_jobs"],
+        n_jobs=n_jobs,
         verbose=params_multi_analysis["verbose"],
         backend=params_multi_analysis["backend"],
     )
