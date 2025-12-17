@@ -218,7 +218,9 @@ class SLIDING_WINDOW_CLUSTR(BaseDFCMethod):
                 # keep behavior: cap clusters to available samples
                 n_subj_clstrs = dFC_raw.n_time
 
-            sw_mat = dFC_raw.get_dFC_mat()  # shape: (n_win, n, n)
+            sw_mat = dFC_raw.get_dFC_mat().astype(
+                np.float32, copy=False
+            )  # shape: (n_win, n, n)
 
             FCS_sub, _ = self.cluster_FC(
                 FCS_raw=sw_mat,
