@@ -167,7 +167,7 @@ class SLIDING_WINDOW_CLUSTR(BaseDFCMethod):
 
     def cluster_FC(self, FCS_raw, n_clusters, n_regions):
 
-        F = self.dFC_mat2vec(FCS_raw)
+        F = self.dFC_mat2vec(FCS_raw).astype(np.float32, copy=False)
 
         if self.params["clstr_distance"] == "manhattan":
             ########### Manhattan Clustering ##############
@@ -234,8 +234,8 @@ class SLIDING_WINDOW_CLUSTR(BaseDFCMethod):
         # choose parallelism
         n_jobs = self.params["n_jobs"] if self.params["n_jobs"] is not None else 1
         backend = (
-            self.params["backend"] if self.params["backend"] is not None else "loky"
-        )  # "loky"=processes
+            self.params["backend"] if self.params["backend"] is not None else "threading"
+        )
 
         if n_jobs == 1:
             # no parallelism
