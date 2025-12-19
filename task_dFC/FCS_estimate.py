@@ -11,10 +11,6 @@ from pydfc import data_loader, multi_analysis_utils
 
 warnings.simplefilter("ignore")
 
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-os.environ["OMP_NUM_THREADS"] = "1"
-
 ########################################################################################
 
 

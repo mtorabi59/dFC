@@ -10,6 +10,11 @@
 DATASET_INFO="./dataset_info.json"
 METHODS_CONFIG="./methods_config.json"
 
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+
 # Activate  virtual environment
 source "/home/mt00/venvs/pydfc/bin/activate"
 
