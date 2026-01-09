@@ -64,9 +64,13 @@ class SLIDING_WINDOW_CLUSTR(BaseDFCMethod):
             "n_overlap",
             "n_states",
             "normalization",
-            "n_jobs",
+            "n_jobs_swc",
             "verbose",
-            "backend",
+            "backend_swc",
+            "n_jobs_sw",
+            "backend_sw",
+            "n_jobs_tf",
+            "backend_tf",
             "num_subj",
             "num_select_nodes",
             "num_time_point",
@@ -232,10 +236,16 @@ class SLIDING_WINDOW_CLUSTR(BaseDFCMethod):
             return FCS_sub
 
         # choose parallelism
-        n_jobs = self.params["n_jobs"] if self.params["n_jobs"] is not None else 1
+        n_jobs = self.params["n_jobs_swc"] if self.params["n_jobs_swc"] is not None else 1
         backend = (
-            self.params["backend"] if self.params["backend"] is not None else "threading"
+            self.params["backend_swc"]
+            if self.params["backend_swc"] is not None
+            else "threading"
         )
+        # if SW is already parallelized, do not parallelize over subjects
+        if self.params["n_jobs_sw"] is not None:
+            if self.params["n_jobs_sw"] != 1:
+                n_jobs = 1
 
         if n_jobs == 1:
             # no parallelism

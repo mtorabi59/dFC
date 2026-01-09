@@ -57,7 +57,7 @@ Parameters
         If set to true, normalizes CWT by the standard deviation of
         the signals.
 
-- if n_jobs is None => no parallelization
+- if n_jobs is None or 1 => no parallelization
 
 todo:
 
@@ -86,9 +86,9 @@ class TIME_FREQ(BaseDFCMethod):
             "is_state_based",
             "TF_method",
             "coi_correction",
-            "n_jobs",
+            "n_jobs_tf",
             "verbose",
-            "backend",
+            "backend_tf",
             "normalization",
             "num_select_nodes",
             "num_time_point",
@@ -212,7 +212,7 @@ class TIME_FREQ(BaseDFCMethod):
         WT = np.zeros((time_series.n_time, time_series.n_regions, time_series.n_regions))
 
         for i in range(time_series.n_regions):
-            if self.params["n_jobs"] is None:
+            if self.params["n_jobs_tf"] is None or self.params["n_jobs_tf"] == 1:
                 Q = list()
                 for j in range(time_series.n_regions):
                     Q.append(
@@ -227,9 +227,9 @@ class TIME_FREQ(BaseDFCMethod):
                     )
             else:
                 Q = Parallel(
-                    n_jobs=self.params["n_jobs"],
+                    n_jobs=self.params["n_jobs_tf"],
                     verbose=self.params["verbose"],
-                    backend=self.params["backend"],
+                    backend=self.params["backend_tf"],
                 )(
                     delayed(self.WT_dFC)(
                         Y1=time_series.data[i, :],
