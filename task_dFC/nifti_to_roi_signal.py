@@ -22,6 +22,7 @@ def run_roi_signal_extraction(
     RUNS=[None],
     trial_type_label="trial_type",
     rest_labels=[],
+    denoising_strategy="simple",
 ):
     """
     Extract ROI signals and task labels for a given subject and task
@@ -138,7 +139,7 @@ def run_roi_signal_extraction(
             n_rois=100,
             Fs=1 / TR_mri,
             subj_id=subj,
-            confound_strategy="simple",
+            confound_strategy=denoising_strategy,
             standardize="zscore",
             TS_name="BOLD",
             session=task,
@@ -254,11 +255,15 @@ if __name__ == "__main__":
 
     parser.add_argument("--dataset_info", type=str, help="path to dataset info file")
     parser.add_argument("--participant_id", type=str, help="participant id")
+    parser.add_argument(
+        "--denoising_strategy", type=str, default="simple", help="denoising strategy"
+    )
 
     args = parser.parse_args()
 
     dataset_info_file = args.dataset_info
     participant_id = args.participant_id
+    denoising_strategy = args.denoising_strategy
 
     # Read dataset info
     with open(dataset_info_file, "r") as f:
@@ -330,6 +335,7 @@ if __name__ == "__main__":
                 RUNS=RUNS[task],
                 trial_type_label=trial_type_label[task],
                 rest_labels=rest_labels[task],
+                denoising_strategy=denoising_strategy,
             )
 
     print(
