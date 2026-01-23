@@ -178,8 +178,18 @@ class TIME_FREQ(BaseDFCMethod):
                 wavelet="morlet",
                 normalize=True,
             )
-            WT_xy_corrected = self.coi_correct(WT_xy, coi, freqs)
-            wt = np.abs(np.mean(WT_xy_corrected, axis=0))
+            if self.params["coi_correction"]:
+                WT_xy_corrected = self.coi_correct(WT_xy, coi, freqs)
+                periods = 1 / freqs
+                mask = coi[None, :] >= periods[:, None]
+                WT_xy_masked = np.where(mask, WT_xy_corrected, np.nan)
+                wt = np.nanmean(WT_xy_masked, axis=0)
+                min_valid_freqs = int(0.20 * WT_xy.shape[0])
+                valid_counts = mask.sum(axis=0)
+                wt = np.where(valid_counts >= min_valid_freqs, wt, np.nan)
+            else:
+                wt = np.mean(WT_xy, axis=0)
+            wt = np.abs(wt)
 
         return wt
 
@@ -243,11 +253,21 @@ class TIME_FREQ(BaseDFCMethod):
                 )
             WT[:, i, :] = np.array(Q).T
 
+        TR_array = np.arange(
+            start=0,
+            stop=WT.shape[0],
+            step=1,
+            dtype=int,
+        )
+        # we wanna drop time points with NaN values from WT and TR_array
+        valid_time_points = ~np.isnan(WT).any(axis=(1, 2))
+        WT = WT[valid_time_points, :, :]
+        TR_array = TR_array[valid_time_points]
         # record time
         self.set_dFC_assess_time(time.time() - tic)
 
         dFC = DFC(measure=self)
-        dFC.set_dFC(FCSs=WT, TS_info=time_series.info_dict)
+        dFC.set_dFC(FCSs=WT, TR_array=TR_array, TS_info=time_series.info_dict)
         return dFC
 
 
