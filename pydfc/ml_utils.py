@@ -12,6 +12,7 @@ import numpy as np
 from scipy.spatial import procrustes
 from sklearn.base import clone
 from sklearn.cluster import KMeans
+from sklearn.cross_decomposition import PLSRegression
 from sklearn.decomposition import PCA
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -961,6 +962,137 @@ def rows_look_redundant(X, sample=100):
     return (len(h) - len(set(h))) / len(h) > 0.5
 
 
+class PLSBinaryEmbedder:
+    """
+    Supervised dimensionality reduction using PLSRegression for binary labels.
+    Produces low-dim 'scores' features for downstream classifiers.
+
+    Usage:
+        pls = PLSBinaryEmbedder(n_components=10)
+        Z_train = pls.fit_transform(X_train, y_train)
+        Z_test  = pls.transform(X_test)
+    """
+
+    def __init__(self, n_components=10, scale=True):
+        self.n_components = int(n_components)
+        self.scale = bool(scale)
+
+        self.scaler_ = None
+        self.model_ = None
+
+    def fit(self, X, y):
+        X = np.asarray(X)
+        y = np.asarray(y).ravel()
+
+        # enforce 0/1
+        y01 = (y > 0).astype(float).reshape(-1, 1)
+
+        if self.scale:
+            self.scaler_ = StandardScaler(with_mean=True, with_std=True)
+            Xs = self.scaler_.fit_transform(X)
+        else:
+            Xs = X
+
+        self.model_ = PLSRegression(n_components=self.n_components, scale=False)
+        self.model_.fit(Xs, y01)
+        return self
+
+    def fit_transform(self, X, y):
+        self.fit(X, y)
+        return self.transform(X)
+
+    def transform(self, X):
+        if self.model_ is None:
+            raise RuntimeError("PLSBinaryEmbedder is not fitted yet.")
+        X = np.asarray(X)
+
+        Xs = self.scaler_.transform(X) if self.scale else X
+
+        # PLS scores (latent components)
+        # sklearn exposes x_scores_ only for training; for new data:
+        Z = Xs @ self.model_.x_rotations_  # (n_samples, n_components)
+        return Z.astype(np.float32, copy=False)
+
+
+def subject_center(X, subj_labels, mode="zscore"):
+    Xc = np.zeros_like(X)
+    for subj in np.unique(subj_labels):
+        idx = subj_labels == subj
+        if mode == "demean":
+            Xc[idx] = X[idx] - X[idx].mean(axis=0, keepdims=True)
+        elif mode == "zscore":
+            mu = X[idx].mean(axis=0, keepdims=True)
+            sd = X[idx].std(axis=0, keepdims=True) + 1e-6
+            Xc[idx] = (X[idx] - mu) / sd
+    return Xc
+
+
+def select_pls_components_binary_groupcv(
+    X,
+    y,
+    groups,
+    n_list=(2, 5, 10, 15, 20),
+    cv=3,
+    random_state=0,
+):
+    """
+    Select number of PLS components using subject-aware CV.
+
+    Parameters
+    ----------
+    X : array (n_samples, n_features)
+    y : array (n_samples,) binary labels
+    groups : array (n_samples,) subject IDs
+    n_list : iterable of candidate n_components
+    cv : number of folds
+    random_state : int
+
+    Returns
+    -------
+    best_n : int
+        Selected number of PLS components
+    best_score : float
+        Mean CV balanced accuracy
+    """
+
+    X = np.asarray(X)
+    y = np.asarray(y).ravel()
+    groups = np.asarray(groups)
+
+    cv_splitter = StratifiedGroupKFold(
+        n_splits=cv, shuffle=True, random_state=random_state
+    )
+
+    best_n, best_score = None, -np.inf
+
+    for n in n_list:
+        fold_scores = []
+
+        for tr, va in cv_splitter.split(X, y, groups):
+            # ---- PLS embedding (trained ONLY on train fold subjects)
+            emb = PLSBinaryEmbedder(n_components=n, scale=True)
+            Ztr = emb.fit_transform(X[tr], y[tr])
+            Zva = emb.transform(X[va])
+
+            # ---- classifier in latent space
+            clf = make_pipeline(
+                StandardScaler(),
+                SVC(kernel="rbf", C=1.0, gamma="scale"),
+            )
+            clf.fit(Ztr, y[tr])
+            pred = clf.predict(Zva)
+
+            fold_scores.append(balanced_accuracy_score(y[va], pred))
+
+        mean_score = float(np.mean(fold_scores))
+
+        if mean_score > best_score:
+            best_score = mean_score
+            best_n = n
+
+    return best_n, best_score
+
+
 def embed_dFC_features(
     train_subjects,
     test_subjects,
@@ -977,7 +1109,7 @@ def embed_dFC_features(
     measure_is_state_based=False,
 ):
     """
-    Embed the dFC features into a lower dimensional space using PCA or LE. For LE, it assumes that the samples of the same subject are contiguous.
+    Embed the dFC features into a lower dimensional space using PCA,  or PLS. For PLS, it assumes that the samples of the same subject are contiguous.
 
     for LE, first the LE is applied on each subj separately and then the procrustes transformation is applied to align the embeddings of different subjects.
     All the subjects are transformed into the space of the subject with the highest silhouette score.
@@ -1002,6 +1134,26 @@ def embed_dFC_features(
             X_test_embed = pca.transform(X_test)
         else:
             X_test_embed = None
+    elif embedding == "PLS":
+        # center the data by subject before PLS to remove subject effects
+        X_train_c = subject_center(X_train, subj_label_train, mode="zscore")
+        X_test_c = subject_center(X_test, subj_label_test, mode="zscore")
+        # if n_components is not specified, select it using subject-aware CV on the training set
+        if n_components == "auto":
+            best_n, _ = select_pls_components_binary_groupcv(
+                X_train_c,
+                y_train,
+                subj_label_train,
+                n_list=range(10, 60, 10),  # you can adjust this range based on your data
+                cv=5,  # more stable
+            )
+            n_components = best_n
+
+        pls = PLSBinaryEmbedder(n_components=n_components, scale=True)
+        # fit on train set
+        X_train_embed = pls.fit_transform(X_train_c, y_train)
+        # only transform test set
+        X_test_embed = pls.transform(X_test_c)
     elif embedding == "LE":
         # if the dFC features are not unique (state-based), set the LE_embedding_method to "concat+embed"
         if measure_is_state_based:
@@ -1064,6 +1216,8 @@ def embed_dFC_features(
                 X_test_embed = X_concat_embed[X_train.shape[0] :, :]
             else:
                 X_test_embed = None
+    else:
+        raise ValueError(f"Unknown embedding method: {embedding}")
 
     # to make computation faster, we can return the embeddings as float32
     X_train_embed = X_train_embed.astype(np.float32, copy=False)
@@ -1611,7 +1765,7 @@ def task_presence_classification(
 
     check_count = 2
     num_excluded_subjects = 0
-    for embedding in ["PCA", "LE"]:
+    for embedding in ["PCA", "PLS"]:
         if measure_is_state_based:
             X_train_embedded = process_SB_features(X=X_train, measure_name=measure_name)
             X_test_embedded = process_SB_features(X=X_test, measure_name=measure_name)
@@ -1852,7 +2006,7 @@ def task_presence_clustering(
         FCS_proba_for_SB=True,  # for state-based dFC features, we use FCS_proba
     )
 
-    clustering_RESULTS = {"PCA": {}, "LE": {}}
+    clustering_RESULTS = {"PCA": {}, "PLS": {}}
     clustering_scores = {
         "subj_id": list(),
         "task": list(),
@@ -1862,7 +2016,7 @@ def task_presence_clustering(
         "SI": list(),
         "embedding": list(),
     }
-    for embedding in ["PCA", "LE"]:
+    for embedding in ["PCA", "PLS"]:
         # embed dFC features
         # if the number of features is smaller than 25, we assume that dimensionality reduction is not needed
         # specially for state-based dFC features, the number of features is equal to the number of states
