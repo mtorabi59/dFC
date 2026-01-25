@@ -24,15 +24,22 @@ from sklearn.metrics import (
     balanced_accuracy_score,
     confusion_matrix,
     f1_score,
+    mean_squared_error,
     precision_score,
+    r2_score,
     recall_score,
     silhouette_score,
 )
-from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold, StratifiedKFold
+from sklearn.model_selection import (
+    GridSearchCV,
+    GroupKFold,
+    StratifiedGroupKFold,
+    StratifiedKFold,
+)
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors, kneighbors_graph
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
+from sklearn.svm import SVC, SVR
 from sklearn.utils import shuffle
 
 from .dfc_utils import dFC_mat2vec, dFC_vec2mat, rank_norm
@@ -962,13 +969,13 @@ def rows_look_redundant(X, sample=100):
     return (len(h) - len(set(h))) / len(h) > 0.5
 
 
-class PLSBinaryEmbedder:
+class PLSEmbedder:
     """
     Supervised dimensionality reduction using PLSRegression for binary labels.
     Produces low-dim 'scores' features for downstream classifiers.
 
     Usage:
-        pls = PLSBinaryEmbedder(n_components=10)
+        pls = PLSEmbedder(n_components=10)
         Z_train = pls.fit_transform(X_train, y_train)
         Z_test  = pls.transform(X_test)
     """
@@ -1008,7 +1015,7 @@ class PLSBinaryEmbedder:
 
     def transform(self, X):
         if self.model_ is None:
-            raise RuntimeError("PLSBinaryEmbedder is not fitted yet.")
+            raise RuntimeError("PLSEmbedder is not fitted yet.")
         X = np.asarray(X)
 
         Xs = self.scaler_.transform(X) if self.scale else X
@@ -1075,7 +1082,7 @@ def select_pls_components_binary_groupcv(
 
         for tr, va in cv_splitter.split(X, y, groups):
             # ---- PLS embedding (trained ONLY on train fold subjects)
-            emb = PLSBinaryEmbedder(n_components=n, scale=True)
+            emb = PLSEmbedder(n_components=n, scale=True)
             Ztr = emb.fit_transform(X[tr], y[tr])
             Zva = emb.transform(X[va])
 
@@ -1098,6 +1105,77 @@ def select_pls_components_binary_groupcv(
     return best_n, best_score
 
 
+def select_pls_components_continuous_groupcv(
+    X,
+    y,
+    groups,
+    n_list=(2, 5, 10, 15, 20),
+    cv=3,
+    score="r2",  # "r2" or "neg_mse"
+):
+    """
+    Select number of PLS components using subject-aware CV for a CONTINUOUS target.
+
+    Parameters
+    ----------
+    X : array (n_samples, n_features)
+    y : array (n_samples,) continuous target
+    groups : array (n_samples,) subject IDs
+    n_list : iterable of candidate n_components
+    cv : number of folds
+    score : "r2" or "neg_mse"
+
+    Returns
+    -------
+    best_n : int
+        Selected number of PLS components
+    best_score : float
+        Mean CV score (higher is better)
+        - R² if score="r2"
+        - negative MSE if score="neg_mse"
+    """
+
+    X = np.asarray(X)
+    y = np.asarray(y).ravel()  # regression target must be 1D for SVR
+    groups = np.asarray(groups)
+
+    if score not in ("r2", "neg_mse"):
+        raise ValueError("score must be 'r2' or 'neg_mse'.")
+
+    cv_splitter = GroupKFold(n_splits=cv)
+
+    best_n, best_score = None, -np.inf
+
+    for n in n_list:
+        fold_scores = []
+
+        for tr, va in cv_splitter.split(X, y, groups):
+            # ---- PLS embedding (trained ONLY on train fold subjects)
+            emb = PLSEmbedder(n_components=n, scale=True)
+            # PLSRegression expects y 2D
+            Ztr = emb.fit_transform(X[tr], y[tr].reshape(-1, 1))
+            Zva = emb.transform(X[va])
+
+            # ---- regressor in latent space
+            reg = make_pipeline(
+                StandardScaler(),
+                SVR(kernel="rbf", C=1.0, gamma="scale"),
+            )
+            reg.fit(Ztr, y[tr])
+            pred = reg.predict(Zva)
+
+            if score == "r2":
+                fold_scores.append(r2_score(y[va], pred))
+            else:
+                fold_scores.append(-mean_squared_error(y[va], pred))
+
+        mean_score = float(np.mean(fold_scores))
+        if mean_score > best_score:
+            best_score, best_n = mean_score, n
+
+    return best_n, best_score
+
+
 def embed_dFC_features(
     train_subjects,
     test_subjects,
@@ -1112,6 +1190,7 @@ def embed_dFC_features(
     n_neighbors_LE=125,
     LE_embedding_method="embed+procrustes",
     measure_is_state_based=False,
+    y_continuous=False,
 ):
     """
     Embed the dFC features into a lower dimensional space using PCA,  or PLS. For PLS, it assumes that the samples of the same subject are contiguous.
@@ -1145,16 +1224,30 @@ def embed_dFC_features(
         X_test_c = subject_center(X_test, subj_label_test, mode="zscore")
         # if n_components is not specified, select it using subject-aware CV on the training set
         if n_components == "auto":
-            best_n, _ = select_pls_components_binary_groupcv(
-                X_train_c,
-                y_train,
-                subj_label_train,
-                n_list=range(10, 60, 10),  # you can adjust this range based on your data
-                cv=5,  # more stable
-            )
+            if y_continuous:
+                best_n, _ = select_pls_components_continuous_groupcv(
+                    X=X_train_c,
+                    y=y_train,
+                    groups=subj_label_train,
+                    n_list=range(
+                        10, 60, 10
+                    ),  # you can adjust this range based on your data
+                    cv=5,  # more stable
+                    score="r2",
+                )
+            else:
+                best_n, _ = select_pls_components_binary_groupcv(
+                    X=X_train_c,
+                    y=y_train,
+                    groups=subj_label_train,
+                    n_list=range(
+                        10, 60, 10
+                    ),  # you can adjust this range based on your data
+                    cv=5,  # more stable
+                )
             n_components = best_n
 
-        pls = PLSBinaryEmbedder(n_components=n_components, scale=True)
+        pls = PLSEmbedder(n_components=n_components, scale=True)
         # fit on train set
         X_train_embed = pls.fit_transform(X_train_c, y_train)
         # only transform test set
