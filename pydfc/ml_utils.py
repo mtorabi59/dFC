@@ -982,10 +982,15 @@ class PLSBinaryEmbedder:
 
     def fit(self, X, y):
         X = np.asarray(X)
-        y = np.asarray(y).ravel()
+        y = np.asarray(y)
 
-        # enforce 0/1
-        y01 = (y > 0).astype(float).reshape(-1, 1)
+        if y.ndim == 1:
+            y = y.reshape(-1, 1)
+        elif y.ndim == 2:
+            if y.shape[0] != X.shape[0]:
+                raise ValueError(f"y has shape {y.shape} but X has shape {X.shape}.")
+        else:
+            raise ValueError("y must be 1D or 2D.")
 
         if self.scale:
             self.scaler_ = StandardScaler(with_mean=True, with_std=True)
@@ -994,7 +999,7 @@ class PLSBinaryEmbedder:
             Xs = X
 
         self.model_ = PLSRegression(n_components=self.n_components, scale=False)
-        self.model_.fit(Xs, y01)
+        self.model_.fit(Xs, y)
         return self
 
     def fit_transform(self, X, y):
