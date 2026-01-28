@@ -575,60 +575,71 @@ def generalized_procrustes(X_embed_dict, max_iter=1000, tol=1e-6):
     raise RuntimeError("Generalized Procrustes Analysis did not converge.")
 
 
-def twonn(X, discard_ratio=0.1):
+def twonn(X, discard_ratio=0.1, n_neighbors=30, eps=1e-12, metric="euclidean"):
     """
-    Calculates intrinsic dimension of the provided data points with the TWO-NN algorithm.
+    TWO-NN intrinsic dimension estimator.
 
-    -----------
-    Parameters:
+    Parameters
+    ----------
+    X : (n_samples, n_features)
+    discard_ratio : float in [0,1)
+        Fraction of largest mu values to discard (tail trimming).
+    n_neighbors : int
+        Number of neighbors to query (must be >= 3 ideally, and <= n_samples-1).
+    eps : float
+        Numerical tolerance for filtering mu values.
+    metric : str
+        Distance metric for NearestNeighbors.
 
-    X : 2d array-like
-        (n_samples, n_features)
-    discard_fraction : float between 0 and 1
-        Fraction of largest distances to discard (heuristic from the paper)
-
-    Returns:
-
+    Returns
+    -------
     d : float
-        Intrinsic dimension of the dataset according to TWO-NN.
+        Estimated intrinsic dimension.
     """
+    X = np.asarray(X)
+    n = X.shape[0]
+    if n < 5:
+        raise ValueError("TWO-NN needs more samples (n >= 5 is a practical minimum).")
 
-    num_samples = X.shape[0]
+    k = int(min(max(n_neighbors, 3), n - 1))  # at least 3, at most n-1
 
-    NN = NearestNeighbors(n_neighbors=30)
-    NN.fit(X)
-    distances, _ = NN.kneighbors(return_distance=True)
+    nn = NearestNeighbors(n_neighbors=k, metric=metric)
+    nn.fit(X)
+    distances, _ = nn.kneighbors(X, return_distance=True)
 
-    mu = np.zeros((num_samples))
-    for i in range(num_samples):
-        # find the two nearest neighbors that have
-        # different distances and the distance is not 0
-        r1, r2 = None, None
-        for j in range(distances.shape[1]):
-            if distances[i, j] != 0:
-                if r1 is None:
-                    r1 = distances[i, j]
-                elif distances[i, j] != r1:
-                    r2 = distances[i, j]
-                    break
-        if r1 is not None and r2 is not None:
+    mu = np.full(n, np.nan, dtype=float)
+
+    for i in range(n):
+        # distances[i, 0] is typically 0 (self). Find first two *positive* distances
+        pos = distances[i][distances[i] > eps]
+        if pos.size >= 2:
+            r1, r2 = pos[0], pos[1]
             mu[i] = r2 / r1
-        else:
-            mu[i] = np.nan
 
-    # discard NaN values
-    mu = mu[~np.isnan(mu)]
-    # large distances will cause the estimation to be biased, discard them
-    mu = mu[np.argsort(mu)[: int((1 - discard_ratio) * num_samples)]]
+    mu = mu[np.isfinite(mu)]
+    mu = mu[mu > 1.0 + eps]  # avoid log(1)=0 edge cases
 
-    # CDF
-    CDF = np.arange(1, 1 + len(mu)) / num_samples
-    # Fit the formula: log(1 - CDF) = d * log(mu)
+    if mu.size < 5:
+        raise ValueError(
+            "Too few valid mu values after filtering; check duplicates / ties / eps."
+        )
+
+    # discard upper tail (largest mu)
+    mu.sort()
+    keep = int(np.floor((1.0 - discard_ratio) * mu.size))
+    keep = max(5, keep)  # don't keep too few
+    mu = mu[:keep]
+
+    N = mu.size
+    # plotting positions; i/(N+1) is common and avoids CDF=1 exactly
+    F = np.arange(1, N + 1) / (N + 1.0)
+
+    x = np.log(mu).reshape(-1, 1)
+    y = (-np.log(1.0 - F)).reshape(-1, 1)
+
     lr = LinearRegression(fit_intercept=False)
-    lr.fit(np.log(mu).reshape(-1, 1), -np.log(1 - CDF).reshape(-1, 1))
-    d = lr.coef_[0][0]
-
-    return d
+    lr.fit(x, y)
+    return float(lr.coef_[0, 0])
 
 
 def SI_ID(
@@ -724,8 +735,10 @@ def find_intrinsic_dim(
         intrinsic_dim_all = list()
         for subject in subjects:
             X_subj = X[subj_label == subject, :]
-            intrinsic_dim_all.append(twonn(X_subj, discard_ratio=0.1))
-        intrinsic_dim = int(np.mean(intrinsic_dim_all))
+            intrinsic_dim_all.append(
+                twonn(X_subj, discard_ratio=0.1, metric="correlation")
+            )
+        intrinsic_dim = int(np.median(intrinsic_dim_all))
     return intrinsic_dim
 
 
@@ -735,20 +748,14 @@ def LE_transform(X, n_components, n_neighbors, distance_metric="euclidean"):
 
     if n_neighbors >= n_samples, n_neighbors will be changed to the lower limit n_neighbors
     """
-    min_n_neighbors = 70
+    n_neighbors_upper = int(X.shape[0] / 8)
 
-    if n_neighbors >= X.shape[0]:
-        if min_n_neighbors >= X.shape[0]:
-            n_neighbors_to_be_used = int(X.shape[0] * 2 / 3)
-            warnings.warn(
-                f"number of samples is less than {min_n_neighbors}. n_neighbors is set to {n_neighbors_to_be_used}."
-            )
-        else:
-            n_neighbors_to_be_used = min_n_neighbors
-            # raise a warning
-            warnings.warn(
-                f"n_neighbors is larger than the number of samples. n_neighbors is set to the minimum value of {min_n_neighbors}."
-            )
+    if n_neighbors > n_neighbors_upper:
+        n_neighbors_to_be_used = n_neighbors_upper
+        # raise a warning
+        warnings.warn(
+            f"n_neighbors is larger than the limit. n_neighbors is set to {n_neighbors_to_be_used}."
+        )
     else:
         n_neighbors_to_be_used = n_neighbors
 
@@ -822,6 +829,12 @@ def LE_embed_procustes(
     n_neighbors_LE=125,
     procruste_method="best_SI",
 ):
+    procrustes_limit = int(np.sqrt(2 * X_train.shape[0]))
+    if n_components > procrustes_limit:
+        warnings.warn(
+            f"n_components ({n_components}) is larger than the limit for procrustes method ({procrustes_limit}). Setting n_components to {procrustes_limit}."
+        )
+        n_components = procrustes_limit - 1
     if procruste_method == "best_SI":
         # first embed the dFC features of each subject into a lower dimensional space using LE separately
         embed_dict = {}
@@ -1262,12 +1275,28 @@ def embed_dFC_features(
                 LE_embedding_method = "concat+embed"
         # if n_components is not specified, find the intrinsic dimension of the data using training set and based on the silhouette score
         if n_components == "auto":
-            if X_train.shape[1] < 7:
-                search_range_SI = range(2, X_train.shape[1] + 1)
-            elif X_train.shape[1] < 24:
-                search_range_SI = range(2, X_train.shape[1] + 1, 2)
+            if LE_embedding_method == "embed+procrustes":
+                # find the list of time lengths across subjects
+                n_time_across_subj = [
+                    np.sum(subj_label_train == subj) for subj in train_subjects
+                ]
+                # find the minimum time length across subjects
+                min_time_length = min(n_time_across_subj)
+                # set the search range based on the minimum time length
+                procrustes_limit = int(np.sqrt(2 * min_time_length))
+                if procrustes_limit < 50 and procrustes_limit > 10:
+                    search_range_SI = range(2, procrustes_limit, 2)
+                elif procrustes_limit <= 10:
+                    search_range_SI = range(2, procrustes_limit)
+                else:
+                    search_range_SI = range(2, 50, 5)
             else:
-                search_range_SI = range(2, 50, 5)
+                if X_train.shape[0] < 7:
+                    search_range_SI = range(2, X_train.shape[1] + 1)
+                elif X_train.shape[1] < 24:
+                    search_range_SI = range(2, X_train.shape[1] + 1, 2)
+                else:
+                    search_range_SI = range(2, 50, 5)
             n_components = find_intrinsic_dim(
                 X=X_train,
                 y=y_train,
