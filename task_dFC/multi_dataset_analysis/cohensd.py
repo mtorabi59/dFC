@@ -26,19 +26,28 @@ if __name__ == "__main__":
     parser.add_argument(
         "--multi_dataset_info", type=str, help="path to multi-dataset info file"
     )
+    parser.add_argument(
+        "--simul_or_real", type=str, help="Specify 'simulated' or 'real' data"
+    )
 
     args = parser.parse_args()
 
     multi_dataset_info = args.multi_dataset_info
+    simul_or_real = args.simul_or_real
 
     # Read dataset info
     with open(multi_dataset_info, "r") as f:
         multi_dataset_info = json.load(f)
 
-    main_root = multi_dataset_info["real_data"]["main_root"]
-    DATASETS = multi_dataset_info["real_data"]["DATASETS"]
-    TASKS_to_include = multi_dataset_info["real_data"]["TASKS_to_include"]
-    output_root = f"{multi_dataset_info['output_root']}/CohensD"
+    if simul_or_real == "real":
+        main_root = multi_dataset_info["real_data"]["main_root"]
+        DATASETS = multi_dataset_info["real_data"]["DATASETS"]
+        TASKS_to_include = multi_dataset_info["real_data"]["TASKS_to_include"]
+    elif simul_or_real == "simulated":
+        main_root = multi_dataset_info["simulated_data"]["main_root"]
+        DATASETS = multi_dataset_info["simulated_data"]["DATASETS"]
+        TASKS_to_include = multi_dataset_info["simulated_data"]["TASKS_to_include"]
+    output_root = f"{multi_dataset_info['output_root']}/CohensD/{simul_or_real}"
 
     if not os.path.exists(output_root):
         os.makedirs(output_root)
@@ -175,95 +184,96 @@ if __name__ == "__main__":
             CohensD_across_task["ROI"].extend(BOLD.node_labels)
 
             # plot d values on a glass brain
-            coords = BOLD.locs
+            if simul_or_real == "real":
+                coords = BOLD.locs
 
-            template_img = datasets.load_mni152_template()
-            data = np.zeros(template_img.shape)
-            affine = template_img.affine
+                template_img = datasets.load_mni152_template()
+                data = np.zeros(template_img.shape)
+                affine = template_img.affine
 
-            # Create a small sphere for each coordinate
-            radius = 5  # in voxels
-            for c, d in zip(coords, avg_d_values):
-                ijk = np.round(nib.affines.apply_affine(np.linalg.inv(affine), c)).astype(
-                    int
+                # Create a small sphere for each coordinate
+                radius = 5  # in voxels
+                for c, d in zip(coords, avg_d_values):
+                    ijk = np.round(
+                        nib.affines.apply_affine(np.linalg.inv(affine), c)
+                    ).astype(int)
+                    x, y, z = ijk
+                    for i in range(-radius, radius + 1):
+                        for j in range(-radius, radius + 1):
+                            for k in range(-radius, radius + 1):
+                                if i**2 + j**2 + k**2 <= radius**2:
+                                    xi, yj, zk = x + i, y + j, z + k
+                                    if (
+                                        (0 <= xi < data.shape[0])
+                                        and (0 <= yj < data.shape[1])
+                                        and (0 <= zk < data.shape[2])
+                                    ):
+                                        data[xi, yj, zk] = d
+
+                d_img = nib.Nifti1Image(data, affine)
+
+                plotting.plot_glass_brain(
+                    d_img,
+                    display_mode="ortho",
+                    colorbar=True,
+                    plot_abs=False,
+                    cmap="coolwarm",
+                    vmax=np.max(avg_d_values),
                 )
-                x, y, z = ijk
-                for i in range(-radius, radius + 1):
-                    for j in range(-radius, radius + 1):
-                        for k in range(-radius, radius + 1):
-                            if i**2 + j**2 + k**2 <= radius**2:
-                                xi, yj, zk = x + i, y + j, z + k
-                                if (
-                                    (0 <= xi < data.shape[0])
-                                    and (0 <= yj < data.shape[1])
-                                    and (0 <= zk < data.shape[2])
-                                ):
-                                    data[xi, yj, zk] = d
 
-            d_img = nib.Nifti1Image(data, affine)
+                plt.savefig(
+                    f"{output_root}/cohensd_region_{task}.png",
+                    dpi=120,
+                    bbox_inches="tight",
+                    pad_inches=0.1,
+                    format="png",
+                )
 
-            plotting.plot_glass_brain(
-                d_img,
-                display_mode="ortho",
-                colorbar=True,
-                plot_abs=False,
-                cmap="coolwarm",
-                vmax=np.max(avg_d_values),
-            )
+                plt.close()
 
-            plt.savefig(
-                f"{output_root}/cohensd_region_{task}.png",
-                dpi=120,
-                bbox_inches="tight",
-                pad_inches=0.1,
-                format="png",
-            )
+                # Load Schaefer atlas (100 parcels)
+                schaefer = datasets.fetch_atlas_schaefer_2018(n_rois=100)
 
-            plt.close()
+                # atlas_img is the path to the NIfTI file; load it
+                atlas_img = nib.load(schaefer["maps"])
+                labels = schaefer["labels"]  # list of labels
+                labels = [label.decode() for label in labels]
+                # check that the labels match BOLD.node_labels
+                assert all(
+                    i == j for i, j in zip(labels, BOLD.node_labels)
+                ), "Labels do not match!"
 
-            # Load Schaefer atlas (100 parcels)
-            schaefer = datasets.fetch_atlas_schaefer_2018(n_rois=100)
+                atlas_data = atlas_img.get_fdata()
+                cohen_img_data = np.zeros(atlas_data.shape)
 
-            # atlas_img is the path to the NIfTI file; load it
-            atlas_img = nib.load(schaefer["maps"])
-            labels = schaefer["labels"]  # list of labels
-            labels = [label.decode() for label in labels]
-            # check that the labels match BOLD.node_labels
-            assert all(
-                i == j for i, j in zip(labels, BOLD.node_labels)
-            ), "Labels do not match!"
+                for i, d in enumerate(avg_d_values):
+                    cohen_img_data[atlas_data == (i + 1)] = d  # labels start from 1
 
-            atlas_data = atlas_img.get_fdata()
-            cohen_img_data = np.zeros(atlas_data.shape)
+                cohen_img = nib.Nifti1Image(cohen_img_data, affine=atlas_img.affine)
 
-            for i, d in enumerate(avg_d_values):
-                cohen_img_data[atlas_data == (i + 1)] = d  # labels start from 1
+                plotting.plot_glass_brain(
+                    cohen_img,
+                    display_mode="ortho",
+                    colorbar=True,
+                    cmap="coolwarm",
+                    plot_abs=False,
+                    vmax=np.max(avg_d_values),
+                )
 
-            cohen_img = nib.Nifti1Image(cohen_img_data, affine=atlas_img.affine)
+                plt.savefig(
+                    f"{output_root}/cohensd_voxel_{task}.png",
+                    dpi=120,
+                    bbox_inches="tight",
+                    pad_inches=0.1,
+                    format="png",
+                )
 
-            plotting.plot_glass_brain(
-                cohen_img,
-                display_mode="ortho",
-                colorbar=True,
-                cmap="coolwarm",
-                plot_abs=False,
-                vmax=np.max(avg_d_values),
-            )
-
-            plt.savefig(
-                f"{output_root}/cohensd_voxel_{task}.png",
-                dpi=120,
-                bbox_inches="tight",
-                pad_inches=0.1,
-                format="png",
-            )
-
-            plt.close()
+                plt.close()
 
     # --- Across-task correlation with ML performance (ABSOLUTE Cohen's d) ---
     # Load ALL_ML_SCORES
     ALL_ML_SCORES = np.load(
-        f"{multi_dataset_info['output_root']}/ML_results/ALL_ML_SCORES_real.npy",
+        f"{multi_dataset_info['output_root']}/ML_results/ALL_ML_SCORES_{simul_or_real}.npy",
         allow_pickle=True,
     ).item()
 

@@ -30,11 +30,8 @@ if [ ! -f "$SCRIPT_PATH" ]; then
 fi
 
 case "$SCRIPT_NAME" in
-  performance_predict.py | ml_results.py | dfc_visualization.py | LE_embedding_visualization.py | sample_matrix_visualization.py | task_presence_binarization.py | task_timing_stats.py)
+  performance_predict.py | ml_results.py | dfc_visualization.py | LE_embedding_visualization.py | sample_matrix_visualization.py | task_presence_binarization.py | task_timing_stats.py | cohensd.py)
     python "$SCRIPT_PATH" --multi_dataset_info "$MULTI_DATASET_INFO" --simul_or_real "$SIMUL_OR_REAL"
-    ;;
-  cohensd.py)
-    python "$SCRIPT_PATH" --multi_dataset_info "$MULTI_DATASET_INFO"
     ;;
   *)
     echo "Unknown script: $SCRIPT_NAME"
