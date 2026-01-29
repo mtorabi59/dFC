@@ -689,6 +689,143 @@ def SI_ID(
     return intrinsic_dim
 
 
+import numpy as np
+from sklearn.neighbors import NearestNeighbors
+
+
+def localpca_intrinsic_dim(
+    X,
+    k=20,
+    method="explained_var",  # "explained_var" or "eigengap"
+    var_threshold=0.9,  # used for explained_var
+    max_dim=None,  # cap returned dim (optional)
+    center=True,
+    metric="euclidean",
+    random_state=0,
+    agg="median",  # "median", "mean", "trimmed_mean"
+    trim=0.1,  # used if agg="trimmed_mean"
+    eps=1e-12,
+):
+    """
+    Local PCA intrinsic dimension estimation.
+
+    Parameters
+    ----------
+    X : (n_samples, n_features)
+    k : int
+        Neighborhood size (kNN). Must be < n_samples.
+    method : str
+        "explained_var": choose smallest d achieving cumulative variance >= var_threshold
+        "eigengap": choose d maximizing eigenvalue ratio lambda_d / lambda_{d+1}
+    var_threshold : float
+        Threshold for explained_var method.
+    max_dim : int or None
+        Max dimension to consider/return; defaults to min(n_features, k-1).
+    center : bool
+        Whether to mean-center each neighborhood before PCA.
+    metric : str
+        Metric for kNN graph.
+    agg : str
+        Aggregation across points: "median", "mean", "trimmed_mean"
+    trim : float
+        Trimming fraction for trimmed_mean.
+    eps : float
+        Numerical stability.
+
+    Returns
+    -------
+    d_global : float
+        Aggregated intrinsic dimension estimate.
+    d_local : (n_samples,) int
+        Local dimension estimates.
+    """
+    X = np.asarray(X, dtype=float)
+    n, D = X.shape
+    if n < 5:
+        raise ValueError("Need more samples for localPCA ID.")
+    if k >= n:
+        raise ValueError(f"k must be < n_samples (got k={k}, n={n}).")
+
+    # Choose max_dim limit
+    max_possible = min(D, k - 1)  # local covariance rank limited by k-1 if centered
+    if max_dim is None:
+        max_dim = max_possible
+    else:
+        max_dim = int(min(max_dim, max_possible))
+        max_dim = max(1, max_dim)
+
+    # kNN indices (exclude self by requesting k+1 and dropping first)
+    nn = NearestNeighbors(n_neighbors=k + 1, metric=metric)
+    nn.fit(X)
+    _, idx = nn.kneighbors(X, return_distance=True)
+    nbrs = idx[:, 1:]  # (n, k)
+
+    d_local = np.zeros(n, dtype=int)
+
+    for i in range(n):
+        Xi = X[nbrs[i]]  # (k, D)
+        if center:
+            Xi = Xi - Xi.mean(axis=0, keepdims=True)
+
+        # PCA via SVD of neighborhood matrix
+        # Xi = U S Vt ; singular values S relate to eigenvalues of covariance
+        # covariance eigenvalues proportional to (S^2) / (k-1)
+        # we can work directly with S^2
+        try:
+            # full_matrices=False keeps it fast
+            _, S, _ = np.linalg.svd(Xi, full_matrices=False)
+        except np.linalg.LinAlgError:
+            d_local[i] = 1
+            continue
+
+        lam = S**2  # proportional to variance along PCs
+        if lam.size == 0:
+            d_local[i] = 1
+            continue
+
+        lam = lam[: max_dim + 1]  # for eigengap need d and d+1
+        lam = np.maximum(lam, eps)
+
+        if method == "explained_var":
+            lam_use = lam[:max_dim]
+            cum = np.cumsum(lam_use)
+            total = cum[-1]
+            if total <= eps:
+                d_local[i] = 1
+            else:
+                frac = cum / total
+                d_local[i] = int(np.searchsorted(frac, var_threshold) + 1)
+
+        elif method == "eigengap":
+            # need ratios up to max_dim-1: lam[d-1]/lam[d]
+            lam_use = lam[: max_dim + 1]  # ensures lam[d] exists
+            if lam_use.size < 2:
+                d_local[i] = 1
+            else:
+                ratios = lam_use[:-1] / lam_use[1:]
+                # pick d that maximizes ratio, d in [1..max_dim]
+                d_local[i] = int(np.argmax(ratios) + 1)
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
+    # aggregate
+    if agg == "median":
+        d_global = float(np.median(d_local))
+    elif agg == "mean":
+        d_global = float(np.mean(d_local))
+    elif agg == "trimmed_mean":
+        d_sorted = np.sort(d_local)
+        m = len(d_sorted)
+        lo = int(np.floor(trim * m))
+        hi = int(np.ceil((1 - trim) * m))
+        hi = max(hi, lo + 1)
+        d_global = float(np.mean(d_sorted[lo:hi]))
+    else:
+        raise ValueError(f"Unknown agg: {agg}")
+
+    return d_global, d_local
+
+
 def find_intrinsic_dim(
     X,
     y,
@@ -704,7 +841,7 @@ def find_intrinsic_dim(
     Find the number of components to use for embedding the data using LE.
     Find the average intrinsic dimension across all subjects.
 
-    method: "SI" or "twonn"
+    method: "SI" or "twonn" or "localpca"
 
     Returns:
     intrinsic_dim: number of components to use for embedding
@@ -738,6 +875,35 @@ def find_intrinsic_dim(
             intrinsic_dim_all.append(
                 twonn(X_subj, discard_ratio=0.1, metric="correlation")
             )
+        intrinsic_dim = int(np.median(intrinsic_dim_all))
+    elif method == "localpca":
+        intrinsic_dim_all = list()
+        for subject in subjects:
+            X_subj = X[subj_label == subject, :]
+            intrinsic_dim_diff_k = list()
+            # seatryrch 0.2 * X_subj.shape[0] and 0.3 * X_subj.shape[0] for k
+            for k in range(
+                int(0.1 * X_subj.shape[0]),
+                int(0.3 * X_subj.shape[0]),
+                5,
+            ):
+                try:
+                    d_global, _ = localpca_intrinsic_dim(
+                        X_subj,
+                        k=k,
+                        method="explained_var",
+                        var_threshold=0.9,
+                        center=True,
+                        metric="correlation",
+                        agg="median",
+                    )
+                    intrinsic_dim_diff_k.append(d_global)
+                except Exception as e:
+                    warnings.warn(
+                        f"Error in localpca_intrinsic_dim for subject {subject} with k={k}: {e}."
+                    )
+                    continue
+            intrinsic_dim_all.append(int(np.mean(intrinsic_dim_diff_k)))
         intrinsic_dim = int(np.median(intrinsic_dim_all))
     return intrinsic_dim
 
@@ -1242,9 +1408,19 @@ def embed_dFC_features(
                     X=X_train_c,
                     y=y_train,
                     groups=subj_label_train,
-                    n_list=range(
-                        10, 60, 10
-                    ),  # you can adjust this range based on your data
+                    n_list=[
+                        2,
+                        3,
+                        4,
+                        5,
+                        10,
+                        15,
+                        20,
+                        25,
+                        30,
+                        40,
+                        50,
+                    ],  # you can adjust this range based on your data
                     cv=5,  # more stable
                     score="r2",
                 )
@@ -1253,9 +1429,19 @@ def embed_dFC_features(
                     X=X_train_c,
                     y=y_train,
                     groups=subj_label_train,
-                    n_list=range(
-                        10, 60, 10
-                    ),  # you can adjust this range based on your data
+                    n_list=[
+                        2,
+                        3,
+                        4,
+                        5,
+                        10,
+                        15,
+                        20,
+                        25,
+                        30,
+                        40,
+                        50,
+                    ],  # you can adjust this range based on your data
                     cv=5,  # more stable
                 )
             n_components = best_n
@@ -1302,7 +1488,7 @@ def embed_dFC_features(
                 y=y_train,
                 subj_label=subj_label_train,
                 subjects=train_subjects,
-                method="SI",
+                method="localpca",
                 n_neighbors_LE=n_neighbors_LE,
                 search_range_SI=search_range_SI,
                 LE_embedding_method=LE_embedding_method,
