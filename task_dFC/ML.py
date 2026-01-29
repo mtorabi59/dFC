@@ -6,12 +6,7 @@ import traceback
 import numpy as np
 from joblib import Parallel, delayed
 
-from pydfc.ml_utils import (
-    cluster_for_visual,
-    extract_task_features,
-    task_presence_classification,
-    task_presence_clustering,
-)
+from pydfc.ml_utils import extract_task_features, task_presence_classification
 
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -153,139 +148,6 @@ def run_classification(
         np.save(f"{folder}/ML_scores_classify_{dFC_id}.npy", ML_scores)
 
 
-def run_clustering(
-    dFC_id,
-    TASKS,
-    RUNS,
-    SESSIONS,
-    roi_root,
-    dFC_root,
-    output_root,
-    normalize_dFC=True,
-):
-    for session in SESSIONS:
-        if not session is None:
-            print(f"=================== {session} ===================")
-        clustering_scores = {
-            "subj_id": list(),
-            "task": list(),
-            "run": list(),
-            "dFC method": list(),
-            "Kmeans ARI": list(),
-            "SI": list(),
-            "embedding": list(),
-        }
-
-        clustering_RESULTS = {}
-        for task_id, task in enumerate(TASKS):
-            clustering_RESULTS[task] = {}
-            for run in RUNS[task]:
-                try:
-                    clustering_RESULTS_new, clustering_scores_new = (
-                        task_presence_clustering(
-                            task=task,
-                            dFC_id=dFC_id,
-                            roi_root=roi_root,
-                            dFC_root=dFC_root,
-                            run=run,
-                            session=session,
-                            normalize_dFC=normalize_dFC,
-                        )
-                    )
-                    if run is None:
-                        clustering_RESULTS[task] = clustering_RESULTS_new
-                    else:
-                        clustering_RESULTS[task][run] = clustering_RESULTS_new
-                    for key in clustering_scores:
-                        clustering_scores[key].extend(clustering_scores_new[key])
-                except Exception as e:
-                    print(
-                        f"Error in task presence clustering for {session} {task} {run}: {e}"
-                    )
-                    traceback.print_exc()
-
-        if session is None:
-            folder = f"{output_root}/clustering"
-        else:
-            folder = f"{output_root}/clustering/{session}"
-        try:
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-        except OSError as err:
-            print(err)
-        np.save(f"{folder}/clustering_RESULTS_{dFC_id}.npy", clustering_RESULTS)
-
-        np.save(f"{folder}/clustering_scores_{dFC_id}.npy", clustering_scores)
-
-
-def run_clustering_for_visual(
-    dFC_id,
-    TASKS,
-    RUNS,
-    SESSIONS,
-    roi_root,
-    dFC_root,
-    output_root,
-    normalize_dFC=True,
-):
-    for session in SESSIONS:
-        if not session is None:
-            print(f"=================== {session} ===================")
-
-        for task_id, task in enumerate(TASKS):
-            for run in RUNS[task]:
-                try:
-                    (
-                        centroids_mat,
-                        measure_name,
-                        co_occurrence_matrix,
-                        cluster_label_percentage,
-                        task_label_percentage,
-                    ) = cluster_for_visual(
-                        task=task,
-                        dFC_id=dFC_id,
-                        roi_root=roi_root,
-                        dFC_root=dFC_root,
-                        run=run,
-                        session=session,
-                        normalize_dFC=normalize_dFC,
-                    )
-
-                    centroids = {
-                        "centroids_mat": centroids_mat,
-                        "co_occurrence_matrix": co_occurrence_matrix,
-                        "cluster_label_percentage": cluster_label_percentage,
-                        "task_label_percentage": task_label_percentage,
-                    }
-
-                    # save the centroids
-                    suffix = "centroids"
-                    if session is not None:
-                        suffix = f"{suffix}_{session}"
-                    suffix = f"{suffix}_{task}"
-                    if run is not None:
-                        suffix = f"{suffix}_{run}"
-                    suffix = f"{suffix}_{measure_name}"
-
-                    if session is None:
-                        folder = f"{output_root}/centroids"
-                    else:
-                        folder = f"{output_root}/centroids/{session}"
-                    if not os.path.exists(folder):
-                        os.makedirs(folder)
-
-                    np.save(
-                        f"{folder}/{suffix}.npy",
-                        centroids,
-                    )
-
-                except Exception as e:
-                    print(
-                        f"Error in clustering for visualization for {session} {task} {run}: {e}"
-                    )
-                    traceback.print_exc()
-
-
 #######################################################################################
 
 if __name__ == "__main__":
@@ -384,41 +246,6 @@ if __name__ == "__main__":
         print(f"Error in classification for dFC ID {dFC_id}: {e}")
         traceback.print_exc()
     print(f"Task presence classification finished for dFC ID {dFC_id}.")
-    # print(f"Task presence clustering started for dFC ID {dFC_id} ...")
-    # try:
-    #     run_clustering(
-    #         dFC_id=dFC_id,
-    #         TASKS=TASKS,
-    #         RUNS=RUNS,
-    #         SESSIONS=SESSIONS,
-    #         roi_root=roi_root,
-    #         dFC_root=dFC_root,
-    #         output_root=ML_root,
-    #         normalize_dFC=True,
-    #     )
-    # except Exception as e:
-    #     print(f"Error in clustering for dFC ID {dFC_id}: {e}")
-    #     traceback.print_exc()
-
-    # print(f"Task presence clustering finished for dFC ID {dFC_id}.")
-
-    # print(f"Clustering for visualization started for dFC ID {dFC_id} ...")
-    # try:
-    #     run_clustering_for_visual(
-    #         dFC_id=dFC_id,
-    #         TASKS=TASKS,
-    #         RUNS=RUNS,
-    #         SESSIONS=SESSIONS,
-    #         roi_root=roi_root,
-    #         dFC_root=dFC_root,
-    #         output_root=ML_root,
-    #         normalize_dFC=True,
-    #     )
-    # except Exception as e:
-    #     print(f"Error in clustering for visualization for dFC ID {dFC_id}: {e}")
-    #     traceback.print_exc()
-
-    # print(f"Clustering for visualization finished for dFC ID {dFC_id}.")
 
     print(f"Task presence prediction finished for dFC ID {dFC_id}.")
 

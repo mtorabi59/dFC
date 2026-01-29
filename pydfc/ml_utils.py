@@ -2076,9 +2076,10 @@ def task_presence_classification(
         },
     }
 
-    check_count = 2
+    EMBEDDINGS = ["PCA", "PLS", "LE"]
+    check_count = len(EMBEDDINGS)
     num_excluded_subjects = 0
-    for embedding in ["PCA", "PLS"]:
+    for embedding in EMBEDDINGS:
         if measure_is_state_based:
             X_train_embedded = process_SB_features(X=X_train, measure_name=measure_name)
             X_test_embedded = process_SB_features(X=X_test, measure_name=measure_name)
@@ -2257,7 +2258,7 @@ def task_presence_classification(
                 len(ML_scores["group_lvl"][key]) == L
             ), f"Length of {key} is not equal to others."
 
-    # L is supposed to be equal to 2 embeddings (PCA and LE) * 2 groups (train and test)
+    # L is supposed to be equal to 3 embeddings (PCA, PLS, and LE) * 2 groups (train and test)
     assert (
         L == check_count * 2
     ), f"Length of group_lvl is not equal to {check_count * 2}, but {L}."
@@ -2271,233 +2272,9 @@ def task_presence_classification(
                 len(ML_scores["subj_lvl"][key]) == L
             ), f"Length of {key} is not equal to others."
 
-    # L is supposed to be equal to number of subjects * 2 embeddings (PCA and LE)
+    # L is supposed to be equal to number of subjects * 3 embeddings (PCA, PLS, and LE)
     assert (
         L == len(SUBJECTS) * check_count - num_excluded_subjects
     ), f"Length of subj_lvl is not equal to {len(SUBJECTS) * check_count - num_excluded_subjects}, but {L}."
 
     return ML_scores
-
-
-################################# Clustering Framework Functions ####################################
-
-
-def task_presence_clustering(
-    task,
-    dFC_id,
-    roi_root,
-    dFC_root,
-    run=None,
-    session=None,
-    normalize_dFC=True,
-):
-    if run is None:
-        print(f"=============== {task} ===============")
-    else:
-        print(f"=============== {task} {run} ===============")
-
-    if task == "task-restingstate":
-        return
-
-    SUBJECTS = find_available_subjects(
-        dFC_root=dFC_root, task=task, run=run, session=session, dFC_id=dFC_id
-    )
-
-    print(f"Number of subjects: {len(SUBJECTS)}")
-
-    X, _, y, _, subj_label, _, measure_name = dFC_feature_extraction(
-        task=task,
-        train_subjects=SUBJECTS,
-        test_subjects=[],
-        dFC_id=dFC_id,
-        roi_root=roi_root,
-        dFC_root=dFC_root,
-        run=run,
-        session=session,
-        dynamic_pred="no",
-        normalize_dFC=normalize_dFC,
-        FCS_proba_for_SB=True,  # for state-based dFC features, we use FCS_proba
-    )
-
-    clustering_RESULTS = {"PCA": {}, "PLS": {}}
-    clustering_scores = {
-        "subj_id": list(),
-        "task": list(),
-        "run": list(),
-        "dFC method": list(),
-        "Kmeans ARI": list(),
-        "SI": list(),
-        "embedding": list(),
-    }
-    for embedding in ["PCA", "PLS"]:
-        # embed dFC features
-        # if the number of features is smaller than 25, we assume that dimensionality reduction is not needed
-        # specially for state-based dFC features, the number of features is equal to the number of states
-        if X.shape[1] < 25:
-            X_embedded = X
-            print(
-                f"Number of features is {X.shape[1]}. No dimensionality reduction is applied."
-            )
-        else:
-            try:
-                X_embedded, _ = embed_dFC_features(
-                    train_subjects=SUBJECTS,
-                    test_subjects=[],
-                    X_train=X,
-                    X_test=None,
-                    y_train=y,
-                    y_test=None,
-                    subj_label_train=subj_label,
-                    subj_label_test=None,
-                    embedding=embedding,
-                    n_components="auto",
-                    n_neighbors_LE=125,
-                    LE_embedding_method="embed+procrustes",
-                )
-            except:
-                continue
-
-        # clustering
-        # apply kmeans clustering to dFC features
-
-        n_clusters = 2  # corresponding to task and rest
-
-        scaler = StandardScaler()
-        X_normalized = scaler.fit_transform(X_embedded)
-        kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
-        labels_pred = kmeans.fit_predict(X_normalized)
-
-        # ARI score
-        print(f"ARI score: {adjusted_rand_score(y, labels_pred)}")
-
-        # # visualize clustering centroids
-        # centroids = kmeans.cluster_centers_
-        # centroids = pca.inverse_transform(centroids)
-        # centroids = scaler.inverse_transform(centroids)
-        # n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
-        # centroids_mat = dFC_vec2mat(centroids, n_regions)
-
-        clustering_RESULTS[embedding] = {
-            "StandardScaler": scaler,
-            "kmeans": kmeans,
-            "ARI": adjusted_rand_score(y, labels_pred),
-            # "centroids": centroids_mat,
-        }
-
-        for subj in SUBJECTS:
-            clustering_scores["subj_id"].append(subj)
-            features = X_embedded[subj_label == subj, :]
-            target = y[subj_label == subj]
-
-            features_normalized = scaler.transform(features)
-            pred_kmeans = kmeans.predict(features_normalized)
-
-            clustering_scores["Kmeans ARI"].append(
-                adjusted_rand_score(target, pred_kmeans)
-            )
-
-            # silhouette score in terms of separability of original labels, not the clustering labels
-            clustering_scores["SI"].append(silhouette_score(features, target))
-
-            clustering_scores["task"].append(task)
-            clustering_scores["run"].append(run)
-            clustering_scores["dFC method"].append(measure_name)
-            clustering_scores["embedding"].append(embedding)
-
-    return clustering_RESULTS, clustering_scores
-
-
-def co_occurrence(task_labels, clstr_labels):
-    """
-    Calculate the co-occurrence between task labels and clustering labels.
-    """
-    co_occurrence_matrix = np.zeros(
-        (len(np.unique(task_labels)), len(np.unique(clstr_labels)))
-    )
-    for i, task_label in enumerate(np.unique(task_labels)):
-        for j, clstr_label in enumerate(np.unique(clstr_labels)):
-            co_occurrence_matrix[i, j] = np.sum(
-                (task_labels == task_label) & (clstr_labels == clstr_label)
-            )
-
-    # now find the percentage of time each cluster label was present in each task label
-    cluster_label_percentage = (
-        co_occurrence_matrix / np.sum(co_occurrence_matrix, axis=1)[:, None]
-    )
-    # make sure that the sum of each row is 1
-    assert np.allclose(
-        np.sum(cluster_label_percentage, axis=1), 1
-    ), "Sum of each row is not 1."
-
-    # now find the percentage of time each task label occupied each cluster label
-    task_label_percentage = (
-        co_occurrence_matrix / np.sum(co_occurrence_matrix, axis=0)[None, :]
-    )
-    # make sure that the sum of each column is 1
-    assert np.allclose(
-        np.sum(task_label_percentage, axis=0), 1
-    ), "Sum of each column is not 1."
-
-    return co_occurrence_matrix, cluster_label_percentage, task_label_percentage
-
-
-def cluster_for_visual(
-    task,
-    dFC_id,
-    roi_root,
-    dFC_root,
-    run=None,
-    session=None,
-    normalize_dFC=True,
-):
-    if run is None:
-        print(f"=============== {task} ===============")
-    else:
-        print(f"=============== {task} {run} ===============")
-
-    SUBJECTS = find_available_subjects(
-        dFC_root=dFC_root, task=task, run=run, session=session, dFC_id=dFC_id
-    )
-
-    print(f"Number of subjects: {len(SUBJECTS)}")
-
-    X, _, y, _, _, _, measure_name = dFC_feature_extraction(
-        task=task,
-        train_subjects=SUBJECTS,
-        test_subjects=[],
-        dFC_id=dFC_id,
-        roi_root=roi_root,
-        dFC_root=dFC_root,
-        run=run,
-        session=session,
-        dynamic_pred="no",
-        normalize_dFC=normalize_dFC,
-        FCS_proba_for_SB=False,
-    )
-
-    # clustering
-    # apply kmeans clustering to dFC features
-    n_clusters = 5
-
-    kmeans = KMeans(init="k-means++", n_clusters=n_clusters, n_init=5)
-    clstr_labels = kmeans.fit_predict(X)  # clstr_labels = (n_samples,)
-
-    # calculate the co-occurrence matrix
-    co_occurrence_matrix, cluster_label_percentage, task_label_percentage = co_occurrence(
-        y, clstr_labels
-    )
-
-    # get centroids
-    centroids = kmeans.cluster_centers_
-    n_regions = int((1 + np.sqrt(1 + 8 * centroids.shape[1])) / 2)
-    centroids_mat = dFC_vec2mat(
-        centroids, n_regions
-    )  # shape: n_clusters x n_regions x n_regions
-
-    return (
-        centroids_mat,
-        measure_name,
-        co_occurrence_matrix,
-        cluster_label_percentage,
-        task_label_percentage,
-    )
