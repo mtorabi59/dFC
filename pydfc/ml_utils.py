@@ -883,7 +883,7 @@ def find_intrinsic_dim(
             intrinsic_dim_diff_k = list()
             # seatryrch 0.2 * X_subj.shape[0] and 0.3 * X_subj.shape[0] for k
             for k in range(
-                int(0.1 * X_subj.shape[0]),
+                max(5, int(0.1 * X_subj.shape[0])),  # not letting go below 5
                 int(0.3 * X_subj.shape[0]),
                 5,
             ):
