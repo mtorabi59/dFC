@@ -159,10 +159,13 @@ if __name__ == "__main__":
     TARGETS = [
         ("PCA", "Logistic regression balanced accuracy"),
         ("LE", "Logistic regression balanced accuracy"),
+        ("PLS", "Logistic regression balanced accuracy"),
         ("PCA", "SVM balanced accuracy"),
         ("LE", "SVM balanced accuracy"),
+        ("PLS", "SVM balanced accuracy"),
         ("LE", "SI"),
         ("PCA", "SI"),
+        ("PLS", "SI"),
     ]
     # -------------------------------------------------------------------
 
