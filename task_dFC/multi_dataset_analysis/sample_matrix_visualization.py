@@ -282,45 +282,16 @@ if __name__ == "__main__":
                         save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-label_{task}_{group}{raw_or_embedded}.png",
                         show=False,
                     )
-                    if (
-                        task == "task-localiser"
-                        and group == "train"
-                        and raw_or_embedded == ""
-                        and simul_or_real == "real"
-                        and (
-                            measure_name == "SlidingWindow" or measure_name == "Time-Freq"
-                        )
-                    ):
-                        plot_samples_features(
-                            X,
-                            y,
-                            sample_order="label",
-                            feature_order="original",
-                            save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-label_{task}_{group}{raw_or_embedded}.svg",
-                            show=False,
-                        )
 
-                    # C) Label + within-class clustering
-                    if group == "train":
-                        orders = plot_samples_features(
-                            X,
-                            y,
-                            sample_order="label+cluster",
-                            feature_order="original",
-                            save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-samples_{task}_{group}{raw_or_embedded}.png",
-                            show=False,
-                        )
-                    elif group == "test":
-                        # Apply the *same feature order* to test (no leakage from test):
-                        plot_samples_features(
-                            X,
-                            y,
-                            sample_order="label+cluster",  # clustering is per-split; that’s fine
-                            feature_order="original",
-                            col_order_from_train=orders["col_order"],
-                            save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_sorted-samples_{task}_{group}{raw_or_embedded}.png",
-                            show=False,
-                        )
+                    # C) clustering
+                    plot_samples_features(
+                        X,
+                        y,
+                        sample_order="cluster",
+                        feature_order="original",
+                        save_path=f"{output_root}/{measure_name}/feature-sample_{simul_or_real}_clustered-samples_{task}_{group}{raw_or_embedded}.png",
+                        show=False,
+                    )
 
                     save_scalar_colorbar(
                         cmap="coolwarm",
