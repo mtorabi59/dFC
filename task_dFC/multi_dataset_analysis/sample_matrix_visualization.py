@@ -58,7 +58,18 @@ if __name__ == "__main__":
     if simul_or_real == "real":
         main_root = multi_dataset_info["real_data"]["main_root"]
         DATASETS = multi_dataset_info["real_data"]["DATASETS"]
-        TASKS_to_include = multi_dataset_info["real_data"]["TASKS_to_include"]
+        # TASKS_to_include = multi_dataset_info["real_data"]["TASKS_to_include"] # temporary !!!!
+        TASKS_to_include = [
+            "task-Axcpt",
+            "task-CIC",
+            "task-Cuedts",
+            "task-feedback",
+            "task-IHG",
+            "task-matching",
+            "task-motor",
+            "task-Stern",
+            "task-Stroop",
+        ]
     elif simul_or_real == "simulated":
         main_root = multi_dataset_info["simulated_data"]["main_root"]
         DATASETS = multi_dataset_info["simulated_data"]["DATASETS"]
