@@ -1684,23 +1684,39 @@ def SVM_classify(X_train, y_train, X_test, y_test, subj_label_train=None):
     return RESULT
 
 
-def KNN_classify(X_train, y_train, X_test, y_test):
+def KNN_classify(X_train, y_train, X_test, y_test, subj_label_train=None):
     """
     KNN classification
     """
-    # create a pipeline with a knn model to find the best n_neighbors
-    knn = make_pipeline(
+
+    # create a dictionary of all values we want to test for n_neighbors
+    param_grid = {"kneighborsclassifier__n_neighbors": np.arange(1, 30)}
+
+    # perform grid search
+    model_for_hyperparam = make_pipeline(
         StandardScaler(),
         KNeighborsClassifier(),
     )
-    # create a dictionary of all values we want to test for n_neighbors
-    param_grid = {"kneighborsclassifier__n_neighbors": np.arange(1, 30)}
-    # use gridsearch to test all values for n_neighbors
-    knn_gscv = GridSearchCV(knn, param_grid, cv=5)
-    # fit model to data
-    knn_gscv.fit(X_train, y_train)
 
-    n_neighbors = knn_gscv.best_params_["kneighborsclassifier__n_neighbors"]
+    # use StratifiedGroupKFold to ensure that the same subject is not in both train and test sets
+    # shuffle the data to ensure time points are shuffled
+    if subj_label_train is None:
+        X_train_shuffled, y_train_shuffled = shuffle(X_train, y_train)
+        cv = StratifiedKFold(n_splits=3)
+    else:
+        X_train_shuffled, y_train_shuffled, subj_label_train_shuffled = shuffle(
+            X_train, y_train, subj_label_train
+        )
+        cv = StratifiedGroupKFold(n_splits=3)
+    model_gscv = GridSearchCV(model_for_hyperparam, param_grid, cv=cv, n_jobs=-1)
+    if subj_label_train is None:
+        model_gscv.fit(X_train_shuffled, y_train_shuffled)
+    else:
+        model_gscv.fit(
+            X_train_shuffled, y_train_shuffled, groups=subj_label_train_shuffled
+        )
+
+    n_neighbors = model_gscv.best_params_["kneighborsclassifier__n_neighbors"]
 
     model = make_pipeline(
         StandardScaler(),
