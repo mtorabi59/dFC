@@ -265,7 +265,7 @@ def dFC_feature_extraction_subj_lvl(
         dFC_mat = dFC.get_dFC_mat()
         TR_array = dFC.TR_array
         if normalize_dFC:
-            dFC_mat = rank_norm(dFC_mat)
+            dFC_mat = rank_norm(dFC_mat, global_norm=False)
         dFC_vecs = dFC_mat2vec(dFC_mat)
 
     # event data
@@ -1218,22 +1218,24 @@ def subject_center(X, subj_labels, mode="zscore"):
     return Xc
 
 
-def select_pls_components_binary_groupcv(
+def select_num_components_binary_groupcv(
     X,
     y,
     groups,
+    embedding_method="PLS",
     n_list=(2, 5, 10, 15, 20),
     cv=3,
     random_state=0,
 ):
     """
-    Select number of PLS components using subject-aware CV.
+    Select number of PLS/PCA components using subject-aware CV.
 
     Parameters
     ----------
     X : array (n_samples, n_features)
     y : array (n_samples,) binary labels
     groups : array (n_samples,) subject IDs
+    embedding_method : "PLS" or "PCA"
     n_list : iterable of candidate n_components
     cv : number of folds
     random_state : int
@@ -1241,7 +1243,7 @@ def select_pls_components_binary_groupcv(
     Returns
     -------
     best_n : int
-        Selected number of PLS components
+        Selected number of PLS/PCA components
     best_score : float
         Mean CV balanced accuracy
     """
@@ -1260,10 +1262,15 @@ def select_pls_components_binary_groupcv(
         fold_scores = []
 
         for tr, va in cv_splitter.split(X, y, groups):
-            # ---- PLS embedding (trained ONLY on train fold subjects)
-            emb = PLSEmbedder(n_components=n, scale=True)
-            Ztr = emb.fit_transform(X[tr], y[tr])
-            Zva = emb.transform(X[va])
+            # ---- embedding (trained ONLY on train fold subjects)
+            if embedding_method == "PCA":
+                emb = PCA(n_components=n, svd_solver="full", whiten=False)
+                Ztr = emb.fit_transform(X[tr])
+                Zva = emb.transform(X[va])
+            elif embedding_method == "PLS":
+                emb = PLSEmbedder(n_components=n, scale=True)
+                Ztr = emb.fit_transform(X[tr], y[tr])
+                Zva = emb.transform(X[va])
 
             # ---- classifier in latent space
             clf = make_pipeline(
@@ -1284,22 +1291,24 @@ def select_pls_components_binary_groupcv(
     return best_n, best_score
 
 
-def select_pls_components_continuous_groupcv(
+def select_num_components_continuous_groupcv(
     X,
     y,
     groups,
+    embedding_method="PLS",
     n_list=(2, 5, 10, 15, 20),
     cv=3,
     score="r2",  # "r2" or "neg_mse"
 ):
     """
-    Select number of PLS components using subject-aware CV for a CONTINUOUS target.
+    Select number of PLS/PCA components using subject-aware CV for a CONTINUOUS target.
 
     Parameters
     ----------
     X : array (n_samples, n_features)
     y : array (n_samples,) continuous target
     groups : array (n_samples,) subject IDs
+    embedding_method : "PLS" or "PCA"
     n_list : iterable of candidate n_components
     cv : number of folds
     score : "r2" or "neg_mse"
@@ -1307,7 +1316,7 @@ def select_pls_components_continuous_groupcv(
     Returns
     -------
     best_n : int
-        Selected number of PLS components
+        Selected number of PLS/PCA components
     best_score : float
         Mean CV score (higher is better)
         - R² if score="r2"
@@ -1329,12 +1338,16 @@ def select_pls_components_continuous_groupcv(
         fold_scores = []
 
         for tr, va in cv_splitter.split(X, y, groups):
-            # ---- PLS embedding (trained ONLY on train fold subjects)
-            emb = PLSEmbedder(n_components=n, scale=True)
-            # PLSRegression expects y 2D
-            Ztr = emb.fit_transform(X[tr], y[tr].reshape(-1, 1))
-            Zva = emb.transform(X[va])
-
+            # ---- embedding (trained ONLY on train fold subjects)
+            if embedding_method == "PCA":
+                emb = PCA(n_components=n, svd_solver="full", whiten=False)
+                Ztr = emb.fit_transform(X[tr])
+                Zva = emb.transform(X[va])
+            elif embedding_method == "PLS":
+                emb = PLSEmbedder(n_components=n, scale=True)
+                # PLSRegression expects y 2D
+                Ztr = emb.fit_transform(X[tr], y[tr].reshape(-1, 1))
+                Zva = emb.transform(X[va])
             # ---- regressor in latent space
             reg = make_pipeline(
                 StandardScaler(),
@@ -1385,29 +1398,28 @@ def embed_dFC_features(
     if X_test is not None:
         X_test = X_test.copy()
 
-    if embedding == "PCA":
-        # if n_components is not specified, use 95% of the variance
-        if n_components == "auto":
-            pca = PCA(n_components=0.95, svd_solver="full", whiten=False)
-        else:
-            pca = PCA(n_components=n_components, svd_solver="full", whiten=False)
-        pca.fit(X_train)
-        X_train_embed = pca.transform(X_train)
-        if X_test is not None:
-            X_test_embed = pca.transform(X_test)
-        else:
-            X_test_embed = None
-    elif embedding == "PLS":
+    # preprocess the data by standardizing it
+    if embedding in ("PCA", "PLS"):
         # center the data by subject before PLS to remove subject effects
         X_train_c = subject_center(X_train, subj_label_train, mode="zscore")
-        X_test_c = subject_center(X_test, subj_label_test, mode="zscore")
-        # if n_components is not specified, select it using subject-aware CV on the training set
+        if X_test is not None:
+            X_test_c = subject_center(X_test, subj_label_test, mode="zscore")
+        else:
+            X_test_c = None
+        scaler = StandardScaler(with_mean=True, with_std=True)
+        X_train_preproc = scaler.fit_transform(X_train_c)
+        if X_test is not None:
+            X_test_preproc = scaler.transform(X_test_c)
+        else:
+            X_test_preproc = None
+
         if n_components == "auto":
             if y_continuous:
-                best_n, _ = select_pls_components_continuous_groupcv(
-                    X=X_train_c,
+                best_n, _ = select_num_components_continuous_groupcv(
+                    X=X_train_preproc,
                     y=y_train,
                     groups=subj_label_train,
+                    embedding_method=embedding,
                     n_list=[
                         2,
                         3,
@@ -1425,10 +1437,11 @@ def embed_dFC_features(
                     score="r2",
                 )
             else:
-                best_n, _ = select_pls_components_binary_groupcv(
-                    X=X_train_c,
+                best_n, _ = select_num_components_binary_groupcv(
+                    X=X_train_preproc,
                     y=y_train,
                     groups=subj_label_train,
+                    embedding_method=embedding,
                     n_list=[
                         2,
                         3,
@@ -1446,11 +1459,23 @@ def embed_dFC_features(
                 )
             n_components = best_n
 
+    if embedding == "PCA":
+        pca = PCA(n_components=n_components, svd_solver="full", whiten=False)
+        pca.fit(X_train_preproc)
+        X_train_embed = pca.transform(X_train_preproc)
+        if X_test is not None:
+            X_test_embed = pca.transform(X_test_preproc)
+        else:
+            X_test_embed = None
+    elif embedding == "PLS":
         pls = PLSEmbedder(n_components=n_components, scale=True)
         # fit on train set
-        X_train_embed = pls.fit_transform(X_train_c, y_train)
+        X_train_embed = pls.fit_transform(X_train_preproc, y_train)
         # only transform test set
-        X_test_embed = pls.transform(X_test_c)
+        if X_test is not None:
+            X_test_embed = pls.transform(X_test_preproc)
+        else:
+            X_test_embed = None
     elif embedding == "LE":
         # if the dFC features are not unique (state-based), set the LE_embedding_method to "concat+embed"
         if measure_is_state_based:
