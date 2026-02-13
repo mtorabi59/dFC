@@ -888,7 +888,7 @@ def find_intrinsic_dim(
                 5,
             ):
                 if k == 1:
-                    print(
+                    warnings.warn(
                         f"Warning: k=1 is not valid for localpca_intrinsic_dim. Skipping k=1 for subject {subject}."
                     )
                     continue
