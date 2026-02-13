@@ -887,6 +887,10 @@ def find_intrinsic_dim(
                 int(0.3 * X_subj.shape[0]),
                 5,
             ):
+                if k == 1:
+                    print(
+                        f"Warning: k=1 is not valid for localpca_intrinsic_dim. Skipping k=1 for subject {X_subj.shape[0]} {max(5, int(0.1 * X_subj.shape[0]))}."
+                    )
                 try:
                     d_global, _ = localpca_intrinsic_dim(
                         X_subj,
@@ -897,13 +901,21 @@ def find_intrinsic_dim(
                         metric="correlation",
                         agg="median",
                     )
-                    intrinsic_dim_diff_k.append(d_global)
+                    if np.isfinite(d_global) and d_global >= 1:
+                        intrinsic_dim_diff_k.append(d_global)
                 except Exception as e:
                     warnings.warn(
                         f"Error in localpca_intrinsic_dim for subject {subject} with k={k}: {e}."
                     )
                     continue
+            if len(intrinsic_dim_diff_k) == 0:
+                warnings.warn(
+                    f"No valid intrinsic dimensions found for subject {subject}."
+                )
+                continue
             intrinsic_dim_all.append(int(np.mean(intrinsic_dim_diff_k)))
+        if len(intrinsic_dim_all) == 0:
+            raise ValueError("No valid intrinsic dimensions found for any subject.")
         intrinsic_dim = int(np.median(intrinsic_dim_all))
     return intrinsic_dim
 
