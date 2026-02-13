@@ -889,8 +889,9 @@ def find_intrinsic_dim(
             ):
                 if k == 1:
                     print(
-                        f"Warning: k=1 is not valid for localpca_intrinsic_dim. Skipping k=1 for subject {X_subj.shape[0]} {max(5, int(0.1 * X_subj.shape[0]))}."
+                        f"Warning: k=1 is not valid for localpca_intrinsic_dim. Skipping k=1 for subject {subject}."
                     )
+                    continue
                 try:
                     d_global, _ = localpca_intrinsic_dim(
                         X_subj,
