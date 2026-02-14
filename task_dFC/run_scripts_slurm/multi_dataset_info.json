@@ -4,14 +4,14 @@
 		"main_root": "/home/mt00/projects/def-jbpoline/mt00/DATA/task-based/openneuro",
 		"DATASETS": [
 			"ds001242", "ds002236", "ds002647",
-			"ds002843", "ds002994", "ds003242",
+			"ds002843", "ds002994",
 			"ds003465", "ds003612", "ds003823",
 			"ds004044", "ds004349", "ds004359",
 			"ds004556", "ds004746", "ds004791",
 			"ds004848", "ds005038"
 		],
 		"TASKS_to_include": [
-			"task-arithmetic", "task-AudSem", "task-Axcpt", "task-CIC",
+			"task-arithmetic", "task-AudSem", "task-Axcpt",
 			"task-Cuedts", "task-emotionRegulation", "task-execution","task-expo",
 			"task-fearlearning", "task-feedback", "task-fribBids", "task-IHG",
 			"task-imagery", "task-itc", "task-localiser", "task-Localizer",
