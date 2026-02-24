@@ -10,7 +10,7 @@ import warnings
 
 import numpy as np
 from scipy.spatial import procrustes
-from sklearn.base import clone
+from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.cluster import KMeans
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.decomposition import PCA
@@ -19,7 +19,6 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.manifold import SpectralEmbedding
 from sklearn.metrics import (
     accuracy_score,
-    adjusted_rand_score,
     average_precision_score,
     balanced_accuracy_score,
     confusion_matrix,
@@ -37,7 +36,7 @@ from sklearn.model_selection import (
     StratifiedKFold,
 )
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors, kneighbors_graph
-from sklearn.pipeline import make_pipeline
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC, SVR
 from sklearn.utils import shuffle
@@ -1161,60 +1160,57 @@ def rows_look_redundant(X, sample=100):
     return (len(h) - len(set(h))) / len(h) > 0.5
 
 
-class PLSEmbedder:
+class PLSEmbedder(BaseEstimator, TransformerMixin):
     """
-    Supervised dimensionality reduction using PLSRegression for binary labels.
-    Produces low-dim 'scores' features for downstream classifiers.
+    Supervised dimensionality reduction using PLSRegression.
+    Returns X scores (latent components) for downstream models.
 
-    Usage:
-        pls = PLSEmbedder(n_components=10)
-        Z_train = pls.fit_transform(X_train, y_train)
-        Z_test  = pls.transform(X_test)
+    Notes:
+    - Works for binary y (0/1) and also continuous y (regression-style PLS).
+    - For classification, y should typically be 0/1 or {-1,1}.
     """
 
-    def __init__(self, n_components=10, scale=True):
-        self.n_components = int(n_components)
-        self.scale = bool(scale)
-
-        self.scaler_ = None
-        self.model_ = None
+    def __init__(self, n_components=10, scale=False):
+        self.n_components = n_components
+        self.scale = scale
 
     def fit(self, X, y):
         X = np.asarray(X)
-        y = np.asarray(y)
+        y = np.asarray(y).ravel().reshape(-1, 1)
 
-        if y.ndim == 1:
-            y = y.reshape(-1, 1)
-        elif y.ndim == 2:
-            if y.shape[0] != X.shape[0]:
-                raise ValueError(f"y has shape {y.shape} but X has shape {X.shape}.")
-        else:
-            raise ValueError("y must be 1D or 2D.")
+        if X.shape[0] != y.shape[0]:
+            raise ValueError(f"X has {X.shape[0]} rows but y has {y.shape[0]}.")
 
+        # optional internal scaling (usually OFF if pipeline already scales)
         if self.scale:
             self.scaler_ = StandardScaler(with_mean=True, with_std=True)
             Xs = self.scaler_.fit_transform(X)
         else:
+            self.scaler_ = None
             Xs = X
 
-        self.model_ = PLSRegression(n_components=self.n_components, scale=False)
+        # safety: cap n_components for this fold
+        nmax = min(Xs.shape[0] - 1, Xs.shape[1])
+        ncomp = int(self.n_components)
+        if ncomp > nmax:
+            raise ValueError(
+                f"n_components={ncomp} is too large for fold with "
+                f"n_samples={Xs.shape[0]}, n_features={Xs.shape[1]} (max {nmax})."
+            )
+
+        self.model_ = PLSRegression(n_components=ncomp, scale=False)
         self.model_.fit(Xs, y)
         return self
 
-    def fit_transform(self, X, y):
-        self.fit(X, y)
-        return self.transform(X)
-
     def transform(self, X):
-        if self.model_ is None:
+        if not hasattr(self, "model_"):
             raise RuntimeError("PLSEmbedder is not fitted yet.")
+
         X = np.asarray(X)
+        Xs = self.scaler_.transform(X) if self.scaler_ is not None else X
 
-        Xs = self.scaler_.transform(X) if self.scale else X
-
-        # PLS scores (latent components)
-        # sklearn exposes x_scores_ only for training; for new data:
-        Z = Xs @ self.model_.x_rotations_  # (n_samples, n_components)
+        # Out-of-sample scores
+        Z = Xs @ self.model_.x_rotations_
         return Z.astype(np.float32, copy=False)
 
 
@@ -1669,22 +1665,90 @@ def logistic_regression_classify(X_train, y_train, X_test, y_test, subj_label_tr
     return RESULT
 
 
-def SVM_classify(X_train, y_train, X_test, y_test, subj_label_train=None):
+def SVM_classify(
+    X_train,
+    y_train,
+    X_test,
+    y_test,
+    subj_label_train=None,
+    embedding_method="PCA",
+):
+    if embedding_method == "PCA":
+        emb = PCA(whiten=False, svd_solver="full", random_state=0)
+    elif embedding_method == "PLS":
+        emb = PLSEmbedder(scale=False)  # IMPORTANT: avoid double scaling
+    else:
+        raise ValueError("embedding_method must be 'PCA' or 'PLS'.")
+
+    pipe = Pipeline(
+        [
+            ("scaler", StandardScaler(with_mean=True, with_std=True)),
+            ("emb", emb),
+            ("svc", SVC(kernel="rbf")),
+        ]
+    )
+
+    # Grid (keep small!)
+    param_grid = {
+        "emb__n_components": [5, 10, 20, 30, 50, 100],
+        "svc__C": [0.1, 1, 10],
+        "svc__gamma": ["scale", 0.01, 0.1],
+    }
+
+    # CV splitter
+    if subj_label_train is None:
+        Xs, ys = shuffle(X_train, y_train, random_state=0)
+        cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=0)
+        fit_kwargs = {}
+    else:
+        Xs, ys, gs = shuffle(X_train, y_train, subj_label_train, random_state=0)
+        cv = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=0)
+        fit_kwargs = {"groups": gs}
+
+    # GridSearch on training subjects only
+    gscv = GridSearchCV(pipe, param_grid, cv=cv, n_jobs=-1, scoring="balanced_accuracy")
+    gscv.fit(Xs, ys, **fit_kwargs)
+
+    # Evaluate with best estimator (already refit on full training set by default)
+    model = gscv.best_estimator_
+
+    RESULT = get_classification_results(
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        classifier_model=model,
+    )
+    RESULT["best_params"] = gscv.best_params_
+    return RESULT
+
+
+def SVM_classify(
+    X_train, y_train, X_test, y_test, subj_label_train=None, embedding_method="PCA"
+):
     """
     SVM classification
 
     provide subj_label_train if you want to use StratifiedGroupKFold
     to ensure that the same subject is not in both train and test sets
     """
+    if embedding_method == "PCA":
+        grid_embedding_name = "pca__n_components"
+        embedding_model = PCA(whiten=False, svd_solver="full")
+    elif embedding_method == "PLS":
+        grid_embedding_name = "pls__n_components"
+        embedding_model = PLSEmbedder(scale=True)
     # define the parameter grid
     param_grid = {
-        "svc__C": [0.01, 0.1, 1, 10],
-        "svc__gamma": ["scale", 0.01, 0.05, 0.1],
+        grid_embedding_name: [5, 10, 20, 30, 50, 100],
+        "svc__C": [0.1, 1, 10],
+        "svc__gamma": ["scale", 0.01, 0.1],
     }
 
     # perform grid search
     model_for_hyperparam = make_pipeline(
         StandardScaler(),
+        embedding_model,
         SVC(kernel="rbf"),
     )
     # use StratifiedGroupKFold to ensure that the same subject is not in both train and test sets
@@ -1704,11 +1768,20 @@ def SVM_classify(X_train, y_train, X_test, y_test, subj_label_train=None):
         model_gscv.fit(
             X_train_shuffled, y_train_shuffled, groups=subj_label_train_shuffled
         )
+    n_components = model_gscv.best_params_[grid_embedding_name]
     C = model_gscv.best_params_["svc__C"]
     gamma = model_gscv.best_params_["svc__gamma"]
 
+    if embedding_method == "PCA":
+        embedding_model_final = PCA(
+            n_components=n_components, whiten=False, svd_solver="full"
+        )
+    elif embedding_method == "PLS":
+        embedding_model_final = PLSEmbedder(n_components=n_components, scale=True)
+
     model = make_pipeline(
         StandardScaler(),
+        embedding_model_final,
         SVC(kernel="rbf", C=C, gamma=gamma),
     )
 
