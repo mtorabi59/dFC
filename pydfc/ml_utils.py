@@ -1613,87 +1613,43 @@ def get_classification_results(
     return RESULT
 
 
-def logistic_regression_classify(X_train, y_train, X_test, y_test, subj_label_train=None):
-    """
-    Logistic regression classification
-
-    provide subj_label_train if you want to use StratifiedGroupKFold
-    to ensure that the same subject is not in both train and test sets
-    """
-    # create a pipeline with a logistic regression model to find the best C
-    logistic_reg = make_pipeline(
-        StandardScaler(),
-        LogisticRegression(penalty="l1", solver="saga", max_iter=2000, tol=1e-3),
-    )
-    # create a dictionary of all values we want to test for C
-    param_grid = {"logisticregression__C": [0.001, 0.01, 0.1, 1, 10, 100]}
-
-    # use StratifiedGroupKFold to ensure that the same subject is not in both train and test sets
-    # shuffle the data to ensure time points are shuffled
-    if subj_label_train is None:
-        X_train_shuffled, y_train_shuffled = shuffle(X_train, y_train)
-        cv = StratifiedKFold(n_splits=3)
-    else:
-        X_train_shuffled, y_train_shuffled, subj_label_train_shuffled = shuffle(
-            X_train, y_train, subj_label_train
-        )
-        cv = StratifiedGroupKFold(n_splits=3)
-    # use gridsearch to test all values for C
-    lr_gscv = GridSearchCV(logistic_reg, param_grid, cv=cv, n_jobs=-1)
-    # fit model to data
-    if subj_label_train is None:
-        lr_gscv.fit(X_train_shuffled, y_train_shuffled)
-    else:
-        # use groups to ensure that the same subject is not in both train and test sets
-        lr_gscv.fit(X_train_shuffled, y_train_shuffled, groups=subj_label_train_shuffled)
-
-    C = lr_gscv.best_params_["logisticregression__C"]
-
-    model = make_pipeline(
-        StandardScaler(),
-        LogisticRegression(penalty="l1", C=C, solver="saga", max_iter=2000, tol=1e-3),
-    )
-
-    RESULT = get_classification_results(
-        X_train=X_train,
-        X_test=X_test,
-        y_train=y_train,
-        y_test=y_test,
-        classifier_model=model,
-    )
-
-    return RESULT
-
-
-def SVM_classify(
+def logistic_regression_classify(
     X_train,
     y_train,
     X_test,
     y_test,
     subj_label_train=None,
-    embedding_method="PCA",
+    embedding_method=None,
 ):
+
     if embedding_method == "PCA":
         emb = PCA(whiten=False, svd_solver="full", random_state=0)
     elif embedding_method == "PLS":
         emb = PLSEmbedder(scale=False)  # IMPORTANT: avoid double scaling
+    elif embedding_method is None:
+        emb = None
     else:
         raise ValueError("embedding_method must be 'PCA' or 'PLS'.")
 
-    pipe = Pipeline(
-        [
-            ("scaler", StandardScaler(with_mean=True, with_std=True)),
-            ("emb", emb),
-            ("svc", SVC(kernel="rbf")),
-        ]
+    if emb is not None:
+        # Grid (keep small!)
+        param_grid = {
+            "emb__n_components": [5, 10, 20, 30, 50, 100],
+            "lr__C": [0.001, 0.01, 0.1, 1, 10, 100],
+        }
+    else:
+        param_grid = {"lr__C": [0.001, 0.01, 0.1, 1, 10, 100]}
+
+    steps = [("scaler", StandardScaler(with_mean=True, with_std=True))]
+
+    if emb is not None:
+        steps.append(("emb", emb))
+
+    steps.append(
+        ("lr", LogisticRegression(penalty="l1", solver="saga", max_iter=2000, tol=1e-3))
     )
 
-    # Grid (keep small!)
-    param_grid = {
-        "emb__n_components": [5, 10, 20, 30, 50, 100],
-        "svc__C": [0.1, 1, 10],
-        "svc__gamma": ["scale", 0.01, 0.1],
-    }
+    pipe = Pipeline(steps)
 
     # CV splitter
     if subj_label_train is None:
@@ -1724,66 +1680,60 @@ def SVM_classify(
 
 
 def SVM_classify(
-    X_train, y_train, X_test, y_test, subj_label_train=None, embedding_method="PCA"
+    X_train,
+    y_train,
+    X_test,
+    y_test,
+    subj_label_train=None,
+    embedding_method=None,
 ):
-    """
-    SVM classification
-
-    provide subj_label_train if you want to use StratifiedGroupKFold
-    to ensure that the same subject is not in both train and test sets
-    """
     if embedding_method == "PCA":
-        grid_embedding_name = "pca__n_components"
-        embedding_model = PCA(whiten=False, svd_solver="full")
+        emb = PCA(whiten=False, svd_solver="full", random_state=0)
     elif embedding_method == "PLS":
-        grid_embedding_name = "pls__n_components"
-        embedding_model = PLSEmbedder(scale=True)
-    # define the parameter grid
-    param_grid = {
-        grid_embedding_name: [5, 10, 20, 30, 50, 100],
-        "svc__C": [0.1, 1, 10],
-        "svc__gamma": ["scale", 0.01, 0.1],
-    }
-
-    # perform grid search
-    model_for_hyperparam = make_pipeline(
-        StandardScaler(),
-        embedding_model,
-        SVC(kernel="rbf"),
-    )
-    # use StratifiedGroupKFold to ensure that the same subject is not in both train and test sets
-    # shuffle the data to ensure time points are shuffled
-    if subj_label_train is None:
-        X_train_shuffled, y_train_shuffled = shuffle(X_train, y_train)
-        cv = StratifiedKFold(n_splits=3)
+        emb = PLSEmbedder(scale=False)  # IMPORTANT: avoid double scaling
+    elif embedding_method is None:
+        emb = None
     else:
-        X_train_shuffled, y_train_shuffled, subj_label_train_shuffled = shuffle(
-            X_train, y_train, subj_label_train
-        )
-        cv = StratifiedGroupKFold(n_splits=3)
-    model_gscv = GridSearchCV(model_for_hyperparam, param_grid, cv=cv, n_jobs=-1)
-    if subj_label_train is None:
-        model_gscv.fit(X_train_shuffled, y_train_shuffled)
+        raise ValueError("embedding_method must be 'PCA' or 'PLS'.")
+
+    if emb is not None:
+        # Grid (keep small!)
+        param_grid = {
+            "emb__n_components": [5, 10, 20, 30, 50, 100],
+            "svc__C": [0.1, 1, 10],
+            "svc__gamma": ["scale", 0.01, 0.1],
+        }
     else:
-        model_gscv.fit(
-            X_train_shuffled, y_train_shuffled, groups=subj_label_train_shuffled
-        )
-    n_components = model_gscv.best_params_[grid_embedding_name]
-    C = model_gscv.best_params_["svc__C"]
-    gamma = model_gscv.best_params_["svc__gamma"]
+        param_grid = {
+            "svc__C": [0.1, 1, 10],
+            "svc__gamma": ["scale", 0.01, 0.1],
+        }
 
-    if embedding_method == "PCA":
-        embedding_model_final = PCA(
-            n_components=n_components, whiten=False, svd_solver="full"
-        )
-    elif embedding_method == "PLS":
-        embedding_model_final = PLSEmbedder(n_components=n_components, scale=True)
+    steps = [("scaler", StandardScaler(with_mean=True, with_std=True))]
 
-    model = make_pipeline(
-        StandardScaler(),
-        embedding_model_final,
-        SVC(kernel="rbf", C=C, gamma=gamma),
-    )
+    if emb is not None:
+        steps.append(("emb", emb))
+
+    steps.append(("svc", SVC(kernel="rbf")))
+
+    pipe = Pipeline(steps)
+
+    # CV splitter
+    if subj_label_train is None:
+        Xs, ys = shuffle(X_train, y_train, random_state=0)
+        cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=0)
+        fit_kwargs = {}
+    else:
+        Xs, ys, gs = shuffle(X_train, y_train, subj_label_train, random_state=0)
+        cv = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=0)
+        fit_kwargs = {"groups": gs}
+
+    # GridSearch on training subjects only
+    gscv = GridSearchCV(pipe, param_grid, cv=cv, n_jobs=-1, scoring="balanced_accuracy")
+    gscv.fit(Xs, ys, **fit_kwargs)
+
+    # Evaluate with best estimator (already refit on full training set by default)
+    model = gscv.best_estimator_
 
     RESULT = get_classification_results(
         X_train=X_train,
@@ -1792,136 +1742,7 @@ def SVM_classify(
         y_test=y_test,
         classifier_model=model,
     )
-    return RESULT
-
-
-def KNN_classify(X_train, y_train, X_test, y_test, subj_label_train=None):
-    """
-    KNN classification
-    """
-
-    # create a dictionary of all values we want to test for n_neighbors
-    param_grid = {"kneighborsclassifier__n_neighbors": np.arange(1, 30)}
-
-    # perform grid search
-    model_for_hyperparam = make_pipeline(
-        StandardScaler(),
-        KNeighborsClassifier(),
-    )
-
-    # use StratifiedGroupKFold to ensure that the same subject is not in both train and test sets
-    # shuffle the data to ensure time points are shuffled
-    if subj_label_train is None:
-        X_train_shuffled, y_train_shuffled = shuffle(X_train, y_train)
-        cv = StratifiedKFold(n_splits=3)
-    else:
-        X_train_shuffled, y_train_shuffled, subj_label_train_shuffled = shuffle(
-            X_train, y_train, subj_label_train
-        )
-        cv = StratifiedGroupKFold(n_splits=3)
-    model_gscv = GridSearchCV(model_for_hyperparam, param_grid, cv=cv, n_jobs=-1)
-    if subj_label_train is None:
-        model_gscv.fit(X_train_shuffled, y_train_shuffled)
-    else:
-        model_gscv.fit(
-            X_train_shuffled, y_train_shuffled, groups=subj_label_train_shuffled
-        )
-
-    n_neighbors = model_gscv.best_params_["kneighborsclassifier__n_neighbors"]
-
-    model = make_pipeline(
-        StandardScaler(),
-        KNeighborsClassifier(n_neighbors=n_neighbors),
-    )
-
-    RESULT = get_classification_results(
-        X_train=X_train,
-        X_test=X_test,
-        y_train=y_train,
-        y_test=y_test,
-        classifier_model=model,
-    )
-
-    return RESULT
-
-
-def random_forest_classify(X_train, y_train, X_test, y_test):
-    """
-    Random Forest classification
-    """
-    # create a pipeline with a random forest model to find the best n_estimators
-    rf = make_pipeline(
-        StandardScaler(),
-        RandomForestClassifier(),
-    )
-    # create a dictionary of all values we want to test for n_estimators
-    param_grid = {
-        "randomforestclassifier__n_estimators": [10, 50, 100, 200],
-        "randomforestclassifier__max_depth": [None, 5, 10, 20, 30],
-    }
-    # use gridsearch to test all values for n_estimators
-    rf_gscv = GridSearchCV(rf, param_grid, cv=5)
-    # fit model to data
-    rf_gscv.fit(X_train, y_train)
-
-    n_estimators = rf_gscv.best_params_["randomforestclassifier__n_estimators"]
-    max_depth = rf_gscv.best_params_["randomforestclassifier__max_depth"]
-
-    model = make_pipeline(
-        StandardScaler(),
-        RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth),
-    )
-
-    RESULT = get_classification_results(
-        X_train=X_train,
-        X_test=X_test,
-        y_train=y_train,
-        y_test=y_test,
-        classifier_model=model,
-    )
-
-    return RESULT
-
-
-def gradient_boosting_classify(X_train, y_train, X_test, y_test):
-    """
-    Gradient Boosting classification
-    """
-    # create a pipeline with a gradient boosting model to find the best n_estimators
-    gb = make_pipeline(
-        StandardScaler(),
-        GradientBoostingClassifier(),
-    )
-    # create a dictionary of all values we want to test for n_estimators
-    param_grid = {
-        "gradientboostingclassifier__n_estimators": [10, 50, 100, 200],
-        "gradientboostingclassifier__learning_rate": [0.01, 0.1, 0.2],
-        "gradientboostingclassifier__max_depth": [3, 5, 10],
-    }
-    # use gridsearch to test all values for n_estimators
-    gb_gscv = GridSearchCV(gb, param_grid, cv=5)
-    # fit model to data
-    gb_gscv.fit(X_train, y_train)
-
-    n_estimators = gb_gscv.best_params_["gradientboostingclassifier__n_estimators"]
-    learning_rate = gb_gscv.best_params_["gradientboostingclassifier__learning_rate"]
-    max_depth = gb_gscv.best_params_["gradientboostingclassifier__max_depth"]
-
-    model = make_pipeline(
-        StandardScaler(),
-        GradientBoostingClassifier(
-            n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate
-        ),
-    )
-
-    RESULT = get_classification_results(
-        X_train=X_train,
-        X_test=X_test,
-        y_train=y_train,
-        y_test=y_test,
-        classifier_model=model,
-    )
-
+    RESULT["best_params"] = gscv.best_params_
     return RESULT
 
 
@@ -2183,6 +2004,10 @@ def task_presence_classification(
         # raise error
         raise ValueError(f"Unknown measure name: {measure_name}")
 
+    if measure_is_state_based:
+        X_train = process_SB_features(X=X_train, measure_name=measure_name)
+        X_test = process_SB_features(X=X_test, measure_name=measure_name)
+
     ML_scores = {
         "group_lvl": {
             "task": list(),
@@ -2203,35 +2028,14 @@ def task_presence_classification(
         },
     }
 
-    EMBEDDINGS = ["PCA", "PLS", "LE"]
+    EMBEDDINGS = ["PCA", "PLS"]
     check_count = len(EMBEDDINGS)
     num_excluded_subjects = 0
     for embedding in EMBEDDINGS:
         if measure_is_state_based:
-            X_train_embedded = process_SB_features(X=X_train, measure_name=measure_name)
-            X_test_embedded = process_SB_features(X=X_test, measure_name=measure_name)
+            embedding_to_use = None
         else:
-            # embed dFC features
-            try:
-                X_train_embedded, X_test_embedded = embed_dFC_features(
-                    train_subjects=train_subjects,
-                    test_subjects=test_subjects,
-                    X_train=X_train,
-                    X_test=X_test,
-                    y_train=y_train,
-                    y_test=y_test,
-                    subj_label_train=subj_label_train,
-                    subj_label_test=subj_label_test,
-                    embedding=embedding,
-                    n_components="auto",
-                    n_neighbors_LE=125,
-                    LE_embedding_method="embed+procrustes",
-                    measure_is_state_based=measure_is_state_based,
-                )
-            except Exception as e:
-                print(f"Error in embedding dFC features with {embedding}: {e}")
-                check_count -= 1
-                continue
+            embedding_to_use = embedding
 
         # check if both classes are present in train and test sets
         if len(np.unique(y_train)) < 2 or len(np.unique(y_test)) < 2:
@@ -2241,10 +2045,47 @@ def task_presence_classification(
             check_count -= 1
             continue
 
+        # task presence classification
+
+        print("task presence classification ...")
+
+        # logistic regression
+        log_reg_RESULT = logistic_regression_classify(
+            X_train=X_train,
+            y_train=y_train,
+            X_test=X_test,
+            y_test=y_test,
+            subj_label_train=subj_label_train,
+            embedding_method=embedding_to_use,
+        )
+
+        # SVM
+        SVM_RESULT = SVM_classify(
+            X_train=X_train,
+            y_train=y_train,
+            X_test=X_test,
+            y_test=y_test,
+            subj_label_train=subj_label_train,
+            embedding_method=embedding_to_use,
+        )
+
+        ML_models = {"Logistic regression": log_reg_RESULT, "SVM": SVM_RESULT}
+
         # Silhouette score
         # SI does not need to be separated for train and test sets
         # we will use the same SI for both train and test sets
         # using all samples from train and test sets
+        # use the embedding and scaler trained in SVM_RESULT["model"]
+        # so the results are comparable to the classification scores
+        scaler = SVM_RESULT["classifier_model"].named_steps["scaler"]
+        embedding_model = SVM_RESULT["classifier_model"].named_steps.get("emb", None)
+        if embedding_model is not None:
+            X_train_embedded = embedding_model.transform(scaler.transform(X_train))
+            X_test_embedded = embedding_model.transform(scaler.transform(X_test))
+        else:
+            X_train_embedded = scaler.transform(X_train)
+            X_test_embedded = scaler.transform(X_test)
+
         X_combined = np.concatenate((X_train_embedded, X_test_embedded), axis=0)
         y_combined = np.concatenate((y_train, y_test), axis=0)
 
@@ -2252,30 +2093,6 @@ def task_presence_classification(
             "train": silhouette_score(X_combined, y_combined),
             "test": silhouette_score(X_combined, y_combined),
         }
-
-        # task presence classification
-
-        print("task presence classification ...")
-
-        # logistic regression
-        log_reg_RESULT = logistic_regression_classify(
-            X_train=X_train_embedded,
-            y_train=y_train,
-            X_test=X_test_embedded,
-            y_test=y_test,
-            subj_label_train=subj_label_train,
-        )
-
-        # SVM
-        SVM_RESULT = SVM_classify(
-            X_train=X_train_embedded,
-            y_train=y_train,
-            X_test=X_test_embedded,
-            y_test=y_test,
-            subj_label_train=subj_label_train,
-        )
-
-        ML_models = {"Logistic regression": log_reg_RESULT, "SVM": SVM_RESULT}
 
         # # permutation tests
         # permutation_scores = {
