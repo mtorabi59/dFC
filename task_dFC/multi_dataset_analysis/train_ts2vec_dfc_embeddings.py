@@ -1,4 +1,5 @@
 import argparse
+import inspect
 import json
 import os
 from pathlib import Path
@@ -375,6 +376,65 @@ def instantiate_ts2vec(
     )
 
 
+def fit_ts2vec_adaptive(
+    model: Any, X_ts2vec: np.ndarray, fit_kwargs: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Call TS2Vec.fit using only kwargs supported by the installed implementation.
+    Returns the effective kwargs that were actually used.
+    """
+    try:
+        sig = inspect.signature(model.fit)
+        params = sig.parameters
+        accepts_var_kw = any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+        )
+        if accepts_var_kw:
+            _ = model.fit(X_ts2vec, **fit_kwargs)
+            return dict(fit_kwargs)
+
+        allowed = {
+            name
+            for name, p in params.items()
+            if name != "self"
+            and p.kind
+            in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.KEYWORD_ONLY,
+            )
+        }
+        effective_fit_kwargs = {k: v for k, v in fit_kwargs.items() if k in allowed}
+        _ = model.fit(X_ts2vec, **effective_fit_kwargs)
+        return effective_fit_kwargs
+    except (TypeError, ValueError):
+        # Some wrapped methods don't expose a reliable signature.
+        last_error = None
+        candidate_kwarg_sets = [
+            dict(fit_kwargs),
+            {k: v for k, v in fit_kwargs.items() if k != "batch_size"},
+            {k: v for k, v in fit_kwargs.items() if k not in {"batch_size", "lr"}},
+            {k: v for k, v in fit_kwargs.items() if k == "n_epochs"},
+            {},
+        ]
+
+        seen = set()
+        for kw in candidate_kwarg_sets:
+            key = tuple(sorted((str(k), str(v)) for k, v in kw.items()))
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                _ = model.fit(X_ts2vec, **kw)
+                return kw
+            except TypeError as e:
+                last_error = e
+                continue
+
+        raise TypeError(
+            f"Could not call TS2Vec.fit with tested kwargs variants: {last_error}"
+        )
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -613,14 +673,7 @@ def main() -> None:
         fit_kwargs.update(ts2vec_fit_extra)
 
         model, effective_init_kwargs = instantiate_ts2vec(TS2Vec, init_kwargs)
-        try:
-            _ = model.fit(X_ts2vec, **fit_kwargs)
-        except TypeError:
-            # Different TS2Vec implementations expose different fit signatures.
-            fit_kwargs_fallback = dict(fit_kwargs)
-            fit_kwargs_fallback.pop("lr", None)
-            _ = model.fit(X_ts2vec, **fit_kwargs_fallback)
-            fit_kwargs = fit_kwargs_fallback
+        fit_kwargs = fit_ts2vec_adaptive(model, X_ts2vec, fit_kwargs)
 
         encode_kwargs: Dict[str, Any] = {"encoding_window": encoding_window}
         encode_kwargs.update(ts2vec_encode_extra)
