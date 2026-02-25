@@ -2161,11 +2161,11 @@ def task_presence_classification(
         for subj in SUBJECTS:
             if subj in train_subjects:
                 subj_group = "train"
-                features = X_train_embedded[subj_label_train == subj, :]
+                features = X_train[subj_label_train == subj, :]
                 target = y_train[subj_label_train == subj]
             elif subj in test_subjects:
                 subj_group = "test"
-                features = X_test_embedded[subj_label_test == subj, :]
+                features = X_test[subj_label_test == subj, :]
                 target = y_test[subj_label_test == subj]
             # check if only one class is present, skip the subject
             if len(np.unique(target)) < 2:
