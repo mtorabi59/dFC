@@ -2077,8 +2077,8 @@ def task_presence_classification(
         # using all samples from train and test sets
         # use the embedding and scaler trained in SVM_RESULT["model"]
         # so the results are comparable to the classification scores
-        scaler = SVM_RESULT["classifier_model"].named_steps["scaler"]
-        embedding_model = SVM_RESULT["classifier_model"].named_steps.get("emb", None)
+        scaler = SVM_RESULT["model"].named_steps["scaler"]
+        embedding_model = SVM_RESULT["model"].named_steps.get("emb", None)
         if embedding_model is not None:
             X_train_embedded = embedding_model.transform(scaler.transform(X_train))
             X_test_embedded = embedding_model.transform(scaler.transform(X_test))
