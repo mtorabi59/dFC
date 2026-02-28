@@ -18,8 +18,8 @@ Simply install ``pydfc`` using the following steps:
   * ``conda activate pydfc_env``
   * ``pip install pydfc``
 
-The ``dFC_methods_demo.ipynb`` illustrates how to load data and apply each of the dFC methods implemented in the ``pydfc`` toolbox individually.
-The ``multi_analysis_demo.ipynb`` illustrates how to use the ``pydfc`` toolbox to apply multiple dFC methods at the same time on a dataset and compare their results.
+The ``examples/dFC_methods_demo.py`` illustrates how to load data and apply each of the dFC methods implemented in the ``pydfc`` toolbox individually.
+The ``examples/multi_analysis_demo.py`` illustrates how to use the ``pydfc`` toolbox to apply multiple dFC methods at the same time on a dataset and compare their results.
 
 For more details about the implemented methods and the comparison analysis see `our paper <https://doi.org/10.1093/gigascience/giae009>`_.
 
