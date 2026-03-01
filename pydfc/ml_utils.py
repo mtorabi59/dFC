@@ -1662,7 +1662,7 @@ def logistic_regression_classify(
         fit_kwargs = {"groups": gs}
 
     # GridSearch on training subjects only
-    gscv = GridSearchCV(pipe, param_grid, cv=cv, n_jobs=-1, scoring="balanced_accuracy")
+    gscv = GridSearchCV(pipe, param_grid, cv=cv, n_jobs=1, scoring="balanced_accuracy")
     gscv.fit(Xs, ys, **fit_kwargs)
 
     # Evaluate with best estimator (already refit on full training set by default)
@@ -1729,7 +1729,7 @@ def SVM_classify(
         fit_kwargs = {"groups": gs}
 
     # GridSearch on training subjects only
-    gscv = GridSearchCV(pipe, param_grid, cv=cv, n_jobs=-1, scoring="balanced_accuracy")
+    gscv = GridSearchCV(pipe, param_grid, cv=cv, n_jobs=1, scoring="balanced_accuracy")
     gscv.fit(Xs, ys, **fit_kwargs)
 
     # Evaluate with best estimator (already refit on full training set by default)
