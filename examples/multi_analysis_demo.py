@@ -335,7 +335,7 @@ print(SUBJ_output.keys())
 print(SUBJ_output["default_values"].keys())
 
 # %% [markdown]
-# ## Post Analysis
+# ## Results
 
 # %% [markdown]
 # First, create a dictionary containing RESULTS using `SUBJ_output` to be visualized
