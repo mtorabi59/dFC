@@ -235,7 +235,7 @@ def dFC_feature_extraction_subj_lvl(
     dFC,
     task_data,
     dynamic_pred="no",
-    normalize_dFC=True,
+    normalize_dFC=False,
     FCS_proba_for_SB=True,
 ):
     """
@@ -327,7 +327,7 @@ def dFC_feature_extraction(
     run=None,
     session=None,
     dynamic_pred="no",
-    normalize_dFC=True,
+    normalize_dFC=False,
     FCS_proba_for_SB=True,
 ):
     """
@@ -1640,7 +1640,7 @@ def logistic_regression_classify(
     else:
         param_grid = {"lr__C": [0.001, 0.01, 0.1, 1, 10, 100]}
 
-    steps = [("scaler", StandardScaler(with_mean=True, with_std=True))]
+    steps = [("scaler", StandardScaler())]
 
     if emb is not None:
         steps.append(("emb", emb))
@@ -1709,7 +1709,7 @@ def SVM_classify(
             "svc__gamma": ["scale", 0.01, 0.1],
         }
 
-    steps = [("scaler", StandardScaler(with_mean=True, with_std=True))]
+    steps = [("scaler", StandardScaler())]
 
     if emb is not None:
         steps.append(("emb", emb))
@@ -1945,7 +1945,7 @@ def task_presence_classification(
     run=None,
     session=None,
     dynamic_pred="no",
-    normalize_dFC=True,
+    normalize_dFC=False,
     train_test_ratio=0.8,
 ):
     """
@@ -2007,6 +2007,12 @@ def task_presence_classification(
     if measure_is_state_based:
         X_train = process_SB_features(X=X_train, measure_name=measure_name)
         X_test = process_SB_features(X=X_test, measure_name=measure_name)
+
+    # center the data by subject before embedding to remove subject effects
+    # separately for train and test sets to avoid data leakage
+    # for both state-based and state-free methods
+    X_train = subject_center(X_train, subj_label_train, mode="demean")
+    X_test = subject_center(X_test, subj_label_test, mode="demean")
 
     ML_scores = {
         "group_lvl": {

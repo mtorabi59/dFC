@@ -93,7 +93,7 @@ def run_classification(
     dFC_root,
     output_root,
     dynamic_pred="no",
-    normalize_dFC=True,
+    normalize_dFC=False,
     n_jobs=-1,  # Number of parallel jobs; -1 = all available cores
 ):
     for session in SESSIONS:
@@ -239,7 +239,7 @@ if __name__ == "__main__":
             dFC_root=dFC_root,
             output_root=ML_root,
             dynamic_pred="no",
-            normalize_dFC=True,
+            normalize_dFC=False,
             n_jobs=8,
         )
     except Exception as e:
