@@ -13,6 +13,24 @@ from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.stats import ttest_ind
 from sklearn.neighbors import NearestNeighbors
 
+# Curated palette of maximally distinct, publication-quality colors.
+# Used for coloring high-performing experiments so each gets a clearly
+# different hue even when only a few experiments are highlighted.
+_VIBRANT_DISTINCT_COLORS = [
+    "#E6194B",  # vivid red
+    "#3CB44B",  # vivid green
+    "#4363D8",  # vivid blue
+    "#F58231",  # vivid orange
+    "#911EB4",  # vivid purple
+    "#42D4F4",  # cyan
+    "#F032E6",  # magenta
+    "#008080",  # teal
+    "#9A6324",  # brown
+    "#000075",  # navy
+    "#808000",  # olive
+    "#DC143C",  # crimson
+]
+
 ###################### Publication style ######################
 
 
@@ -37,7 +55,7 @@ def setup_pub_style():
             "grid.linewidth": 0.6,
             # Figure/layout
             "figure.dpi": 150,  # on-screen
-            "savefig.dpi": 500,  # export
+            "savefig.dpi": 1000,  # export
             "savefig.bbox": "tight",
             "savefig.pad_inches": 0.04,
             # Vector export: keep text as text in PDF/SVG
@@ -171,17 +189,23 @@ def build_experiment_display_info(tasks_iterable, task_reference_order, simul_or
         used_labels[experiment_label_key] = task
         used_labels_lower.add(experiment_label_key)
 
-    colors = sns.color_palette("husl", n_colors=max(1, len(task_order)))
+    n = max(1, len(task_order))
+    colors = [
+        _VIBRANT_DISTINCT_COLORS[i % len(_VIBRANT_DISTINCT_COLORS)] for i in range(n)
+    ]
     experiment_order = [task_to_experiment[task] for task in task_order]
-    experiment_palette = {
-        experiment_label: mcolors.to_hex(color)
-        for experiment_label, color in zip(experiment_order, colors)
-    }
+    experiment_palette = dict(zip(experiment_order, colors))
 
     return task_order, task_to_experiment, experiment_order, experiment_palette
 
 
 def relabel_heatmap_rows(matrix_df, annot_df, task_reference_order, task_to_experiment):
+    def _experiment_sort_key(exp_label):
+        match = re.match(r"(?i)^\s*exp\s*[._-]?\s*(\d+)\s*$", str(exp_label))
+        if match:
+            return (0, int(match.group(1)), str(exp_label).lower())
+        return (1, float("inf"), str(exp_label).lower())
+
     row_order = get_present_task_order(matrix_df.index.tolist(), task_reference_order)
     experiment_labels = [task_to_experiment[task] for task in row_order]
 
@@ -192,6 +216,11 @@ def relabel_heatmap_rows(matrix_df, annot_df, task_reference_order, task_to_expe
     if annot_df is not None:
         relabeled_annot = annot_df.loc[row_order].copy()
         relabeled_annot.index = experiment_labels
+
+    sorted_labels = sorted(relabeled_matrix.index.tolist(), key=_experiment_sort_key)
+    relabeled_matrix = relabeled_matrix.loc[sorted_labels]
+    if relabeled_annot is not None:
+        relabeled_annot = relabeled_annot.loc[sorted_labels]
 
     return relabeled_matrix, relabeled_annot, row_order
 
