@@ -36,9 +36,11 @@ TARGETS = [
     ("PCA", "SI"),
     ("PLS", "SI"),
 ]
-TOP_POINT_LABEL_COUNT = 5
 TOP_EXPERIMENT_SHAPES = 3
 TOP_EXPERIMENT_MARKERS = ["*", "^", "D", "P", "X"]
+COLOR_THRESHOLD = 60.0
+PER_METHOD_LABEL_SCORE_THRESHOLD = 55.0
+NEUTRAL_COLOR = "#555555"
 
 
 def parse_args():
@@ -252,6 +254,23 @@ def finalize_marker_edges(ax):
             pass
 
 
+def get_colored_experiment_mask(df_best, color_threshold=COLOR_THRESHOLD):
+    """Return set of experiments with max score >= color_threshold across all methods."""
+    max_scores = df_best.groupby("experiment", observed=True)["score"].max()
+    return set(max_scores[max_scores >= color_threshold].index)
+
+
+def create_neutral_palette(experiment_order, colored_experiments, vibrant_palette):
+    """Create palette: neutral for non-colored experiments, vibrant for colored ones."""
+    palette = {}
+    for exp in experiment_order:
+        if exp in colored_experiments:
+            palette[exp] = vibrant_palette[exp]
+        else:
+            palette[exp] = NEUTRAL_COLOR
+    return palette
+
+
 def _as_rgb_tuple(color_value):
     rgba = to_rgba(color_value)
     return np.array([rgba[0], rgba[1], rgba[2]], dtype=float)
@@ -310,7 +329,7 @@ def overlay_top_experiment_shapes(
     ax,
     df_best,
     point_coordinates,
-    experiment_palette,
+    shape_palette,
     top_experiment_shapes,
 ):
     if top_experiment_shapes <= 0:
@@ -337,41 +356,74 @@ def overlay_top_experiment_shapes(
             x_vals,
             y_vals,
             marker=marker,
-            s=65,
-            c=experiment_palette[experiment],
+            s=120,
+            c=shape_palette[experiment],
             edgecolors="#111111",
-            linewidths=0.8,
+            linewidths=1.0,
             zorder=8,
         )
 
 
-def annotate_top_scoring_points(ax, df_best, point_coordinates, top_point_label_count):
-    if top_point_label_count <= 0:
-        return
+def annotate_per_method_quartile(
+    ax,
+    df_best,
+    point_coordinates,
+    method_order,
+    score_threshold=PER_METHOD_LABEL_SCORE_THRESHOLD,
+):
+    """
+    For each method, annotate points in the top quartile (>75th percentile)
+    if score > threshold. Position annotation left/right based on point position.
+    """
+    xticks = ax.get_xticks()
+    xticklabels = [t.get_text() for t in ax.get_xticklabels()]
+    method_positions = {lab: xticks[i] for i, lab in enumerate(xticklabels)}
 
-    top_rows = df_best.nlargest(top_point_label_count, columns="score")
-    for _, row in top_rows.iterrows():
-        experiment = row["experiment"]
-        method = row["dFC method"]
-        if experiment not in point_coordinates:
-            continue
-        if method not in point_coordinates[experiment]:
+    for method in method_order:
+        method_df = df_best[df_best["dFC method"] == method]
+        if method_df.empty:
             continue
 
-        x_value, y_value = point_coordinates[experiment][method]
-        ax.annotate(
-            experiment,
-            xy=(x_value, y_value),
-            xytext=(0, 6),
-            textcoords="offset points",
-            ha="center",
-            va="bottom",
-            fontsize=7,
-            fontweight="bold",
-            color="#1A1A1A",
-            bbox=dict(boxstyle="round,pad=0.14", fc="white", ec="none", alpha=0.75),
-            zorder=9,
-        )
+        scores = method_df["score"].values
+        quartile_threshold = np.percentile(scores, 75)
+
+        qualify_rows = method_df[
+            (method_df["score"] > score_threshold)
+            & (method_df["score"] >= quartile_threshold)
+        ]
+
+        method_center = method_positions[method]
+
+        for _, row in qualify_rows.iterrows():
+            experiment = row["experiment"]
+            if experiment not in point_coordinates:
+                continue
+            if method not in point_coordinates[experiment]:
+                continue
+
+            x_value, y_value = point_coordinates[experiment][method]
+
+            # Position text left or right based on point position
+            if x_value < method_center:
+                ha_align = "right"
+                x_offset = -6
+            else:
+                ha_align = "left"
+                x_offset = 6
+
+            ax.annotate(
+                experiment,
+                xy=(x_value, y_value),
+                xytext=(x_offset, 4),
+                textcoords="offset points",
+                ha=ha_align,
+                va="bottom",
+                fontsize=7,
+                fontweight="bold",
+                color="#1A1A1A",
+                bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.75),
+                zorder=9,
+            )
 
 
 def plot_best_pointplot(
@@ -385,6 +437,14 @@ def plot_best_pointplot(
     simul_or_real,
 ):
     figure, ax = plt.subplots(figsize=(max(10, 0.6 * len(method_order)), 7.0))
+
+    # Identify experiments with high performance (>= COLOR_THRESHOLD)
+    colored_experiments = get_colored_experiment_mask(df_best, COLOR_THRESHOLD)
+
+    # Create neutral palette: vibrant for high performers, neutral for others
+    neutral_palette = create_neutral_palette(
+        experiment_order, colored_experiments, experiment_palette
+    )
 
     box_face = to_rgba("#DE9995", 0.18)
     box_edge = "#730800"
@@ -407,6 +467,7 @@ def plot_best_pointplot(
     lower, upper = get_pointplot_limits(metric)
     overlay_method_means(ax, df_best, lower, upper)
 
+    # Draw pointplot with neutral palette
     sns.pointplot(
         data=df_best,
         x="dFC method",
@@ -418,29 +479,36 @@ def plot_best_pointplot(
         errorbar=None,
         linestyles="",
         markers="o",
-        palette=experiment_palette,
+        palette=neutral_palette,
         ax=ax,
         zorder=6,
     )
     finalize_marker_edges(ax)
+
+    # Extract point coordinates from the pointplot
     point_coordinates = extract_pointplot_coordinates(
         ax,
         method_order,
         experiment_order,
-        experiment_palette,
+        neutral_palette,
     )
+
+    # Overlay shapes for top 3 experiments using vibrant palette
     overlay_top_experiment_shapes(
         ax,
         df_best,
         point_coordinates,
-        experiment_palette,
+        neutral_palette,
         top_experiment_shapes=TOP_EXPERIMENT_SHAPES,
     )
-    annotate_top_scoring_points(
+
+    # Annotate per-method quartile points
+    annotate_per_method_quartile(
         ax,
         df_best,
         point_coordinates,
-        top_point_label_count=TOP_POINT_LABEL_COUNT,
+        method_order,
+        score_threshold=PER_METHOD_LABEL_SCORE_THRESHOLD,
     )
 
     ax.set_xlabel("dFC method")
