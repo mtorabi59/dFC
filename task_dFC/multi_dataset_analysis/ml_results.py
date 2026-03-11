@@ -40,7 +40,7 @@ TOP_EXPERIMENT_SHAPES = 3
 TOP_EXPERIMENT_MARKERS = ["*"]  # star for all top experiments
 COLOR_THRESHOLD = 60.0
 PER_METHOD_LABEL_SCORE_THRESHOLD = 55.0
-NEUTRAL_COLOR = "#AE7171"
+NEUTRAL_COLOR = "#D49B9B"
 
 
 def parse_args():
@@ -426,10 +426,10 @@ def annotate_per_method_quartile(
             # Position text left or right based on point position
             if x_value < method_center:
                 ha_align = "right"
-                x_offset = -11
+                x_offset = -10
             else:
                 ha_align = "left"
-                x_offset = 11
+                x_offset = 10
 
             ax.annotate(
                 experiment,
