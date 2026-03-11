@@ -289,11 +289,6 @@ def create_neutral_palette(experiment_order, colored_experiments, vibrant_palett
     return palette
 
 
-def _as_rgb_tuple(color_value):
-    rgba = to_rgba(color_value)
-    return np.array([rgba[0], rgba[1], rgba[2]], dtype=float)
-
-
 def extract_pointplot_coordinates(ax, method_order, experiment_order, experiment_palette):
     candidate_lines = []
     for line in ax.lines:

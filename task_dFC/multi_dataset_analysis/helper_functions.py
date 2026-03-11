@@ -1,4 +1,3 @@
-import math
 import re
 from pathlib import Path
 
@@ -237,52 +236,6 @@ def boldify_axes(ax, xlabel=None, ylabel=None, rotate_xticks=35):
         )
     else:
         plt.setp(ax.get_xticklabels(), fontweight="bold")
-
-
-def draw_labeled_legend_panel(
-    ax_leg,
-    label_order,
-    palette,
-    ncols=2,
-    fontsize=8,
-    markersize=5,
-    colpad=0.04,
-):
-    ax_leg.set_axis_off()
-    ax_leg.set_xlim(0, 1)
-    ax_leg.set_ylim(0, 1)
-    rows = len(label_order)
-    if rows == 0:
-        return
-
-    rows_per_col = max(1, math.ceil(rows / ncols))
-    x_cols = [0.02 + i * (1.0 / ncols) for i in range(ncols)]
-    top = 0.98
-    dy = (top - 0.06) / rows_per_col
-
-    col = 0
-    row_in_col = 0
-    for label in label_order:
-        if row_in_col >= rows_per_col:
-            col += 1
-            row_in_col = 0
-        if col >= ncols:
-            break
-        x = x_cols[col]
-        y = top - row_in_col * dy
-        color = palette.get(label, "0.4")
-        ax_leg.plot(
-            [x],
-            [y],
-            marker="o",
-            ms=markersize,
-            mfc=color,
-            mec="#222222",
-            mew=0.8,
-            ls="None",
-        )
-        ax_leg.text(x + colpad, y, label, fontsize=fontsize, ha="left", va="center")
-        row_in_col += 1
 
 
 def mean_ci_boot(y, n_boot=3000, ci=95, rng=None):
