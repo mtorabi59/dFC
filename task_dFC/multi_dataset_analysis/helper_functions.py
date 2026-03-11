@@ -1,13 +1,10 @@
-import colorsys
 import math
 import re
-import textwrap
 from pathlib import Path
 
 import matplotlib as mpl
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-import matplotlib.transforms as mtransforms
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -62,104 +59,54 @@ def savefig_pub(path_png_or_pdf: str):
 ###################### ml_results ######################
 
 
-def get_cog_domain_info(simul_or_real: str):
-    """
-    Return:
-        DOMAIN_ORDER: list of domains in preferred order
-        TASK2DOMAIN: dict mapping canonical task codes to domains
-        DOMAIN_BASE: dict mapping domains to base colors (hex)
-    """
-    if simul_or_real == "real":
-        # --- Cognitive-Atlas–aligned domains (order on paper) ---
-        DOMAIN_ORDER = [
-            "Arousal & Regulatory Systems",
-            "Cognitive Systems",
-            "Negative Valence System",
-            "Positive Valence System",
-            "Sensorimotor Systems",
-        ]
-
-        # --- Map canonical task codes -> domain ---
-        TASK2DOMAIN = {
-            # Language & Regulatory Systems
-            "emotionregulation": "Arousal & Regulatory Systems",
-            # Cognitive Systems
-            "audsem": "Cognitive Systems",
-            "visrhyme": "Cognitive Systems",
-            "vissem": "Cognitive Systems",
-            "visspell": "Cognitive Systems",
-            "arithmetic": "Cognitive Systems",
-            "stroop": "Cognitive Systems",
-            "cuedts": "Cognitive Systems",
-            "axcpt": "Cognitive Systems",
-            "matching": "Cognitive Systems",
-            "stern": "Cognitive Systems",
-            "st": "Cognitive Systems",
-            "vswm": "Cognitive Systems",
-            "expo": "Cognitive Systems",
-            "recall": "Cognitive Systems",
-            "feedback": "Cognitive Systems",
-            "ppalocalizer": "Cognitive Systems",
-            "localiser": "Cognitive Systems",
-            "localizer": "Cognitive Systems",
-            # Positive Valence System
-            "cic": "Positive Valence System",
-            "fribbids": "Positive Valence System",
-            "risk": "Positive Valence System",
-            "itc": "Positive Valence System",
-            # Negative Valence System
-            "fearlearning": "Negative Valence System",
-            "paingen": "Negative Valence System",
-            # Sensorimotor
-            "motor": "Sensorimotor Systems",
-            "execution": "Sensorimotor Systems",
-            "imagery": "Sensorimotor Systems",
-            "ihg": "Sensorimotor Systems",
-        }
-        # base colors per domain (distinct, colorblind-friendly)
-        DOMAIN_BASE = {
-            "Arousal & Regulatory Systems": "#9467bd",
-            "Cognitive Systems": "#ff7f0e",
-            "Positive Valence System": "#02833E",
-            "Negative Valence System": "#d62728",
-            "Sensorimotor Systems": "#1f77b4",
-        }
-    elif simul_or_real == "simulated":
-        # --- Categories of simulated task paradigms ---
-        DOMAIN_ORDER = [
-            "Simulated Periodic",
-            "Strong Performance on Real Data",
-            "Weak Performance on Real Data",
-        ]
-        # --- Map task codes -> category ---
-        TASK2DOMAIN = {
-            # Simulated Periodic
-            "lowfreqlongrest": "Simulated Periodic",
-            "lowfreqshortrest": "Simulated Periodic",
-            "lowfreqshorttask": "Simulated Periodic",
-            # Optimal Paradigm Design, Strong Performance on Real Data
-            "axcpt": "Strong Performance on Real Data",
-            "stern": "Strong Performance on Real Data",
-            "cuedts": "Strong Performance on Real Data",
-            # Optimal Paradigm Design, Weak Performance on Real Data
-            "execution": "Weak Performance on Real Data",
-            "imagery": "Weak Performance on Real Data",
-            "localizer": "Weak Performance on Real Data",
-            "ppalocalizer": "Weak Performance on Real Data",
-            # Sub-Optimal Paradigm Design, Weak Performance on Real Data
-            "itc": "Weak Performance on Real Data",
-            "stroop": "Weak Performance on Real Data",
-            "risk": "Weak Performance on Real Data",
-        }
-        # base colors per domain (distinct, colorblind-friendly)
-        DOMAIN_BASE = {
-            "Simulated Periodic": "#1f77b4",
-            "Strong Performance on Real Data": "#02833E",
-            "Weak Performance on Real Data": "#d62728",
-        }
-    else:
-        raise ValueError(f"Invalid simul_or_real: {simul_or_real}")
-    return DOMAIN_ORDER, TASK2DOMAIN, DOMAIN_BASE
+DEFAULT_EXPERIMENT_NAME_MAP = {
+    "real": {
+        "emotionregulation": "exp1",
+        "audsem": "exp2",
+        "visrhyme": "exp3",
+        "vissem": "exp4",
+        "visspell": "exp5",
+        "arithmetic": "exp6",
+        "stroop": "exp7",
+        "cuedts": "exp8",
+        "axcpt": "exp9",
+        "matching": "exp10",
+        "stern": "exp11",
+        "st": "exp12",
+        "vswm": "exp13",
+        "expo": "exp14",
+        "recall": "exp15",
+        "feedback": "exp16",
+        "ppalocalizer": "exp17",
+        "localiser": "exp18",
+        "localizer": "exp19",
+        "cic": "exp20",
+        "fribbids": "exp21",
+        "risk": "exp22",
+        "itc": "exp23",
+        "fearlearning": "exp24",
+        "paingen": "exp25",
+        "motor": "exp26",
+        "execution": "exp27",
+        "imagery": "exp28",
+        "ihg": "exp29",
+    },
+    "simulated": {
+        "lowfreqlongrest": "exp1",
+        "lowfreqshortrest": "exp2",
+        "lowfreqshorttask": "exp3",
+        "axcpt": "exp4",
+        "stern": "exp5",
+        "cuedts": "exp6",
+        "execution": "exp7",
+        "imagery": "exp8",
+        "localizer": "exp9",
+        "ppalocalizer": "exp10",
+        "itc": "exp11",
+        "stroop": "exp12",
+        "risk": "exp13",
+    },
+}
 
 
 def canon_task(task_str: str) -> str:
@@ -169,88 +116,84 @@ def canon_task(task_str: str) -> str:
     return s.lower()
 
 
-def task_domain_real(task: str) -> str:
-    _, TASK2DOMAIN, _ = get_cog_domain_info("real")
-    return TASK2DOMAIN.get(canon_task(task), "Other")
+def get_default_experiment_name_map(simul_or_real: str):
+    if simul_or_real not in DEFAULT_EXPERIMENT_NAME_MAP:
+        raise ValueError(f"Invalid simul_or_real: {simul_or_real}")
+    return DEFAULT_EXPERIMENT_NAME_MAP[simul_or_real].copy()
 
 
-def task_domain_simul(task: str) -> str:
-    _, TASK2DOMAIN, _ = get_cog_domain_info("simulated")
-    return TASK2DOMAIN.get(canon_task(task), "Other")
+def get_present_task_order(tasks_iterable, task_reference_order):
+    present_tasks = list(dict.fromkeys(tasks_iterable))
+    present_set = set(present_tasks)
+    ordered_tasks = [task for task in task_reference_order if task in present_set]
+    remaining_tasks = sorted(
+        [task for task in present_tasks if task not in ordered_tasks],
+        key=lambda task: task.lower(),
+    )
+    return ordered_tasks + remaining_tasks
 
 
-def shade_series_same_hue(base_hex: str, n: int, delta_L=0.08, delta_S=0.06):
+def _next_available_experiment_label(used_labels_lower):
+    index = 1
+    while f"exp{index}" in used_labels_lower:
+        index += 1
+    return f"exp{index}"
+
+
+def build_experiment_display_info(tasks_iterable, task_reference_order, simul_or_real):
     """
-    Same hue; small, symmetric tweaks in lightness/saturation → very similar colors.
-    delta_L/S control how similar the shades are (smaller = more similar).
+    Resolve task order, experiment labels, and a stable palette for ML result plots.
+
+    Edit ``DEFAULT_EXPERIMENT_NAME_MAP`` above to change experiment labels.
+    Any task not listed there is auto-assigned the next available ``expN`` label.
     """
-    if n <= 1:
-        return [base_hex]
-    r, g, b = mcolors.to_rgb(base_hex)
-    # colorsys uses HLS (Hue, Lightness, Saturation)
-    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    task_order = get_present_task_order(tasks_iterable, task_reference_order)
+    configured_map = get_default_experiment_name_map(simul_or_real)
 
-    # symmetric lightness offsets around original l
-    offs_L = np.linspace(-delta_L, +delta_L, n)
-    # small saturation jitter to avoid identical look
-    offs_S = np.linspace(-delta_S, +delta_S, n)
+    task_to_experiment = {}
+    used_labels = {}
+    used_labels_lower = set()
 
-    cols = []
-    for dL, dS in zip(offs_L, offs_S):
-        li = float(np.clip(l + dL, 0.05, 0.95))
-        si = float(np.clip(s + dS, 0.20, 0.95))
-        r2, g2, b2 = colorsys.hls_to_rgb(h, li, si)
-        cols.append(mcolors.to_hex((r2, g2, b2)))
-    return cols
+    for task in task_order:
+        experiment_label = configured_map.get(canon_task(task))
+        if experiment_label is None:
+            experiment_label = _next_available_experiment_label(used_labels_lower)
 
+        experiment_label_key = experiment_label.lower()
+        if experiment_label_key in used_labels:
+            raise ValueError(
+                "Experiment labels must be unique for the plotted tasks. "
+                f"Both '{used_labels[experiment_label_key]}' and '{task}' map to "
+                f"'{experiment_label}'."
+            )
 
-def build_task_order_and_palette(
-    tasks_iterable, simul_or_real, similarity_L=0.08, similarity_S=0.06
-):
-    """Domain-first task order + very-similar shades per domain."""
-    tasks = list(tasks_iterable)
-    if simul_or_real == "real":
-        dom_of = {t: task_domain_real(t) for t in tasks}
-    elif simul_or_real == "simulated":
-        dom_of = {t: task_domain_simul(t) for t in tasks}
+        task_to_experiment[task] = experiment_label
+        used_labels[experiment_label_key] = task
+        used_labels_lower.add(experiment_label_key)
 
-    DOMAIN_ORDER, _, DOMAIN_BASE = get_cog_domain_info(simul_or_real)
-    # order: by DOMAIN_ORDER, then alphabetical within domain
-    task_order = []
-    for dom in DOMAIN_ORDER:
-        ts = sorted([t for t in tasks if dom_of[t] == dom], key=lambda s: s.lower())
-        task_order.extend(ts)
+    colors = sns.color_palette("husl", n_colors=max(1, len(task_order)))
+    experiment_order = [task_to_experiment[task] for task in task_order]
+    experiment_palette = {
+        experiment_label: mcolors.to_hex(color)
+        for experiment_label, color in zip(experiment_order, colors)
+    }
 
-    # palette: near-identical shades per domain
-    palette = {}
-    for dom in DOMAIN_ORDER:
-        ts = [t for t in task_order if dom_of.get(t, "Other") == dom]
-        if not ts:
-            continue
-        shades = shade_series_same_hue(
-            DOMAIN_BASE[dom], len(ts), delta_L=similarity_L, delta_S=similarity_S
-        )
-        for t, col in zip(ts, shades):
-            palette[t] = col
-    return task_order, palette
+    return task_order, task_to_experiment, experiment_order, experiment_palette
 
 
-def domain_sorted_rows(index_tasks, TASKS_to_include, simul_or_real):
-    # preserve only tasks present in the matrix
-    present = [t for t in index_tasks if t in TASKS_to_include]
-    # if simul_or_real != "real":
-    #     return sorted(present, key=lambda s: s.lower())
-    # domain-first, then alphabetical
-    if simul_or_real == "real":
-        dom_of = {t: task_domain_real(t) for t in present}
-    elif simul_or_real == "simulated":
-        dom_of = {t: task_domain_simul(t) for t in present}
-    DOMAIN_ORDER, _, _ = get_cog_domain_info(simul_or_real)
-    ordered = []
-    for dom in DOMAIN_ORDER:
-        ts = sorted([t for t in present if dom_of[t] == dom], key=lambda s: s.lower())
-        ordered.extend(ts)
-    return ordered
+def relabel_heatmap_rows(matrix_df, annot_df, task_reference_order, task_to_experiment):
+    row_order = get_present_task_order(matrix_df.index.tolist(), task_reference_order)
+    experiment_labels = [task_to_experiment[task] for task in row_order]
+
+    relabeled_matrix = matrix_df.loc[row_order].copy()
+    relabeled_matrix.index = experiment_labels
+
+    relabeled_annot = None
+    if annot_df is not None:
+        relabeled_annot = annot_df.loc[row_order].copy()
+        relabeled_annot.index = experiment_labels
+
+    return relabeled_matrix, relabeled_annot, row_order
 
 
 def boldify_axes(ax, xlabel=None, ylabel=None, rotate_xticks=35):
@@ -267,12 +210,10 @@ def boldify_axes(ax, xlabel=None, ylabel=None, rotate_xticks=35):
         plt.setp(ax.get_xticklabels(), fontweight="bold")
 
 
-def draw_grouped_legend_panel(
+def draw_labeled_legend_panel(
     ax_leg,
-    task_order,
-    domain_of,
+    label_order,
     palette,
-    domain_order,
     ncols=2,
     fontsize=8,
     markersize=5,
@@ -281,15 +222,10 @@ def draw_grouped_legend_panel(
     ax_leg.set_axis_off()
     ax_leg.set_xlim(0, 1)
     ax_leg.set_ylim(0, 1)
-    items = []
-    for dom in domain_order:
-        ts = [t for t in task_order if domain_of.get(t, "Other") == dom]
-        if not ts:
-            continue
-        items.append(("header", dom))
-        items.extend(("task", t) for t in ts)
+    rows = len(label_order)
+    if rows == 0:
+        return
 
-    rows = len(items)
     rows_per_col = max(1, math.ceil(rows / ncols))
     x_cols = [0.02 + i * (1.0 / ncols) for i in range(ncols)]
     top = 0.98
@@ -297,7 +233,7 @@ def draw_grouped_legend_panel(
 
     col = 0
     row_in_col = 0
-    for kind, val in items:
+    for label in label_order:
         if row_in_col >= rows_per_col:
             col += 1
             row_in_col = 0
@@ -305,24 +241,18 @@ def draw_grouped_legend_panel(
             break
         x = x_cols[col]
         y = top - row_in_col * dy
-        if kind == "header":
-            ax_leg.text(
-                x, y, val, fontsize=fontsize, fontweight="bold", ha="left", va="top"
-            )
-        else:
-            t = val
-            color = palette.get(t, "0.4")
-            ax_leg.plot(
-                [x],
-                [y],
-                marker="o",
-                ms=markersize,
-                mfc=color,
-                mec="#222222",
-                mew=0.8,
-                ls="None",
-            )
-            ax_leg.text(x + colpad, y, t, fontsize=fontsize, ha="left", va="center")
+        color = palette.get(label, "0.4")
+        ax_leg.plot(
+            [x],
+            [y],
+            marker="o",
+            ms=markersize,
+            mfc=color,
+            mec="#222222",
+            mew=0.8,
+            ls="None",
+        )
+        ax_leg.text(x + colpad, y, label, fontsize=fontsize, ha="left", va="center")
         row_in_col += 1
 
 
@@ -411,112 +341,6 @@ def overlay_method_mean_ci(
             alpha=0.9,
             zorder=5,
         )
-
-
-def wrap_domain(dom: str, max_len: int = 20) -> str:
-    # First, break on the preferred delimiters
-    s = dom.replace(" & ", " &\n").replace(", ", ",\n")
-    out = []
-    for seg in s.splitlines():
-        # Then wrap remaining long segments on spaces (no hard splits)
-        wrapped = textwrap.wrap(
-            seg, width=max_len, break_long_words=False, break_on_hyphens=True
-        )
-        out.extend(wrapped if wrapped else [""])
-    return "\n".join(out)
-
-
-def add_domains_between_ylabel_and_ticks(
-    ax,
-    row_order,
-    task_to_domain,
-    label_rotation=30,
-    tick_pad_pts=28,
-    ylabel_pad_pts=60,
-    domain_x_frac=-0.11,  # x position for the domain column (axes frac)
-    left_extend_frac=0.02,  # how far past the text the line extends
-    label_x_offset_frac=0.008,  # small nudge right from domain_x_frac
-    label_align="left",  # "left" | "center" | "right"
-    label_kw=None,
-    sep_kw=None,
-):
-    if label_kw is None:
-        label_kw = dict(
-            fontsize=10, fontweight="bold", color="#222", ha="left", va="center"
-        )  # default to left
-    else:
-        # override HA with requested alignment but keep user's other styles
-        label_kw = {
-            **label_kw,
-            "ha": {"left": "left", "center": "center", "right": "right"}[label_align],
-            "va": "center",
-        }
-    if sep_kw is None:
-        sep_kw = dict(color="#777", lw=1.0, alpha=0.9)
-
-    if not row_order:
-        return
-
-    ax.tick_params(axis="y", pad=tick_pad_pts)
-    ax.yaxis.labelpad = ylabel_pad_pts
-
-    # row centers (as before) ...
-    yticks = ax.get_yticks()
-    yticklabs = [t.get_text() for t in ax.get_yticklabels()]
-    if yticklabs and len(yticklabs) == len(row_order):
-        lbl2y = {lab: y for lab, y in zip(yticklabs, yticks)}
-        y_centers = [lbl2y.get(t, np.nan) for t in row_order]
-    else:
-        n = len(row_order)
-        y0, y1 = ax.get_ylim()
-        base = np.linspace(0.5, n - 0.5, n)
-        if y1 < y0:
-            scale = (y0 - y1) / (n - 1)
-            y_centers = y0 - (base - 0.5) * scale
-        else:
-            scale = (y1 - y0) / (n - 1)
-            y_centers = y0 + (base - 0.5) * scale
-
-    doms = [task_to_domain.get(t, "Other") for t in row_order]
-    blocks = []
-    start = 0
-    for i in range(1, len(doms)):
-        if doms[i] != doms[i - 1]:
-            blocks.append((doms[start], start, i - 1))
-            start = i
-    if len(doms):
-        blocks.append((doms[start], start, len(doms) - 1))
-
-    trans_text = mtransforms.blended_transform_factory(ax.transAxes, ax.transData)
-    for dom, i0, i1 in blocks:
-        y_block = float(np.nanmean(y_centers[i0 : i1 + 1]))
-        # left-aligned text slightly to the right of the domain column anchor
-        x_text = domain_x_frac + (label_x_offset_frac if label_align == "left" else 0.0)
-        dom_updated = wrap_domain(dom, max_len=24)
-        ax.text(
-            x_text,
-            y_block,
-            dom_updated,
-            rotation=label_rotation,
-            transform=trans_text,
-            clip_on=False,
-            **label_kw,
-        )
-
-    # separators (heatmap + extension into the domain column)
-    x_min, x_max = ax.get_xlim()
-    trans_sep = mtransforms.blended_transform_factory(ax.transAxes, ax.transData)
-    for i in range(len(doms) - 1):
-        if doms[i + 1] != doms[i]:
-            y_sep = 0.5 * (y_centers[i] + y_centers[i + 1])
-            ax.hlines(y_sep, x_min, x_max, **sep_kw)  # inside heatmap
-            ax.plot(
-                [0.0, domain_x_frac - left_extend_frac],
-                [y_sep, y_sep],
-                transform=trans_sep,
-                clip_on=False,
-                **sep_kw,
-            )  # into domain column
 
 
 ###################### task_timing_stats ######################
