@@ -13,7 +13,6 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from helper_functions import (  # pyright: ignore[reportMissingImports]
     boldify_axes,
     build_experiment_display_info,
-    draw_labeled_legend_panel,
     relabel_heatmap_rows,
     savefig_pub,
     setup_pub_style,
@@ -37,6 +36,9 @@ TARGETS = [
     ("PCA", "SI"),
     ("PLS", "SI"),
 ]
+TOP_POINT_LABEL_COUNT = 5
+TOP_EXPERIMENT_SHAPES = 3
+TOP_EXPERIMENT_MARKERS = ["*", "^", "D", "P", "X"]
 
 
 def parse_args():
@@ -250,6 +252,128 @@ def finalize_marker_edges(ax):
             pass
 
 
+def _as_rgb_tuple(color_value):
+    rgba = to_rgba(color_value)
+    return np.array([rgba[0], rgba[1], rgba[2]], dtype=float)
+
+
+def extract_pointplot_coordinates(ax, method_order, experiment_order, experiment_palette):
+    target_rgb = {
+        experiment: _as_rgb_tuple(color)
+        for experiment, color in experiment_palette.items()
+    }
+
+    candidate_lines = []
+    for line in ax.lines:
+        x_data = np.asarray(line.get_xdata(), dtype=float)
+        y_data = np.asarray(line.get_ydata(), dtype=float)
+        marker = line.get_marker()
+        if marker in {None, "", "None", " "}:
+            continue
+        if x_data.size != len(method_order) or y_data.size != len(method_order):
+            continue
+        candidate_lines.append(line)
+
+    line_color_distances = []
+    for line in candidate_lines:
+        line_rgb = _as_rgb_tuple(line.get_markerfacecolor())
+        for experiment in experiment_order:
+            dist = float(np.linalg.norm(line_rgb - target_rgb[experiment]))
+            line_color_distances.append((dist, id(line), line, experiment))
+
+    assigned_lines = {}
+    used_experiments = set()
+    used_lines = set()
+    for _, line_id, line, experiment in sorted(line_color_distances, key=lambda x: x[0]):
+        if experiment in used_experiments or line_id in used_lines:
+            continue
+        assigned_lines[experiment] = line
+        used_experiments.add(experiment)
+        used_lines.add(line_id)
+        if len(assigned_lines) == len(experiment_order):
+            break
+
+    coordinates = {}
+    for experiment, line in assigned_lines.items():
+        x_data = np.asarray(line.get_xdata(), dtype=float)
+        y_data = np.asarray(line.get_ydata(), dtype=float)
+        coordinates[experiment] = {}
+        for method_index, method in enumerate(method_order):
+            y_value = y_data[method_index]
+            if np.isnan(y_value):
+                continue
+            coordinates[experiment][method] = (x_data[method_index], y_value)
+    return coordinates
+
+
+def overlay_top_experiment_shapes(
+    ax,
+    df_best,
+    point_coordinates,
+    experiment_palette,
+    top_experiment_shapes,
+):
+    if top_experiment_shapes <= 0:
+        return
+
+    top_experiments = (
+        df_best.groupby("experiment", observed=True)["score"]
+        .mean()
+        .sort_values(ascending=False)
+        .head(top_experiment_shapes)
+        .index.tolist()
+    )
+
+    for rank, experiment in enumerate(top_experiments):
+        if experiment not in point_coordinates:
+            continue
+        marker = TOP_EXPERIMENT_MARKERS[rank % len(TOP_EXPERIMENT_MARKERS)]
+        points = list(point_coordinates[experiment].values())
+        if not points:
+            continue
+        x_vals = [pt[0] for pt in points]
+        y_vals = [pt[1] for pt in points]
+        ax.scatter(
+            x_vals,
+            y_vals,
+            marker=marker,
+            s=65,
+            c=experiment_palette[experiment],
+            edgecolors="#111111",
+            linewidths=0.8,
+            zorder=8,
+        )
+
+
+def annotate_top_scoring_points(ax, df_best, point_coordinates, top_point_label_count):
+    if top_point_label_count <= 0:
+        return
+
+    top_rows = df_best.nlargest(top_point_label_count, columns="score")
+    for _, row in top_rows.iterrows():
+        experiment = row["experiment"]
+        method = row["dFC method"]
+        if experiment not in point_coordinates:
+            continue
+        if method not in point_coordinates[experiment]:
+            continue
+
+        x_value, y_value = point_coordinates[experiment][method]
+        ax.annotate(
+            experiment,
+            xy=(x_value, y_value),
+            xytext=(0, 6),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=7,
+            fontweight="bold",
+            color="#1A1A1A",
+            bbox=dict(boxstyle="round,pad=0.14", fc="white", ec="none", alpha=0.75),
+            zorder=9,
+        )
+
+
 def plot_best_pointplot(
     df_best,
     method_order,
@@ -260,12 +384,7 @@ def plot_best_pointplot(
     metric,
     simul_or_real,
 ):
-    figure = plt.figure(figsize=(max(10, 0.6 * len(method_order)) + 5.0, 7.0))
-    grid_spec = figure.add_gridspec(
-        ncols=2, nrows=1, width_ratios=[1.0, 0.5], wspace=0.05
-    )
-    ax = figure.add_subplot(grid_spec[0, 0])
-    ax_leg = figure.add_subplot(grid_spec[0, 1])
+    figure, ax = plt.subplots(figsize=(max(10, 0.6 * len(method_order)), 7.0))
 
     box_face = to_rgba("#DE9995", 0.18)
     box_edge = "#730800"
@@ -304,6 +423,25 @@ def plot_best_pointplot(
         zorder=6,
     )
     finalize_marker_edges(ax)
+    point_coordinates = extract_pointplot_coordinates(
+        ax,
+        method_order,
+        experiment_order,
+        experiment_palette,
+    )
+    overlay_top_experiment_shapes(
+        ax,
+        df_best,
+        point_coordinates,
+        experiment_palette,
+        top_experiment_shapes=TOP_EXPERIMENT_SHAPES,
+    )
+    annotate_top_scoring_points(
+        ax,
+        df_best,
+        point_coordinates,
+        top_point_label_count=TOP_POINT_LABEL_COUNT,
+    )
 
     ax.set_xlabel("dFC method")
     ax.set_ylabel(metric)
@@ -318,20 +456,8 @@ def plot_best_pointplot(
     if ax.legend_:
         ax.legend_.remove()
 
-    draw_labeled_legend_panel(
-        ax_leg,
-        experiment_order,
-        experiment_palette,
-        ncols=2 if simul_or_real == "real" else 1,
-        fontsize=8,
-        markersize=5,
-    )
-    ax_leg.set_title("Experiment", fontsize=9, pad=4, fontweight="bold")
-    box = ax_leg.get_position()
-    ax_leg.set_position([box.x0, box.y0 - 0.03, box.width, box.height])
-
     boldify_axes(ax, xlabel="dFC method", ylabel=metric)
-    figure.tight_layout(rect=[0.02, 0.02, 0.98, 0.98])
+    figure.tight_layout()
 
     savefig_pub(
         f"{output_root}/ML_scores_{embedding}_{metric}_{LEVEL}_{simul_or_real}_best.png"
