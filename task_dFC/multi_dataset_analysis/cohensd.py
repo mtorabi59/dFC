@@ -185,6 +185,7 @@ if __name__ == "__main__":
 
                     cohen_d = cohen_d_bold(X=BOLD_data.T, y=task_presence)  # (n_ROIs,)
                     d_values_run.append(cohen_d)
+                    d_values_all.append(cohen_d)
 
                 d_values_run = np.array(d_values_run)  # (n_subjects, n_ROIs)
                 assert (
@@ -206,21 +207,12 @@ if __name__ == "__main__":
                     np.nanmean(np.abs(np.nanmean(d_values_run, axis=0)))
                 )
 
-                d_values_all.append(d_values_run)
-
             if len(d_values_all) == 0:
                 print(f"No data found for task {task} in dataset {dataset}. Skipping.")
                 continue
-            d_values_all = np.array(d_values_all)  # (runs, n_subjects, n_ROIs)
-            assert d_values_all.shape[1] == len(SUBJECTS) - len(
-                set(excluded_subjects)
-            ), f"Expected number of subjects in d_values_all ({d_values_all.shape[1]}) to match n_subjects ({len(SUBJECTS) - len(set(excluded_subjects))})"
-            assert d_values_all.shape[0] == len(
-                RUNS[task]
-            ), f"Expected number of runs in d_values_all ({d_values_all.shape[0]}) to match RUNS for task {task} ({len(RUNS[task])})"
-            avg_d_values = np.nanmean(
-                np.nanmean(d_values_all, axis=0), axis=0
-            )  # (n_ROIs,)
+            d_values_all = np.array(d_values_all)  # (runs x n_subjects, n_ROIs)
+
+            avg_d_values = np.nanmean(d_values_all, axis=0)  # (n_ROIs,)
             CohensD_across_task["d_values"].extend(avg_d_values)
             CohensD_across_task["task"].extend([task] * len(avg_d_values))
             CohensD_across_task["dataset"].extend([dataset] * len(avg_d_values))
