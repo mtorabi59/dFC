@@ -76,6 +76,17 @@ if __name__ == "__main__":
     transition_freq_all = {}
     rest_durations_all = {}
     task_durations_all = {}
+    DATA = {
+        "task": [],
+        "run": [],
+        "dataset": [],
+        "task_ratio_avg": [],
+        "transition_freq_avg": [],
+        "rest_durations_median": [],
+        "task_durations_median": [],
+        "rest_durations_iqr": [],
+        "task_durations_iqr": [],
+    }
     for dataset in DATASETS:
 
         print(f"Processing dataset: {dataset}")
@@ -103,11 +114,17 @@ if __name__ == "__main__":
         if RUNS is None:
             RUNS = {task: [None] for task in TASKS}
 
-        for session in SESSIONS:
+        for session in SESSIONS[:1]:  # process only the first session if multiple exist
             for task_id, task in enumerate(TASKS):
                 if not task in TASKS_to_include:
                     continue
                 for run in RUNS[task]:
+
+                    task_ratio_run = []
+                    transition_freq_run = []
+                    rest_durations_run = []
+                    task_durations_run = []
+
                     SUBJECTS = find_subj_list(roi_root)
                     # print(f"Number of subjects: {len(SUBJECTS)}")
 
@@ -146,27 +163,41 @@ if __name__ == "__main__":
                             event_labels, TR_mri=1 / task_data["Fs_task"]
                         )
 
-                        if not task in task_ratio_all:
-                            task_ratio_all[task] = []
-                        if not task in transition_freq_all:
-                            transition_freq_all[task] = []
-                        if not task in rest_durations_all:
-                            rest_durations_all[task] = []
-                        if not task in task_durations_all:
-                            task_durations_all[task] = []
-                        task_ratio_all[task].append(relative_task_on)
-                        transition_freq_all[task].append(relative_transition_freq)
-                        # rest_durations and task_durations are lists
-                        rest_durations_all[task].extend(rest_durations)
-                        task_durations_all[task].extend(task_durations)
+                        task_ratio_run.append(relative_task_on)
+                        transition_freq_run.append(relative_transition_freq)
+                        rest_durations_run.extend(rest_durations)
+                        task_durations_run.extend(task_durations)
 
-    DATA = {
-        "task_ratio_all": task_ratio_all,
-        "transition_freq_all": transition_freq_all,
-        "rest_durations_all": rest_durations_all,
-        "task_durations_all": task_durations_all,
-    }
-    # np.save(f"task_timing_stats_{simul_or_real}.npy", DATA)
+                    # Aggregate stats across runs for this task and store in the all-run dictionaries for later plotting
+                    if not task in task_ratio_all:
+                        task_ratio_all[task] = []
+                    if not task in transition_freq_all:
+                        transition_freq_all[task] = []
+                    if not task in rest_durations_all:
+                        rest_durations_all[task] = []
+                    if not task in task_durations_all:
+                        task_durations_all[task] = []
+                    task_ratio_all[task].extend(task_ratio_run)
+                    transition_freq_all[task].extend(transition_freq_run)
+                    rest_durations_all[task].extend(rest_durations_run)
+                    task_durations_all[task].extend(task_durations_run)
+
+                    # Aggregate run-level stats for this task and store in DATA for potential further analysis
+                    DATA["task"].append(task)
+                    DATA["run"].append(run)
+                    DATA["dataset"].append(dataset)
+                    DATA["task_ratio_avg"].append(np.nanmean(task_ratio_run))
+                    DATA["transition_freq_avg"].append(np.nanmean(transition_freq_run))
+                    DATA["rest_durations_median"].append(np.nanmedian(rest_durations_run))
+                    DATA["task_durations_median"].append(np.nanmedian(task_durations_run))
+                    q75_rest, q25_rest = np.percentile(rest_durations_run, [75, 25])
+                    iqr_rest = q75_rest - q25_rest
+                    q75_task, q25_task = np.percentile(task_durations_run, [75, 25])
+                    iqr_task = q75_task - q25_task
+                    DATA["rest_durations_iqr"].append(iqr_rest)
+                    DATA["task_durations_iqr"].append(iqr_task)
+
+    np.save(f"{output_root}/task_timing_stats_{simul_or_real}.npy", DATA)
 
     # =========================
     # Paper-quality seaborn plots (patched)
