@@ -52,11 +52,20 @@ if __name__ == "__main__":
     if not os.path.exists(output_root):
         os.makedirs(output_root)
 
+    # the dictionary to build the dataframe for visualization of Cohen's d across tasks
     CohensD_across_task = {
         "task": [],
         "d_values": [],
         "dataset": [],
         "ROI": [],
+    }
+    # the dictionary to be used for the correlation with ML performance
+    CohensD_ML = {
+        "task": [],
+        "run": [],
+        "dataset": [],
+        "CohensD_max": [],
+        "CohensD_mean": [],
     }
     for dataset in DATASETS:
         print(f"Processing dataset: {dataset}")
@@ -89,95 +98,129 @@ if __name__ == "__main__":
                 print(f"Skipping task {task} as it's not in the inclusion list.")
                 continue
             d_values_all = []
-            for session in SESSIONS:
-                print(f"Processing task: {task}")
-                SUBJECTS = find_available_subjects(
-                    dFC_root=dFC_root,
-                    task=task,
-                    dFC_id=None,
-                    session=session,
-                )
+            session = SESSIONS[
+                0
+            ]  # for now, only use the first session if multiple are present
+            print(f"Processing task: {task}")
+            SUBJECTS = find_available_subjects(
+                dFC_root=dFC_root,
+                task=task,
+                dFC_id=None,
+                session=session,
+            )
+            excluded_subjects = []
+            for run in RUNS[task]:
+                d_values_run = []
                 for subj in SUBJECTS:
-                    for run in RUNS[task]:
-                        try:
-                            task_data = load_task_data(
-                                roi_root=roi_root,
-                                subj=subj,
-                                task=task,
-                                run=run,
-                                session=session,
-                            )
-                        except:
-                            continue
-
-                        if run is None:
-                            if session is None:
-                                BOLD_file_name = "{subj_id}_{task}_time-series.npy"
-                            else:
-                                BOLD_file_name = (
-                                    "{subj_id}_{session}_{task}_time-series.npy"
-                                )
-                        else:
-                            if session is None:
-                                BOLD_file_name = "{subj_id}_{task}_{run}_time-series.npy"
-                            else:
-                                BOLD_file_name = (
-                                    "{subj_id}_{session}_{task}_{run}_time-series.npy"
-                                )
-                        try:
-                            BOLD = data_loader.load_TS(
-                                data_root=roi_root,
-                                file_name=BOLD_file_name,
-                                subj_id2load=subj,
-                                task=task,
-                                session=session,
-                                run=run,
-                            )
-                        except Exception as e:
-                            print(f"Error loading BOLD data: {e}")
-                            continue
-                        BOLD_data = BOLD.data  # np.ndarray (n_ROIs, n_TRs)
-
-                        Fs_task = task_data["Fs_task"]
-                        TR_task = 1 / Fs_task
-
-                        TR_array = np.arange(0, BOLD_data.shape[1])
-                        task_presence, indices = extract_task_presence(
-                            event_labels=task_data["event_labels"],
-                            TR_task=TR_task,
-                            TR_mri=task_data["TR_mri"],
-                            binary=True,
-                            binarizing_method="GMM",
-                            no_hrf=False,
-                            TR_array=TR_array,
+                    try:
+                        task_data = load_task_data(
+                            roi_root=roi_root,
+                            subj=subj,
+                            task=task,
+                            run=run,
+                            session=session,
                         )
+                    except:
+                        excluded_subjects.append(subj)
+                        continue
 
-                        # if n_TRs do not match, align them
-                        if BOLD_data.shape[1] != task_presence.shape[0]:
-                            print(
-                                f"Before alignment, shape of task_presence: {task_presence.shape}, shape of BOLD_data: {BOLD_data.shape}"
+                    if run is None:
+                        if session is None:
+                            BOLD_file_name = "{subj_id}_{task}_time-series.npy"
+                        else:
+                            BOLD_file_name = "{subj_id}_{session}_{task}_time-series.npy"
+                    else:
+                        if session is None:
+                            BOLD_file_name = "{subj_id}_{task}_{run}_time-series.npy"
+                        else:
+                            BOLD_file_name = (
+                                "{subj_id}_{session}_{task}_{run}_time-series.npy"
                             )
-                            min_TRs = min(BOLD_data.shape[1], task_presence.shape[0])
-                            task_presence = task_presence[:min_TRs]
-                            BOLD_data = BOLD_data[:, :min_TRs]
-                            print(
-                                f"After alignment, shape of task_presence: {task_presence.shape}, shape of BOLD_data: {BOLD_data.shape}"
-                            )
-                            # also adjust indices
-                            indices = [i for i in indices if i < min_TRs]
-                        task_presence = task_presence[indices]  # (n_TRs,)
-                        BOLD_data = BOLD_data[:, indices]  # (n_ROIs, n_TRs)
+                    try:
+                        BOLD = data_loader.load_TS(
+                            data_root=roi_root,
+                            file_name=BOLD_file_name,
+                            subj_id2load=subj,
+                            task=task,
+                            session=session,
+                            run=run,
+                        )
+                    except Exception as e:
+                        print(f"Error loading BOLD data: {e}")
+                        excluded_subjects.append(subj)
+                        continue
+                    BOLD_data = BOLD.data  # np.ndarray (n_ROIs, n_TRs)
 
-                        assert BOLD_data.shape[1] == task_presence.shape[0]
+                    Fs_task = task_data["Fs_task"]
+                    TR_task = 1 / Fs_task
 
-                        cohen_d = cohen_d_bold(X=BOLD_data.T, y=task_presence)
-                        d_values_all.append(cohen_d)
+                    TR_array = np.arange(0, BOLD_data.shape[1])
+                    task_presence, indices = extract_task_presence(
+                        event_labels=task_data["event_labels"],
+                        TR_task=TR_task,
+                        TR_mri=task_data["TR_mri"],
+                        binary=True,
+                        binarizing_method="GMM",
+                        no_hrf=False,
+                        TR_array=TR_array,
+                    )
+
+                    # if n_TRs do not match, align them
+                    if BOLD_data.shape[1] != task_presence.shape[0]:
+                        print(
+                            f"Before alignment, shape of task_presence: {task_presence.shape}, shape of BOLD_data: {BOLD_data.shape}"
+                        )
+                        min_TRs = min(BOLD_data.shape[1], task_presence.shape[0])
+                        task_presence = task_presence[:min_TRs]
+                        BOLD_data = BOLD_data[:, :min_TRs]
+                        print(
+                            f"After alignment, shape of task_presence: {task_presence.shape}, shape of BOLD_data: {BOLD_data.shape}"
+                        )
+                        # also adjust indices
+                        indices = [i for i in indices if i < min_TRs]
+                    task_presence = task_presence[indices]  # (n_TRs,)
+                    BOLD_data = BOLD_data[:, indices]  # (n_ROIs, n_TRs)
+
+                    assert BOLD_data.shape[1] == task_presence.shape[0]
+
+                    cohen_d = cohen_d_bold(X=BOLD_data.T, y=task_presence)  # (n_ROIs,)
+                    d_values_run.append(cohen_d)
+
+                d_values_run = np.array(d_values_run)  # (n_subjects, n_ROIs)
+                assert (
+                    d_values_run.shape[1] == BOLD_data.shape[0]
+                ), f"Expected number of ROIs in d_values_run ({d_values_run.shape[1]}) to match BOLD_data ({BOLD_data.shape[0]})"
+                assert d_values_run.shape[0] == len(SUBJECTS) - len(
+                    set(excluded_subjects)
+                ), f"Expected number of subjects in d_values_run ({d_values_run.shape[0]}) to match n_subjects ({len(SUBJECTS) - len(set(excluded_subjects))})"
+
+                CohensD_ML["task"].append(task)
+                CohensD_ML["run"].append(run)
+                CohensD_ML["dataset"].append(dataset)
+                # MAX |d| across ROIs for this run after averaging across subjects
+                CohensD_ML["CohensD_max"].append(
+                    np.nanmax(np.abs(np.nanmean(d_values_run, axis=0)))
+                )
+                # MEAN |d| across ROIs for this run after averaging across subjects
+                CohensD_ML["CohensD_mean"].append(
+                    np.nanmean(np.abs(np.nanmean(d_values_run, axis=0)))
+                )
+
+                d_values_all.append(d_values_run)
 
             if len(d_values_all) == 0:
                 print(f"No data found for task {task} in dataset {dataset}. Skipping.")
                 continue
-            d_values_all = np.array(d_values_all)  # (n_subjectsxrunsxsessions, n_ROIs)
-            avg_d_values = np.nanmean(d_values_all, axis=0)  # (n_ROIs,)
+            d_values_all = np.array(d_values_all)  # (runs, n_subjects, n_ROIs)
+            assert d_values_all.shape[1] == len(SUBJECTS) - len(
+                set(excluded_subjects)
+            ), f"Expected number of subjects in d_values_all ({d_values_all.shape[1]}) to match n_subjects ({len(SUBJECTS) - len(set(excluded_subjects))})"
+            assert d_values_all.shape[0] == len(
+                RUNS[task]
+            ), f"Expected number of runs in d_values_all ({d_values_all.shape[0]}) to match RUNS for task {task} ({len(RUNS[task])})"
+            avg_d_values = np.nanmean(
+                np.nanmean(d_values_all, axis=0), axis=0
+            )  # (n_ROIs,)
             CohensD_across_task["d_values"].extend(avg_d_values)
             CohensD_across_task["task"].extend([task] * len(avg_d_values))
             CohensD_across_task["dataset"].extend([dataset] * len(avg_d_values))
@@ -270,119 +313,8 @@ if __name__ == "__main__":
 
                 plt.close()
 
-    # --- Across-task correlation with ML performance (ABSOLUTE Cohen's d) ---
-    # Load ALL_ML_SCORES
-    ALL_ML_SCORES = np.load(
-        f"{multi_dataset_info['output_root']}/ML_results/ALL_ML_SCORES_{simul_or_real}.npy",
-        allow_pickle=True,
-    ).item()
-
-    embedding = "LE"
-    metric = "SVM balanced accuracy"
-    GROUP = "test"
-
-    # Build dataframe if not already done
-    DF = pd.DataFrame.from_dict(CohensD_across_task)
-
-    # Use absolute Cohen's d
-    DF["abs_d"] = DF["d_values"].abs()
-
-    # Choose an order (sort tasks by their MAX |d| to align with Fig. 2)
-    max_abs_per_task = (
-        DF.groupby("task")["abs_d"]
-        .max()
-        .sort_values(ascending=False)
-        .reset_index(name="abs_max")
-    )
-
-    df = pd.DataFrame.from_dict(ALL_ML_SCORES)
-    df = df[df["task"].isin(TASKS_to_include)]
-    df = df[(df["embedding"] == embedding) & (df["group"] == GROUP)]
-
-    # alphabetical method order
-    method_order = sorted(df["dFC method"].unique(), key=lambda s: s.lower())
-    df["dFC method"] = pd.Categorical(
-        df["dFC method"], categories=method_order, ordered=True
-    )
-
-    # ===== build BEST and ACROSS tables =====
-    counts_task = df.groupby("task")["run"].nunique()
-    multi_tasks = counts_task[counts_task > 1].index
-    df_multi = df[
-        df["task"].isin(multi_tasks)
-    ]  # <- use this dataframe for ACROSS figures
-
-    # BEST: one row per (task, method) with the winning run kept
-    df_best = (
-        df.sort_values(["task", "dFC method", metric], ascending=[True, True, False])
-        .drop_duplicates(subset=["task", "dFC method"], keep="first")
-        .rename(columns={metric: "score"})
-    )
-
-    # keep only the task and score columns
-    df_best = df_best[["task", "score"]]
-
-    # average over dFC methods and make a new dataframe
-    df_best = df_best.groupby("task").agg({"score": "mean"}).reset_index()
-    # find the correlation between max_abs_per_task["abs_max"] and df_best['score']
-    merged = pd.merge(max_abs_per_task, df_best, on="task")
-
-    # task="task-ppalocalizer" is an outlier, show it as a different color and exclude it from the correlation calculation
-    outlier = merged[merged["task"] == "task-ppalocalizer"]
-    merged = merged[merged["task"] != "task-ppalocalizer"]
-    plt.style.use("seaborn-v0_8-paper")
-    sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.2})
-    sns.set_style("darkgrid")
-    plt.figure(figsize=(10, 8))
-    sns.scatterplot(
-        x="abs_max", y="score", data=merged, s=60, edgecolor="k", label="Task Paradigms"
-    )
-    sns.scatterplot(
-        x="abs_max",
-        y="score",
-        data=outlier,
-        color="orange",
-        s=80,
-        edgecolor="k",
-        label="Outlier: task-ppalocalizer",
-    )
-
-    # fit and plot regression line
-    sns.regplot(
-        x="abs_max",
-        y="score",
-        data=merged,
-        scatter=False,
-        color="red",
-        line_kws={"label": "Best fit"},
-    )
-
-    plt.xlabel("Max |Cohen's d| per Task", fontweight="bold", fontsize=14)
-    plt.ylabel("SVM Balanced Accuracy", fontweight="bold", fontsize=14)
-    # plt.legend(fontsize=12)
-    correlation = merged["abs_max"].corr(merged["score"])
-    plt.text(
-        0.05,
-        0.95,
-        f"correlation  r = {correlation:.2f}",
-        transform=plt.gca().transAxes,
-        fontsize=17,
-        fontweight="bold",
-        verticalalignment="top",
-    )
-
-    plt.xticks(fontweight="bold", fontsize=12)
-    plt.yticks(fontweight="bold", fontsize=12)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(
-        f"{output_root}/CohensdCorr.png",
-        dpi=150,
-        bbox_inches="tight",
-        pad_inches=0.2,
-        format="png",
-    )
-    plt.close()
+    # Save the Cohen's d values for comparison with ML performance
+    np.save(f"{output_root}/CohensD_ML_{simul_or_real}.npy", CohensD_ML)
 
     # --- Across-task visualizations (ABSOLUTE Cohen's d) ---
     sns.set_context("paper", font_scale=1.0, rc={"lines.linewidth": 1.2})
