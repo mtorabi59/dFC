@@ -73,6 +73,85 @@ def savefig_pub(path_png_or_pdf: str):
     #     plt.savefig(p.with_suffix(".pdf"))
 
 
+###################### RDoC ######################
+
+RDoC_MAP = {
+    "real": {
+        # --- Cognitive-Atlas–aligned domains (order on paper) ---
+        "DOMAIN_ORDER": [
+            "Arousal & Regulatory Systems",
+            "Cognitive Systems",
+            "Negative Valence System",
+            "Positive Valence System",
+            "Sensorimotor Systems",
+        ],
+        # --- Map canonical task codes -> domain ---
+        "TASK2DOMAIN": {
+            # Language & Regulatory Systems
+            "emotionregulation": "Arousal & Regulatory Systems",
+            # Cognitive Systems
+            "audsem": "Cognitive Systems",
+            "visrhyme": "Cognitive Systems",
+            "vissem": "Cognitive Systems",
+            "visspell": "Cognitive Systems",
+            "arithmetic": "Cognitive Systems",
+            "stroop": "Cognitive Systems",
+            "cuedts": "Cognitive Systems",
+            "axcpt": "Cognitive Systems",
+            "matching": "Cognitive Systems",
+            "stern": "Cognitive Systems",
+            "st": "Cognitive Systems",
+            "vswm": "Cognitive Systems",
+            "expo": "Cognitive Systems",
+            "recall": "Cognitive Systems",
+            "feedback": "Cognitive Systems",
+            "ppalocalizer": "Cognitive Systems",
+            "localiser": "Cognitive Systems",
+            "localizer": "Cognitive Systems",
+            # Positive Valence System
+            "fribbids": "Positive Valence System",
+            "risk": "Positive Valence System",
+            "itc": "Positive Valence System",
+            # Negative Valence System
+            "fearlearning": "Negative Valence System",
+            "paingen": "Negative Valence System",
+            # Sensorimotor
+            "motor": "Sensorimotor Systems",
+            "execution": "Sensorimotor Systems",
+            "imagery": "Sensorimotor Systems",
+            "ihg": "Sensorimotor Systems",
+        },
+    },
+    "simulated": {
+        # --- Categories of simulated task paradigms ---
+        "DOMAIN_ORDER": [
+            "Simulated Periodic",
+            "Strong Performance on Real Data",
+            "Weak Performance on Real Data",
+        ],
+        # --- Map task codes -> category ---
+        "TASK2DOMAIN": {
+            # Simulated Periodic
+            "lowfreqlongrest": "Simulated Periodic",
+            "lowfreqshortrest": "Simulated Periodic",
+            "lowfreqshorttask": "Simulated Periodic",
+            # Optimal Paradigm Design, Strong Performance on Real Data
+            "axcpt": "Strong Performance on Real Data",
+            "stern": "Strong Performance on Real Data",
+            "cuedts": "Strong Performance on Real Data",
+            # Optimal Paradigm Design, Weak Performance on Real Data
+            "execution": "Weak Performance on Real Data",
+            "imagery": "Weak Performance on Real Data",
+            "localizer": "Weak Performance on Real Data",
+            "ppalocalizer": "Weak Performance on Real Data",
+            # Sub-Optimal Paradigm Design, Weak Performance on Real Data
+            "itc": "Weak Performance on Real Data",
+            "stroop": "Weak Performance on Real Data",
+            "risk": "Weak Performance on Real Data",
+        },
+    },
+}
+
 ###################### ml_results ######################
 
 
