@@ -111,8 +111,7 @@ def get_paths(multi_dataset_info, simul_or_real):
 
 
 def prepare_ml_df(ml_scores_all):
-    assert LEVEL in ml_scores_all, f"Expected top-level key '{LEVEL}' in ML scores"
-    ml_scores = ml_scores_all[LEVEL]
+    ml_scores = ml_scores_all
 
     required_keys = [
         "task",
@@ -124,7 +123,7 @@ def prepare_ml_df(ml_scores_all):
     ]
     assert_required_keys(ml_scores, required_keys, "ALL_ML_SCORES")
 
-    df_ml_wide = dict_to_df(ml_scores, "ALL_ML_SCORES[group_lvl]")
+    df_ml_wide = dict_to_df(ml_scores, "ALL_ML_SCORES")
     df_ml_wide = df_ml_wide[df_ml_wide["group"] == GROUP].copy()
     assert not df_ml_wide.empty, f"No ML rows found for group='{GROUP}'"
 
