@@ -653,42 +653,75 @@ def plot_rdoc_faceted_distribution(df, out_dir, simul_or_real):
     rdoc_order = _get_present_rdoc_order(df, simul_or_real)
     assert rdoc_order, "No RDoC values found for plotting"
 
-    facet = sns.catplot(
-        data=df,
-        x="RDoC",
-        y="classification_balanced_accuracy",
-        hue="dFC assessment method",
-        row="classifier model",
-        col="embedding",
-        kind="box",
-        showfliers=False,
-        order=rdoc_order,
-        height=4.2,
-        aspect=1.15,
-        sharey=True,
+    combo_df = (
+        df[["classifier model", "embedding"]]
+        .drop_duplicates()
+        .sort_values(["classifier model", "embedding"])
     )
+    assert not combo_df.empty, "No classifier/embedding combinations found for plotting"
 
-    for ax in facet.axes.flat:
-        if ax is None:
+    fig_paths = []
+    for _, combo in combo_df.iterrows():
+        classifier = combo["classifier model"]
+        embedding = combo["embedding"]
+
+        sub_df = df[
+            (df["classifier model"] == classifier) & (df["embedding"] == embedding)
+        ].copy()
+        if sub_df.empty:
             continue
+
+        width = max(9.5, 1.45 * len(rdoc_order))
+        height = 6.8
+        figure, ax = plt.subplots(figsize=(width, height))
+
+        sns.boxplot(
+            data=sub_df,
+            x="RDoC",
+            y="classification_balanced_accuracy",
+            hue="dFC assessment method",
+            order=rdoc_order,
+            showfliers=False,
+            width=0.68,
+            ax=ax,
+        )
+
         ax.set_ylim(0.45, 1.02)
-        ax.yaxis.set_major_locator(MultipleLocator(0.1))
-        ax.yaxis.set_minor_locator(MultipleLocator(0.05))
-        ax.grid(True, axis="y", which="major", linestyle="-", alpha=0.32)
-        ax.grid(True, axis="y", which="minor", linestyle="--", alpha=0.18)
+        ax.set_xlabel("RDoC domain")
+        ax.set_ylabel("Balanced accuracy")
+        ax.set_title(f"{classifier} | {embedding}", fontweight="bold", pad=10)
+        ax.yaxis.set_major_locator(MultipleLocator(0.05))
+        ax.yaxis.set_minor_locator(MultipleLocator(0.025))
+        ax.grid(True, axis="y", which="major", linestyle="-", alpha=0.36)
+        ax.grid(True, axis="y", which="minor", linestyle="--", alpha=0.20)
         for label in ax.get_xticklabels():
             label.set_rotation(30)
             label.set_horizontalalignment("right")
 
-    facet.set_axis_labels("RDoC domain", "Balanced accuracy")
-    if facet.legend is not None:
-        facet.legend.set_title("dFC assessment method")
+        handles, labels = ax.get_legend_handles_labels()
+        if handles:
+            ax.legend(
+                handles,
+                labels,
+                title="dFC assessment method",
+                frameon=True,
+                loc="upper left",
+                bbox_to_anchor=(1.01, 1.0),
+                borderaxespad=0.0,
+            )
 
-    facet.figure.tight_layout()
-    fig_path = f"{out_dir}/performance_by_rdoc_faceted_{simul_or_real}.png"
-    facet.figure.savefig(fig_path, dpi=1000, bbox_inches="tight", pad_inches=0.04)
-    plt.close(facet.figure)
-    return fig_path
+        sns.despine(ax=ax, top=True, right=True)
+        figure.tight_layout()
+
+        classifier_key = str(classifier).replace(" ", "_").replace("/", "-")
+        embedding_key = str(embedding).replace(" ", "_").replace("/", "-")
+        fig_path = f"{out_dir}/performance_by_rdoc_{classifier_key}_{embedding_key}_{simul_or_real}.png"
+        savefig_pub(fig_path)
+        plt.close(figure)
+        fig_paths.append(fig_path)
+
+    assert fig_paths, "No RDoC per-combination figures were generated"
+    return fig_paths
 
 
 def main():
@@ -739,7 +772,7 @@ def main():
     rdoc_overall_path = plot_rdoc_overall_distribution(
         df, paths["out_dir"], args.simul_or_real
     )
-    rdoc_faceted_path = plot_rdoc_faceted_distribution(
+    rdoc_faceted_paths = plot_rdoc_faceted_distribution(
         df, paths["out_dir"], args.simul_or_real
     )
 
@@ -751,7 +784,7 @@ def main():
     print(f"Top-bottom profile CSV: {profile_csv_path}")
     print(f"Top-bottom profile figure: {profile_fig_path}")
     print(f"RDoC overall figure: {rdoc_overall_path}")
-    print(f"RDoC faceted figure: {rdoc_faceted_path}")
+    print(f"RDoC per-combination figures: {len(rdoc_faceted_paths)} files")
 
 
 if __name__ == "__main__":
