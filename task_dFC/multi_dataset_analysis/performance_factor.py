@@ -53,6 +53,8 @@ CORR_EXCLUDE_COLUMNS = {
     "classification_balanced_accuracy",
 }
 
+TOP_BOTTOM_QUANTILE = 0.2
+
 
 def parse_args():
     helptext = """
@@ -425,6 +427,17 @@ def build_correlation_table(df):
     return corr_df
 
 
+def get_numeric_factor_columns(df):
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    factor_cols = [
+        col
+        for col in numeric_cols
+        if col not in CORR_EXCLUDE_COLUMNS and col != "classification_balanced_accuracy"
+    ]
+    assert factor_cols, "No numeric factor columns available for analysis"
+    return factor_cols
+
+
 def plot_factor_correlation_pointplot(corr_df, out_dir, simul_or_real):
     valid_df = corr_df.dropna(subset=["correlation"]).copy()
     assert (
@@ -466,6 +479,101 @@ def plot_factor_correlation_pointplot(corr_df, out_dir, simul_or_real):
     figure.tight_layout()
 
     fig_path = f"{out_dir}/performance_factor_correlation_pointplot_{simul_or_real}.png"
+    savefig_pub(fig_path)
+    plt.close(figure)
+    return fig_path
+
+
+def build_top_bottom_profile_table(df, quantile=TOP_BOTTOM_QUANTILE):
+    assert 0 < quantile < 0.5, "quantile must be in (0, 0.5)"
+
+    factor_cols = get_numeric_factor_columns(df)
+    score = df["classification_balanced_accuracy"].astype(float)
+
+    low_thr = score.quantile(quantile)
+    high_thr = score.quantile(1 - quantile)
+
+    bottom_df = df[score <= low_thr].copy()
+    top_df = df[score >= high_thr].copy()
+
+    assert (
+        len(top_df) >= 3 and len(bottom_df) >= 3
+    ), "Not enough samples in top/bottom groups for profile analysis"
+
+    rows = []
+    for factor in factor_cols:
+        top_vals = top_df[factor].astype(float).dropna()
+        bottom_vals = bottom_df[factor].astype(float).dropna()
+        n_top = len(top_vals)
+        n_bottom = len(bottom_vals)
+
+        mean_top = np.nan if n_top == 0 else float(top_vals.mean())
+        mean_bottom = np.nan if n_bottom == 0 else float(bottom_vals.mean())
+        mean_diff = mean_top - mean_bottom if (n_top > 0 and n_bottom > 0) else np.nan
+
+        cohens_d = np.nan
+        if n_top >= 2 and n_bottom >= 2:
+            var_top = float(np.var(top_vals, ddof=1))
+            var_bottom = float(np.var(bottom_vals, ddof=1))
+            pooled_num = ((n_top - 1) * var_top) + ((n_bottom - 1) * var_bottom)
+            pooled_den = n_top + n_bottom - 2
+            if pooled_den > 0:
+                pooled_std = np.sqrt(pooled_num / pooled_den)
+                if np.isfinite(pooled_std) and pooled_std > 0:
+                    cohens_d = mean_diff / pooled_std
+
+        rows.append(
+            {
+                "factor": factor,
+                "mean_top": mean_top,
+                "mean_bottom": mean_bottom,
+                "mean_diff": mean_diff,
+                "cohens_d": cohens_d,
+                "n_top": n_top,
+                "n_bottom": n_bottom,
+                "low_threshold": float(low_thr),
+                "high_threshold": float(high_thr),
+            }
+        )
+
+    profile_df = pd.DataFrame(rows)
+    profile_df["abs_cohens_d"] = profile_df["cohens_d"].abs()
+    profile_df = profile_df.sort_values("abs_cohens_d", ascending=False).reset_index(
+        drop=True
+    )
+    return profile_df
+
+
+def plot_top_bottom_profile(profile_df, out_dir, simul_or_real):
+    valid_df = profile_df.dropna(subset=["cohens_d"]).copy()
+    assert (
+        not valid_df.empty
+    ), "No valid Cohen's d values available for top-vs-bottom profile plot"
+
+    valid_df = valid_df.sort_values("abs_cohens_d", ascending=True)
+    valid_df["factor"] = pd.Categorical(
+        valid_df["factor"], categories=valid_df["factor"].tolist(), ordered=True
+    )
+
+    height = max(6.0, 0.45 * len(valid_df))
+    figure, ax = plt.subplots(figsize=(10.5, height))
+    sns.scatterplot(
+        data=valid_df,
+        x="cohens_d",
+        y="factor",
+        s=85,
+        color="#1f4e79",
+        ax=ax,
+    )
+
+    ax.axvline(0.0, color="#333333", linestyle="--", linewidth=1.1)
+    ax.set_xlabel("Effect size (Cohen's d): Top 20% vs Bottom 20%")
+    ax.set_ylabel("Factor")
+    ax.grid(True, axis="x", which="major", linestyle="-", alpha=0.35)
+    sns.despine(ax=ax, top=True, right=True)
+    figure.tight_layout()
+
+    fig_path = f"{out_dir}/performance_top_bottom_profile_{simul_or_real}.png"
     savefig_pub(fig_path)
     plt.close(figure)
     return fig_path
@@ -602,6 +710,16 @@ def main():
     corr_fig_path = plot_factor_correlation_pointplot(
         corr_df, paths["out_dir"], args.simul_or_real
     )
+
+    profile_df = build_top_bottom_profile_table(df, quantile=TOP_BOTTOM_QUANTILE)
+    profile_csv_path = (
+        f"{paths['out_dir']}/performance_top_bottom_profile_{args.simul_or_real}.csv"
+    )
+    profile_df.to_csv(profile_csv_path, index=False)
+    profile_fig_path = plot_top_bottom_profile(
+        profile_df, paths["out_dir"], args.simul_or_real
+    )
+
     rdoc_overall_path = plot_rdoc_overall_distribution(
         df, paths["out_dir"], args.simul_or_real
     )
@@ -614,6 +732,8 @@ def main():
     print(f"PKL: {pkl_path}")
     print(f"Correlation CSV: {corr_csv_path}")
     print(f"Correlation figure: {corr_fig_path}")
+    print(f"Top-bottom profile CSV: {profile_csv_path}")
+    print(f"Top-bottom profile figure: {profile_fig_path}")
     print(f"RDoC overall figure: {rdoc_overall_path}")
     print(f"RDoC faceted figure: {rdoc_faceted_path}")
 
