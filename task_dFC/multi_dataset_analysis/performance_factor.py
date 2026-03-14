@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.ticker import MultipleLocator
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from helper_functions import (  # pyright: ignore[reportMissingImports]
@@ -233,17 +234,21 @@ def prepare_tsnr_df(tsnr_path):
     return add_join_keys(df_tsnr)
 
 
-def choose_join_keys(df_ml, df_timing, df_cohensd, df_tsnr):
-    has_dataset_everywhere = all(
-        "dataset" in df.columns for df in [df_ml, df_timing, df_cohensd, df_tsnr]
-    )
+def choose_join_keys(df_ml, df_timing, df_cohensd, df_tsnr=None):
+    sources = [df_ml, df_timing, df_cohensd]
+    if df_tsnr is not None:
+        sources.append(df_tsnr)
+
+    has_dataset_everywhere = all("dataset" in df.columns for df in sources)
 
     base_keys = ["task_key", "run_key"]
     dataset_keys = ["dataset", *base_keys]
 
     timing_dupes_base = df_timing.duplicated(subset=base_keys).sum()
     cohensd_dupes_base = df_cohensd.duplicated(subset=base_keys).sum()
-    tsnr_dupes_base = df_tsnr.duplicated(subset=base_keys).sum()
+    tsnr_dupes_base = (
+        df_tsnr.duplicated(subset=base_keys).sum() if df_tsnr is not None else 0
+    )
 
     if timing_dupes_base == 0 and cohensd_dupes_base == 0 and tsnr_dupes_base == 0:
         return base_keys
@@ -251,7 +256,9 @@ def choose_join_keys(df_ml, df_timing, df_cohensd, df_tsnr):
     if has_dataset_everywhere:
         timing_dupes_dataset = df_timing.duplicated(subset=dataset_keys).sum()
         cohensd_dupes_dataset = df_cohensd.duplicated(subset=dataset_keys).sum()
-        tsnr_dupes_dataset = df_tsnr.duplicated(subset=dataset_keys).sum()
+        tsnr_dupes_dataset = (
+            df_tsnr.duplicated(subset=dataset_keys).sum() if df_tsnr is not None else 0
+        )
         assert timing_dupes_dataset == 0, (
             "task_timing_stats still has duplicate rows per dataset/task/run after "
             f"normalization. duplicate_count={timing_dupes_dataset}"
@@ -260,10 +267,11 @@ def choose_join_keys(df_ml, df_timing, df_cohensd, df_tsnr):
             "CohensD_ML still has duplicate rows per dataset/task/run after "
             f"normalization. duplicate_count={cohensd_dupes_dataset}"
         )
-        assert tsnr_dupes_dataset == 0, (
-            "tsnr_summary_grouped still has duplicate rows per dataset/task/run after "
-            f"normalization. duplicate_count={tsnr_dupes_dataset}"
-        )
+        if df_tsnr is not None:
+            assert tsnr_dupes_dataset == 0, (
+                "tsnr_summary_grouped still has duplicate rows per dataset/task/run after "
+                f"normalization. duplicate_count={tsnr_dupes_dataset}"
+            )
         return dataset_keys
 
     raise AssertionError(
@@ -272,10 +280,9 @@ def choose_join_keys(df_ml, df_timing, df_cohensd, df_tsnr):
     )
 
 
-def merge_with_checks(df_ml, df_timing, df_cohensd, df_tsnr, join_keys):
+def merge_with_checks(df_ml, df_timing, df_cohensd, join_keys, df_tsnr=None):
     timing_cols = join_keys + TIMING_FEATURES
     cohensd_cols = join_keys + COHEN_FEATURES
-    tsnr_cols = join_keys + TSNR_FEATURES
 
     df_merged = df_ml.merge(
         df_timing[timing_cols],
@@ -303,14 +310,16 @@ def merge_with_checks(df_ml, df_timing, df_cohensd, df_tsnr, join_keys):
     ), f"Could not match Cohen's D stats for {cohensd_unmatched} ML rows using keys {join_keys}"
     df_merged = df_merged.drop(columns=["cohensd_merge"])
 
-    # tSNR: left join — rows with no tSNR data (e.g. None-run datasets not in file)
-    # will have NaN, which is acceptable as specified.
-    df_merged = df_merged.merge(
-        df_tsnr[tsnr_cols],
-        on=join_keys,
-        how="left",
-        validate="many_to_one",
-    )
+    if df_tsnr is not None:
+        tsnr_cols = join_keys + TSNR_FEATURES
+        # tSNR: left join — rows with no tSNR data (e.g. None-run datasets not in file)
+        # will have NaN, which is acceptable as specified.
+        df_merged = df_merged.merge(
+            df_tsnr[tsnr_cols],
+            on=join_keys,
+            how="left",
+            validate="many_to_one",
+        )
 
     return df_merged
 
@@ -341,12 +350,15 @@ def finalize_columns(df):
         "RDoC",
         *TIMING_FEATURES,
         *COHEN_FEATURES,
-        *TSNR_FEATURES,
         "dFC assessment method",
         "classifier model",
         "embedding",
         "classification_balanced_accuracy",
     ]
+
+    if all(col in df.columns for col in TSNR_FEATURES):
+        insert_at = cols.index("dFC assessment method")
+        cols[insert_at:insert_at] = TSNR_FEATURES
 
     missing = [col for col in cols if col not in df.columns]
     assert not missing, f"Missing expected final columns: {missing}"
@@ -421,7 +433,7 @@ def plot_factor_correlation_pointplot(corr_df, out_dir, simul_or_real):
 
     n_factors = valid_df["factor"].nunique()
     width = max(10, 0.75 * n_factors)
-    height = 5.5
+    height = 7.0
 
     figure, ax = plt.subplots(figsize=(width, height))
     sns.pointplot(
@@ -439,8 +451,16 @@ def plot_factor_correlation_pointplot(corr_df, out_dir, simul_or_real):
     ax.axhline(0.0, color="#333333", linestyle="--", linewidth=1.0)
     ax.set_ylim(-1.05, 1.05)
     ax.set_xlabel("Factor")
-    ax.set_ylabel("Pearson correlation with classification balanced accuracy")
+    ax.set_ylabel("Corr. with balanced accuracy")
     plt.setp(ax.get_xticklabels(), rotation=35, ha="right")
+    ax.tick_params(axis="x", labelsize=11)
+    ax.tick_params(axis="y", labelsize=11)
+
+    ax.yaxis.set_major_locator(MultipleLocator(0.25))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.125))
+    ax.grid(True, axis="y", which="major", linestyle="-", alpha=0.4)
+    ax.grid(True, axis="y", which="minor", linestyle="--", alpha=0.22)
+
     ax.legend(title="dFC assessment method", frameon=True)
     sns.despine(ax=ax, top=True, right=True)
     figure.tight_layout()
@@ -448,6 +468,102 @@ def plot_factor_correlation_pointplot(corr_df, out_dir, simul_or_real):
     fig_path = f"{out_dir}/performance_factor_correlation_pointplot_{simul_or_real}.png"
     savefig_pub(fig_path)
     plt.close(figure)
+    return fig_path
+
+
+def _get_present_rdoc_order(df, simul_or_real):
+    domain_order = RDoC_MAP[simul_or_real]["DOMAIN_ORDER"]
+    present = set(df["RDoC"].dropna().astype(str).unique())
+    ordered = [domain for domain in domain_order if domain in present]
+    remaining = sorted([domain for domain in present if domain not in ordered])
+    return ordered + remaining
+
+
+def plot_rdoc_overall_distribution(df, out_dir, simul_or_real):
+    rdoc_order = _get_present_rdoc_order(df, simul_or_real)
+    assert rdoc_order, "No RDoC values found for plotting"
+
+    width = max(10, 1.3 * len(rdoc_order))
+    height = 6.5
+    figure, ax = plt.subplots(figsize=(width, height))
+
+    sns.boxplot(
+        data=df,
+        x="RDoC",
+        y="classification_balanced_accuracy",
+        order=rdoc_order,
+        showfliers=False,
+        width=0.55,
+        ax=ax,
+    )
+    sns.stripplot(
+        data=df,
+        x="RDoC",
+        y="classification_balanced_accuracy",
+        order=rdoc_order,
+        color="#303030",
+        alpha=0.55,
+        size=3,
+        jitter=0.22,
+        ax=ax,
+    )
+
+    ax.set_xlabel("RDoC domain")
+    ax.set_ylabel("Balanced accuracy")
+    ax.set_ylim(0.45, 1.02)
+    plt.setp(ax.get_xticklabels(), rotation=25, ha="right")
+    ax.yaxis.set_major_locator(MultipleLocator(0.05))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.025))
+    ax.grid(True, axis="y", which="major", linestyle="-", alpha=0.35)
+    ax.grid(True, axis="y", which="minor", linestyle="--", alpha=0.2)
+    sns.despine(ax=ax, top=True, right=True)
+    figure.tight_layout()
+
+    fig_path = f"{out_dir}/performance_by_rdoc_overall_{simul_or_real}.png"
+    savefig_pub(fig_path)
+    plt.close(figure)
+    return fig_path
+
+
+def plot_rdoc_faceted_distribution(df, out_dir, simul_or_real):
+    rdoc_order = _get_present_rdoc_order(df, simul_or_real)
+    assert rdoc_order, "No RDoC values found for plotting"
+
+    facet = sns.catplot(
+        data=df,
+        x="RDoC",
+        y="classification_balanced_accuracy",
+        hue="dFC assessment method",
+        row="classifier model",
+        col="embedding",
+        kind="box",
+        showfliers=False,
+        order=rdoc_order,
+        height=4.2,
+        aspect=1.15,
+        sharey=True,
+    )
+
+    for ax in facet.axes.flat:
+        if ax is None:
+            continue
+        ax.set_ylim(0.45, 1.02)
+        ax.yaxis.set_major_locator(MultipleLocator(0.1))
+        ax.yaxis.set_minor_locator(MultipleLocator(0.05))
+        ax.grid(True, axis="y", which="major", linestyle="-", alpha=0.32)
+        ax.grid(True, axis="y", which="minor", linestyle="--", alpha=0.18)
+        for label in ax.get_xticklabels():
+            label.set_rotation(30)
+            label.set_horizontalalignment("right")
+
+    facet.set_axis_labels("RDoC domain", "Balanced accuracy")
+    if facet.legend is not None:
+        facet.legend.set_title("dFC assessment method")
+
+    facet.figure.tight_layout()
+    fig_path = f"{out_dir}/performance_by_rdoc_faceted_{simul_or_real}.png"
+    facet.figure.savefig(fig_path, dpi=1000, bbox_inches="tight", pad_inches=0.04)
+    plt.close(facet.figure)
     return fig_path
 
 
@@ -465,12 +581,14 @@ def main():
     df_ml = prepare_ml_df(ml_scores_all)
     df_timing = prepare_timing_df(timing_dict)
     df_cohensd = prepare_cohensd_df(cohensd_dict)
-    df_tsnr = prepare_tsnr_df(paths["tsnr"])
+    df_tsnr = None
+    if args.simul_or_real == "real":
+        df_tsnr = prepare_tsnr_df(paths["tsnr"])
 
     join_keys = choose_join_keys(df_ml, df_timing, df_cohensd, df_tsnr)
     print(f"Using join keys: {join_keys}")
 
-    df = merge_with_checks(df_ml, df_timing, df_cohensd, df_tsnr, join_keys)
+    df = merge_with_checks(df_ml, df_timing, df_cohensd, join_keys, df_tsnr)
     df = add_rdoc(df, args.simul_or_real)
     df = finalize_columns(df)
 
@@ -484,12 +602,20 @@ def main():
     corr_fig_path = plot_factor_correlation_pointplot(
         corr_df, paths["out_dir"], args.simul_or_real
     )
+    rdoc_overall_path = plot_rdoc_overall_distribution(
+        df, paths["out_dir"], args.simul_or_real
+    )
+    rdoc_faceted_path = plot_rdoc_faceted_distribution(
+        df, paths["out_dir"], args.simul_or_real
+    )
 
     print(f"Saved dataframe with shape: {df.shape}")
     print(f"CSV: {csv_path}")
     print(f"PKL: {pkl_path}")
     print(f"Correlation CSV: {corr_csv_path}")
     print(f"Correlation figure: {corr_fig_path}")
+    print(f"RDoC overall figure: {rdoc_overall_path}")
+    print(f"RDoC faceted figure: {rdoc_faceted_path}")
 
 
 if __name__ == "__main__":
