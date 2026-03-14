@@ -3,11 +3,18 @@ import json
 import os
 import sys
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from helper_functions import RDoC_MAP, canon_task  # pyright: ignore[reportMissingImports]
+from helper_functions import (  # pyright: ignore[reportMissingImports]
+    RDoC_MAP,
+    canon_task,
+    savefig_pub,
+    setup_pub_style,
+)
 
 LEVEL = "group_lvl"
 GROUP = "test"
@@ -34,6 +41,16 @@ COHEN_FEATURES = [
 TSNR_FEATURES = [
     "median_tsnr_avg_over_subjects",
 ]
+
+CORR_EXCLUDE_COLUMNS = {
+    "RDoC",
+    "task",
+    "run",
+    "dFC assessment method",
+    "classifier model",
+    "embedding",
+    "classification_balanced_accuracy",
+}
 
 
 def parse_args():
@@ -351,8 +368,92 @@ def save_outputs(df, out_dir, simul_or_real):
     return csv_path, pkl_path
 
 
+def build_correlation_table(df):
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    factor_cols = [
+        col
+        for col in numeric_cols
+        if col not in CORR_EXCLUDE_COLUMNS and col != "classification_balanced_accuracy"
+    ]
+    assert factor_cols, "No numeric factor columns available for correlation analysis"
+
+    rows = []
+    for method, group_df in df.groupby("dFC assessment method", observed=True):
+        for factor in factor_cols:
+            pair_df = group_df[[factor, "classification_balanced_accuracy"]].dropna()
+            n_samples = len(pair_df)
+
+            if (
+                n_samples < 3
+                or pair_df[factor].nunique(dropna=True) < 2
+                or pair_df["classification_balanced_accuracy"].nunique(dropna=True) < 2
+            ):
+                corr = np.nan
+            else:
+                corr = pair_df[factor].corr(
+                    pair_df["classification_balanced_accuracy"], method="pearson"
+                )
+
+            rows.append(
+                {
+                    "factor": factor,
+                    "dFC assessment method": method,
+                    "correlation": corr,
+                    "n_samples": n_samples,
+                }
+            )
+
+    corr_df = pd.DataFrame(rows)
+    corr_df["factor"] = pd.Categorical(
+        corr_df["factor"], categories=factor_cols, ordered=True
+    )
+    corr_df = corr_df.sort_values(["factor", "dFC assessment method"]).reset_index(
+        drop=True
+    )
+    return corr_df
+
+
+def plot_factor_correlation_pointplot(corr_df, out_dir, simul_or_real):
+    valid_df = corr_df.dropna(subset=["correlation"]).copy()
+    assert (
+        not valid_df.empty
+    ), "All factor correlations are NaN; cannot generate correlation pointplot"
+
+    n_factors = valid_df["factor"].nunique()
+    width = max(10, 0.75 * n_factors)
+    height = 5.5
+
+    figure, ax = plt.subplots(figsize=(width, height))
+    sns.pointplot(
+        data=valid_df,
+        x="factor",
+        y="correlation",
+        hue="dFC assessment method",
+        dodge=0.4,
+        errorbar=None,
+        markers="o",
+        linestyles="",
+        ax=ax,
+    )
+
+    ax.axhline(0.0, color="#333333", linestyle="--", linewidth=1.0)
+    ax.set_ylim(-1.05, 1.05)
+    ax.set_xlabel("Factor")
+    ax.set_ylabel("Pearson correlation with classification balanced accuracy")
+    plt.setp(ax.get_xticklabels(), rotation=35, ha="right")
+    ax.legend(title="dFC assessment method", frameon=True)
+    sns.despine(ax=ax, top=True, right=True)
+    figure.tight_layout()
+
+    fig_path = f"{out_dir}/performance_factor_correlation_pointplot_{simul_or_real}.png"
+    savefig_pub(fig_path)
+    plt.close(figure)
+    return fig_path
+
+
 def main():
     args = parse_args()
+    setup_pub_style()
 
     multi_dataset_info = read_json(args.multi_dataset_info)
     paths = get_paths(multi_dataset_info, args.simul_or_real)
@@ -375,9 +476,20 @@ def main():
 
     csv_path, pkl_path = save_outputs(df, paths["out_dir"], args.simul_or_real)
 
+    corr_df = build_correlation_table(df)
+    corr_csv_path = (
+        f"{paths['out_dir']}/performance_factor_correlations_{args.simul_or_real}.csv"
+    )
+    corr_df.to_csv(corr_csv_path, index=False)
+    corr_fig_path = plot_factor_correlation_pointplot(
+        corr_df, paths["out_dir"], args.simul_or_real
+    )
+
     print(f"Saved dataframe with shape: {df.shape}")
     print(f"CSV: {csv_path}")
     print(f"PKL: {pkl_path}")
+    print(f"Correlation CSV: {corr_csv_path}")
+    print(f"Correlation figure: {corr_fig_path}")
 
 
 if __name__ == "__main__":
