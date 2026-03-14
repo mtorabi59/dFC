@@ -785,6 +785,17 @@ def plot_rdoc_faceted_distribution(df, out_dir, simul_or_real):
     )
     assert not combo_df.empty, "No classifier/embedding combinations found for plotting"
 
+    n_methods = df["dFC assessment method"].nunique()
+    # Generous per-domain width so boxes never feel cramped
+    n_domains = len(rdoc_order)
+    # Each domain gets ~2.8 in; minimum figure width 18 in
+    axes_width = max(18.0, 2.8 * n_domains)
+    # Reserve ~3.5 in on the right for the legend column
+    legend_width = 3.5
+    total_width = axes_width + legend_width
+    # Height: 8 in gives comfortable y-axis room; scale slightly with methods
+    height = max(8.0, 0.35 * n_methods + 6.5)
+
     fig_paths = []
     for _, combo in combo_df.iterrows():
         classifier = combo["classifier model"]
@@ -796,9 +807,7 @@ def plot_rdoc_faceted_distribution(df, out_dir, simul_or_real):
         if sub_df.empty:
             continue
 
-        width = max(9.5, 1.45 * len(rdoc_order))
-        height = 6.8
-        figure, ax = plt.subplots(figsize=(width, height))
+        figure, ax = plt.subplots(figsize=(total_width, height))
 
         sns.boxplot(
             data=sub_df,
@@ -807,14 +816,21 @@ def plot_rdoc_faceted_distribution(df, out_dir, simul_or_real):
             hue="dFC assessment method",
             order=rdoc_order,
             showfliers=False,
-            width=0.68,
+            width=0.72,
+            linewidth=1.4,
             ax=ax,
         )
 
         ax.set_ylim(0.45, 1.02)
-        ax.set_xlabel("RDoC domain")
-        ax.set_ylabel("Balanced accuracy")
-        ax.set_title(f"{classifier} | {embedding}", fontweight="bold", pad=10)
+        ax.set_xlabel("RDoC domain", labelpad=12, fontsize=14)
+        ax.set_ylabel("Balanced accuracy", labelpad=12, fontsize=14)
+        ax.set_title(
+            f"{classifier}  |  {embedding}",
+            fontweight="bold",
+            pad=14,
+            fontsize=15,
+        )
+        ax.tick_params(axis="both", labelsize=12)
         ax.yaxis.set_major_locator(MultipleLocator(0.05))
         ax.yaxis.set_minor_locator(MultipleLocator(0.025))
         ax.grid(True, axis="y", which="major", linestyle="-", alpha=0.36)
@@ -822,26 +838,33 @@ def plot_rdoc_faceted_distribution(df, out_dir, simul_or_real):
         for label in ax.get_xticklabels():
             label.set_rotation(30)
             label.set_horizontalalignment("right")
+            label.set_fontsize(13)
 
         handles, labels = ax.get_legend_handles_labels()
         if handles:
-            ax.legend(
+            ax.get_legend().remove()
+            figure.legend(
                 handles,
                 labels,
                 title="dFC assessment method",
+                title_fontsize=12,
+                fontsize=11,
                 frameon=True,
-                loc="upper left",
-                bbox_to_anchor=(1.01, 1.0),
-                borderaxespad=0.0,
+                loc="center left",
+                bbox_to_anchor=(axes_width / total_width + 0.01, 0.5),
             )
 
         sns.despine(ax=ax, top=True, right=True)
-        figure.tight_layout()
+        # Leave right margin for the figure-level legend
+        figure.tight_layout(rect=[0, 0, axes_width / total_width, 1])
 
         classifier_key = str(classifier).replace(" ", "_").replace("/", "-")
         embedding_key = str(embedding).replace(" ", "_").replace("/", "-")
-        fig_path = f"{out_dir}/performance_by_rdoc_{classifier_key}_{embedding_key}_{simul_or_real}.png"
-        savefig_pub(fig_path)
+        fig_path = (
+            f"{out_dir}/performance_by_rdoc_{classifier_key}"
+            f"_{embedding_key}_{simul_or_real}.png"
+        )
+        plt.savefig(fig_path, bbox_inches="tight", dpi=150)
         plt.close(figure)
         fig_paths.append(fig_path)
 
