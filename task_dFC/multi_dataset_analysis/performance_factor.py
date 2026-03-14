@@ -54,6 +54,7 @@ CORR_EXCLUDE_COLUMNS = {
 }
 
 TOP_BOTTOM_QUANTILE = 0.2
+PERFORMANCE_GROUP_LABELS = ["Low", "Medium", "High"]
 
 
 def parse_args():
@@ -603,6 +604,130 @@ def _get_present_rdoc_order(df, simul_or_real):
     return ordered + remaining
 
 
+def add_performance_group(df):
+    df = df.copy()
+    score = df["classification_balanced_accuracy"].astype(float)
+    low_thr = score.quantile(0.25)
+    high_thr = score.quantile(0.75)
+    assert (
+        low_thr < high_thr
+    ), "Performance-group thresholds collapsed; cannot form 25/50/25 groups"
+
+    df["performance_group"] = pd.cut(
+        score,
+        bins=[-np.inf, low_thr, high_thr, np.inf],
+        labels=PERFORMANCE_GROUP_LABELS,
+        include_lowest=True,
+    )
+    assert df["performance_group"].notna().all(), "Failed to assign performance groups"
+    return df, float(low_thr), float(high_thr)
+
+
+def build_rdoc_performance_group_table(df, simul_or_real):
+    df_grouped, low_thr, high_thr = add_performance_group(df)
+    rdoc_order = _get_present_rdoc_order(df_grouped, simul_or_real)
+    assert rdoc_order, "No RDoC values found for RDoC-performance grouping"
+
+    count_table = (
+        df_grouped.groupby(["RDoC", "performance_group"], observed=True)
+        .size()
+        .unstack(fill_value=0)
+        .reindex(index=rdoc_order, columns=PERFORMANCE_GROUP_LABELS, fill_value=0)
+    )
+    proportion_table = count_table.div(count_table.sum(axis=1), axis=0)
+    assert np.isclose(
+        proportion_table.sum(axis=1), 1.0
+    ).all(), "RDoC performance-group proportions do not sum to 1"
+
+    summary_long = (
+        count_table.stack()
+        .rename("count")
+        .reset_index()
+        .rename(columns={"level_1": "performance_group"})
+    )
+    summary_long["proportion"] = [
+        proportion_table.loc[row.RDoC, row.performance_group]
+        for row in summary_long.itertuples(index=False)
+    ]
+    summary_long["low_threshold"] = low_thr
+    summary_long["high_threshold"] = high_thr
+    return summary_long, count_table, proportion_table
+
+
+def plot_rdoc_performance_group_stacked_bar(proportion_table, out_dir, simul_or_real):
+    width = max(9.0, 1.35 * len(proportion_table.index))
+    figure, ax = plt.subplots(figsize=(width, 6.6))
+
+    palette = {
+        "Low": "#C44E52",
+        "Medium": "#DDCF84",
+        "High": "#4C9F70",
+    }
+    proportion_pct = proportion_table.mul(100.0)
+    bottom = np.zeros(len(proportion_pct.index))
+
+    for label in PERFORMANCE_GROUP_LABELS:
+        values = proportion_pct[label].to_numpy()
+        ax.bar(
+            proportion_pct.index,
+            values,
+            bottom=bottom,
+            label=label,
+            color=palette[label],
+            edgecolor="white",
+            linewidth=0.8,
+        )
+        bottom += values
+
+    ax.set_xlabel("RDoC domain")
+    ax.set_ylabel("Samples (%)")
+    ax.set_ylim(0, 100)
+    ax.yaxis.set_major_locator(MultipleLocator(10))
+    ax.yaxis.set_minor_locator(MultipleLocator(5))
+    ax.grid(True, axis="y", which="major", linestyle="-", alpha=0.35)
+    ax.grid(True, axis="y", which="minor", linestyle="--", alpha=0.18)
+    plt.setp(ax.get_xticklabels(), rotation=25, ha="right")
+    ax.legend(title="Performance group", frameon=True)
+    sns.despine(ax=ax, top=True, right=True)
+    figure.tight_layout()
+
+    fig_path = f"{out_dir}/performance_group_by_rdoc_stacked_{simul_or_real}.png"
+    savefig_pub(fig_path)
+    plt.close(figure)
+    return fig_path
+
+
+def plot_rdoc_performance_group_heatmap(proportion_table, out_dir, simul_or_real):
+    annot_table = proportion_table.mul(100.0).applymap(lambda value: f"{value:.1f}%")
+
+    figure, ax = plt.subplots(figsize=(7.4, max(4.8, 0.7 * len(proportion_table.index))))
+    heatmap = sns.heatmap(
+        proportion_table.loc[:, PERFORMANCE_GROUP_LABELS],
+        cmap="YlGnBu",
+        vmin=0.0,
+        vmax=1.0,
+        annot=annot_table.loc[:, PERFORMANCE_GROUP_LABELS],
+        fmt="",
+        linewidths=0.7,
+        linecolor="white",
+        cbar_kws={"shrink": 0.8, "pad": 0.02},
+        ax=ax,
+    )
+    colorbar = heatmap.collections[0].colorbar
+    colorbar.set_label("Proportion", fontweight="bold")
+
+    ax.set_xlabel("Performance group")
+    ax.set_ylabel("RDoC domain")
+    plt.setp(ax.get_xticklabels(), rotation=0)
+    plt.setp(ax.get_yticklabels(), rotation=0)
+    figure.tight_layout()
+
+    fig_path = f"{out_dir}/performance_group_by_rdoc_heatmap_{simul_or_real}.png"
+    savefig_pub(fig_path)
+    plt.close(figure)
+    return fig_path
+
+
 def plot_rdoc_overall_distribution(df, out_dir, simul_or_real):
     rdoc_order = _get_present_rdoc_order(df, simul_or_real)
     assert rdoc_order, "No RDoC values found for plotting"
@@ -775,6 +900,19 @@ def main():
     rdoc_faceted_paths = plot_rdoc_faceted_distribution(
         df, paths["out_dir"], args.simul_or_real
     )
+    rdoc_group_long_df, rdoc_group_count_table, rdoc_group_prop_table = (
+        build_rdoc_performance_group_table(df, args.simul_or_real)
+    )
+    rdoc_group_csv_path = (
+        f"{paths['out_dir']}/performance_group_by_rdoc_{args.simul_or_real}.csv"
+    )
+    rdoc_group_long_df.to_csv(rdoc_group_csv_path, index=False)
+    rdoc_group_bar_path = plot_rdoc_performance_group_stacked_bar(
+        rdoc_group_prop_table, paths["out_dir"], args.simul_or_real
+    )
+    rdoc_group_heatmap_path = plot_rdoc_performance_group_heatmap(
+        rdoc_group_prop_table, paths["out_dir"], args.simul_or_real
+    )
 
     print(f"Saved dataframe with shape: {df.shape}")
     print(f"CSV: {csv_path}")
@@ -785,6 +923,9 @@ def main():
     print(f"Top-bottom profile figure: {profile_fig_path}")
     print(f"RDoC overall figure: {rdoc_overall_path}")
     print(f"RDoC per-combination figures: {len(rdoc_faceted_paths)} files")
+    print(f"RDoC performance-group CSV: {rdoc_group_csv_path}")
+    print(f"RDoC performance-group stacked bar: {rdoc_group_bar_path}")
+    print(f"RDoC performance-group heatmap: {rdoc_group_heatmap_path}")
 
 
 if __name__ == "__main__":
