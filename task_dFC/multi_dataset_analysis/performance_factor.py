@@ -31,6 +31,10 @@ COHEN_FEATURES = [
     "CohensD_mean",
 ]
 
+TSNR_FEATURES = [
+    "median_tsnr_avg_over_subjects",
+]
+
 
 def parse_args():
     helptext = """
@@ -87,6 +91,10 @@ def normalize_run(value):
         return "none"
     if isinstance(value, float) and np.isnan(value):
         return "none"
+    # TSV empty cells are read by pandas as NaN (float) handled above,
+    # but guard against empty strings too (e.g. after manual editing).
+    if str(value).strip() == "":
+        return "none"
     return str(value).strip().lower()
 
 
@@ -106,6 +114,7 @@ def get_paths(multi_dataset_info, simul_or_real):
         "ml": f"{output_root}/ML_results/ALL_ML_SCORES_{simul_or_real}.npy",
         "timing": f"{output_root}/task_timing_stats/{simul_or_real}/task_timing_stats_{simul_or_real}.npy",
         "cohensd": f"{output_root}/CohensD/{simul_or_real}/CohensD_ML_{simul_or_real}.npy",
+        "tsnr": f"{output_root}/t-SNR/tsnr_summary_grouped.tsv",
         "out_dir": f"{output_root}/performance_factor/{simul_or_real}",
     }
 
@@ -186,9 +195,30 @@ def prepare_cohensd_df(cohensd_dict):
     return add_join_keys(df_cohensd)
 
 
-def choose_join_keys(df_ml, df_timing, df_cohensd):
+def prepare_tsnr_df(tsnr_path):
+    assert os.path.exists(tsnr_path), f"tSNR file does not exist: {tsnr_path}"
+    df_tsnr = pd.read_csv(tsnr_path, sep="\t")
+
+    required_cols = ["dataset", "task", "run", *TSNR_FEATURES]
+    missing = [col for col in required_cols if col not in df_tsnr.columns]
+    assert not missing, f"Missing required columns in tsnr_summary_grouped.tsv: {missing}"
+
+    df_tsnr = df_tsnr[["dataset", "task", "run", *TSNR_FEATURES]].copy()
+
+    # Validate tSNR values (allow NaN — runs with no data are left empty as specified)
+    tsnr_vals = df_tsnr["median_tsnr_avg_over_subjects"].astype(float)
+    assert (
+        tsnr_vals.dropna() > 0
+    ).all(), (
+        "median_tsnr_avg_over_subjects contains non-positive values where data is present"
+    )
+
+    return add_join_keys(df_tsnr)
+
+
+def choose_join_keys(df_ml, df_timing, df_cohensd, df_tsnr):
     has_dataset_everywhere = all(
-        "dataset" in df.columns for df in [df_ml, df_timing, df_cohensd]
+        "dataset" in df.columns for df in [df_ml, df_timing, df_cohensd, df_tsnr]
     )
 
     base_keys = ["task_key", "run_key"]
@@ -196,13 +226,15 @@ def choose_join_keys(df_ml, df_timing, df_cohensd):
 
     timing_dupes_base = df_timing.duplicated(subset=base_keys).sum()
     cohensd_dupes_base = df_cohensd.duplicated(subset=base_keys).sum()
+    tsnr_dupes_base = df_tsnr.duplicated(subset=base_keys).sum()
 
-    if timing_dupes_base == 0 and cohensd_dupes_base == 0:
+    if timing_dupes_base == 0 and cohensd_dupes_base == 0 and tsnr_dupes_base == 0:
         return base_keys
 
     if has_dataset_everywhere:
         timing_dupes_dataset = df_timing.duplicated(subset=dataset_keys).sum()
         cohensd_dupes_dataset = df_cohensd.duplicated(subset=dataset_keys).sum()
+        tsnr_dupes_dataset = df_tsnr.duplicated(subset=dataset_keys).sum()
         assert timing_dupes_dataset == 0, (
             "task_timing_stats still has duplicate rows per dataset/task/run after "
             f"normalization. duplicate_count={timing_dupes_dataset}"
@@ -210,6 +242,10 @@ def choose_join_keys(df_ml, df_timing, df_cohensd):
         assert cohensd_dupes_dataset == 0, (
             "CohensD_ML still has duplicate rows per dataset/task/run after "
             f"normalization. duplicate_count={cohensd_dupes_dataset}"
+        )
+        assert tsnr_dupes_dataset == 0, (
+            "tsnr_summary_grouped still has duplicate rows per dataset/task/run after "
+            f"normalization. duplicate_count={tsnr_dupes_dataset}"
         )
         return dataset_keys
 
@@ -219,9 +255,10 @@ def choose_join_keys(df_ml, df_timing, df_cohensd):
     )
 
 
-def merge_with_checks(df_ml, df_timing, df_cohensd, join_keys):
+def merge_with_checks(df_ml, df_timing, df_cohensd, df_tsnr, join_keys):
     timing_cols = join_keys + TIMING_FEATURES
     cohensd_cols = join_keys + COHEN_FEATURES
+    tsnr_cols = join_keys + TSNR_FEATURES
 
     df_merged = df_ml.merge(
         df_timing[timing_cols],
@@ -248,6 +285,15 @@ def merge_with_checks(df_ml, df_timing, df_cohensd, join_keys):
         cohensd_unmatched == 0
     ), f"Could not match Cohen's D stats for {cohensd_unmatched} ML rows using keys {join_keys}"
     df_merged = df_merged.drop(columns=["cohensd_merge"])
+
+    # tSNR: left join — rows with no tSNR data (e.g. None-run datasets not in file)
+    # will have NaN, which is acceptable as specified.
+    df_merged = df_merged.merge(
+        df_tsnr[tsnr_cols],
+        on=join_keys,
+        how="left",
+        validate="many_to_one",
+    )
 
     return df_merged
 
@@ -278,6 +324,7 @@ def finalize_columns(df):
         "RDoC",
         *TIMING_FEATURES,
         *COHEN_FEATURES,
+        *TSNR_FEATURES,
         "dFC assessment method",
         "classifier model",
         "embedding",
@@ -317,11 +364,12 @@ def main():
     df_ml = prepare_ml_df(ml_scores_all)
     df_timing = prepare_timing_df(timing_dict)
     df_cohensd = prepare_cohensd_df(cohensd_dict)
+    df_tsnr = prepare_tsnr_df(paths["tsnr"])
 
-    join_keys = choose_join_keys(df_ml, df_timing, df_cohensd)
+    join_keys = choose_join_keys(df_ml, df_timing, df_cohensd, df_tsnr)
     print(f"Using join keys: {join_keys}")
 
-    df = merge_with_checks(df_ml, df_timing, df_cohensd, join_keys)
+    df = merge_with_checks(df_ml, df_timing, df_cohensd, df_tsnr, join_keys)
     df = add_rdoc(df, args.simul_or_real)
     df = finalize_columns(df)
 
