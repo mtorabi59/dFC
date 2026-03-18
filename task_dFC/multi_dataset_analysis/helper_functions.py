@@ -139,6 +139,7 @@ RDoC_MAP = {
             "axcpt": "Strong Performance on Real Data",
             "stern": "Strong Performance on Real Data",
             "cuedts": "Strong Performance on Real Data",
+            "stroop": "Strong Performance on Real Data",
             # Optimal Paradigm Design, Weak Performance on Real Data
             "execution": "Weak Performance on Real Data",
             "imagery": "Weak Performance on Real Data",
@@ -146,7 +147,6 @@ RDoC_MAP = {
             "ppalocalizer": "Weak Performance on Real Data",
             # Sub-Optimal Paradigm Design, Weak Performance on Real Data
             "itc": "Weak Performance on Real Data",
-            "stroop": "Weak Performance on Real Data",
             "risk": "Weak Performance on Real Data",
         },
     },
@@ -191,14 +191,14 @@ DEFAULT_EXPERIMENT_NAME_MAP = {
         "lowfreqshortrest": "EXP.S.30",
         "lowfreqshorttask": "EXP.S.31",
         "axcpt": "EXP.S.11",
-        "stern": "EXP.S.13",
         "cuedts": "EXP.S.12",
+        "stern": "EXP.S.13",
+        "stroop": "EXP.S.14",
         "execution": "EXP.S.15",
         "imagery": "EXP.S.16",
         "localizer": "EXP.S.27",
         "ppalocalizer": "EXP.S.2",
         "itc": "EXP.S.8",
-        "stroop": "EXP.S.14",
         "risk": "EXP.S.9",
     },
 }
