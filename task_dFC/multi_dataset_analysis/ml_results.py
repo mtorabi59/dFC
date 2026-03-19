@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.colors import to_rgba
+from matplotlib.ticker import PercentFormatter
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from helper_functions import (  # pyright: ignore[reportMissingImports]
@@ -40,6 +41,7 @@ TOP_EXPERIMENT_SHAPES = 3
 TOP_EXPERIMENT_MARKERS = ["*"]  # star for all top experiments
 COLOR_THRESHOLD = 60.0
 PER_METHOD_LABEL_SCORE_THRESHOLD = 55.0
+SIMULATED_METHOD_MEDIAN_ANNOTATION_THRESHOLD = 80.0
 NEUTRAL_COLOR = "#D49B9B"
 
 
@@ -386,14 +388,26 @@ def annotate_per_method_quartile(
     point_coordinates,
     method_order,
     colored_experiments,
+    metric,
+    simul_or_real,
     score_threshold=PER_METHOD_LABEL_SCORE_THRESHOLD,
 ):
     """
-    For each method, annotate points in the top quartile (>75th percentile)
-    if score > threshold. Position annotation left/right based on point position.
+    Default behavior:
+    - annotate colored experiments in top quartile and above score_threshold.
+
+    Simulated + non-SI override:
+    - if a method median is above SIMULATED_METHOD_MEDIAN_ANNOTATION_THRESHOLD,
+      annotate all experiments for that method.
     """
-    if not colored_experiments:
+    simulated_non_si = simul_or_real == "simulated" and metric != "SI"
+    if not colored_experiments and not simulated_non_si:
         return
+
+    simulated_median_threshold = convert_threshold_to_score_scale(
+        SIMULATED_METHOD_MEDIAN_ANNOTATION_THRESHOLD, metric
+    )
+
     xticks = ax.get_xticks()
     xticklabels = [t.get_text() for t in ax.get_xticklabels()]
     method_positions = {lab: xticks[i] for i, lab in enumerate(xticklabels)}
@@ -406,11 +420,14 @@ def annotate_per_method_quartile(
         scores = method_df["score"].values
         quartile_threshold = np.percentile(scores, 75)
 
-        qualify_rows = method_df[
-            method_df["experiment"].isin(colored_experiments)
-            & (method_df["score"] > score_threshold)
-            & (method_df["score"] >= quartile_threshold)
-        ]
+        if simulated_non_si and np.nanmedian(scores) > simulated_median_threshold:
+            qualify_rows = method_df
+        else:
+            qualify_rows = method_df[
+                method_df["experiment"].isin(colored_experiments)
+                & (method_df["score"] > score_threshold)
+                & (method_df["score"] >= quartile_threshold)
+            ]
 
         method_center = method_positions[method]
 
@@ -546,6 +563,8 @@ def plot_best_pointplot(
         point_coordinates,
         method_order,
         colored_experiments=colored_experiments,
+        metric=metric,
+        simul_or_real=simul_or_real,
         score_threshold=label_threshold,
     )
 
@@ -555,6 +574,7 @@ def plot_best_pointplot(
         ax.set_ylim(top=1.02)
     else:
         ax.set_ylim(0.48, 1.02)
+        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
     ax.grid(True, axis="y", color="#FFFFFF", alpha=0.85, linewidth=1.1)
     sns.despine(ax=ax, top=True, right=True)
     plt.setp(ax.get_xticklabels(), rotation=35, ha="right")
