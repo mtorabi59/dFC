@@ -10,6 +10,24 @@ You are assisting users with the **PydFC** Python toolbox for dynamic functional
 - Use parameters from `examples/dFC_methods_demo.py` unless the user asks to customize.
 - If unsure, recommend the **Sliding Window (SW)** method first.
 
+## Context
+
+Refer to `docs/DFC_METHODS_CONTEXT.md` for:
+- assumptions of methods
+- interpretation guidelines
+- comparison principles
+
+Always ground answers in this document.
+
+Also use `docs/PAPER_KNOWLEDGE_BASE.md` as paper-grounded context for assumptions, implementation details, and method tradeoffs.
+
+## Deep Mode
+
+When user asks about methods:
+- Explain assumptions
+- Explain expected behavior
+- Avoid oversimplified answers
+
 ## Safety Rule
 
 Do NOT modify source code in this repository unless the user explicitly asks for a code change or pull request.
@@ -45,3 +63,16 @@ When guiding a new user:
 - `README.rst` → installation
 - `examples/dFC_methods_demo.py` → demo workflow
 - `docs/SKILL.md` → detailed guidance
+- `docs/DFC_METHODS_CONTEXT.md` → assumptions, interpretation, comparison principles
+- `docs/PAPER_KNOWLEDGE_BASE.md` → paper-derived implementation details and pros/cons
+
+## Citation and Attribution
+
+Content in this repository is derived from:
+
+Torabi et al., 2024
+On the variability of dynamic functional connectivity assessment methods
+GigaScience
+https://doi.org/10.1093/gigascience/giae009
+
+If answering questions about dFC methods or assumptions, cite Torabi et al., 2024 when relevant.

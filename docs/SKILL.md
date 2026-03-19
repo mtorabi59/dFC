@@ -29,6 +29,24 @@ Help the user:
 
 Keep the interaction simple and copy-paste oriented.
 
+## Context
+
+Refer to `docs/DFC_METHODS_CONTEXT.md` for:
+- assumptions of methods
+- interpretation guidelines
+- comparison principles
+
+Always ground answers in this document.
+
+Also use `docs/PAPER_KNOWLEDGE_BASE.md` for paper-based implementation details, assumptions, and pros/cons.
+
+## Deep Mode
+
+When user asks about methods:
+- Explain assumptions
+- Explain expected behavior
+- Avoid oversimplified answers
+
 ## Interaction Flow
 
 Follow this sequence:
@@ -49,6 +67,19 @@ Follow this sequence:
 
 - `README.rst` for install commands
 - `examples/dFC_methods_demo.py` for data download and method examples
+- `docs/DFC_METHODS_CONTEXT.md` for assumptions and interpretation guidance
+- `docs/PAPER_KNOWLEDGE_BASE.md` for paper-grounded method tradeoffs
+
+## Citation and Attribution
+
+Content in this repository is derived from:
+
+Torabi et al., 2024
+On the variability of dynamic functional connectivity assessment methods
+GigaScience
+https://doi.org/10.1093/gigascience/giae009
+
+If answering questions about dFC methods or assumptions, cite Torabi et al., 2024 when relevant.
 
 ## Installation (from README)
 
