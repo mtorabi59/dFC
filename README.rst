@@ -59,17 +59,38 @@ If you use **GitHub Copilot** in VS Code or Visual Studio, you can access guided
 prompts that walk you through installing ``pydfc``, loading demo data, and running
 key dFC methods.
 
+The prompt set now includes a **paper-grounded deep mode** for method questions,
+so users can ask about assumptions, implementation details, expected behavior,
+and pros/cons with answers grounded in:
+
+- ``docs/DFC_METHODS_CONTEXT.md``
+- ``docs/PAPER_KNOWLEDGE_BASE.md``
+
 **How to use:**
 
 1. Open the repository in VS Code.
 2. Open *Copilot Chat*.
-3. Run one of the available prompts, for example::
+3. Type ``/`` and run one of the available prompts::
 
+       /00_prompts_index
        /01_install
-       /02_state_free_quickstart
-       /03_state_based_quickstart
-       /04_choose_method
-       /05_troubleshoot
+       /02_choose_method
+       /03_state_free_quickstart
+       /04_state_based_quickstart
+       /05_paper_method_qa
+       /06_troubleshoot
+
+4. Start with ``/00_prompts_index`` if you want a fast routing guide to choose
+   the best prompt for your goal.
+
+**What is new in this prompt experience:**
+
+- ``/02_choose_method`` now appears right after install, so users can pick a
+  method path early.
+- ``/05_paper_method_qa`` is dedicated to paper-based method Q&A.
+- ``/06_troubleshoot`` is now the final step in the sequence.
+- Method answers are configured for deeper, assumption-first explanations and
+  include citation guidance for Torabi et al., 2024 when relevant.
 
 These prompts provide a structured, step-by-step tutorial experience and generate
 copy-paste code tailored to common workflows.
@@ -85,6 +106,10 @@ includes guidance files designed for AI-assisted workflows:
 
 - ``docs/SKILL.md`` — comprehensive usage guidance and tutorial flow
 - ``agents.md`` — concise agent instructions (if present)
+- ``docs/DFC_METHODS_CONTEXT.md`` — assumptions, interpretation, and method
+  comparison principles
+- ``docs/PAPER_KNOWLEDGE_BASE.md`` — paper-grounded implementation notes,
+  expected behavior, and pros/cons
 
 You can point your AI assistant to these files or ask it to follow them when
 guiding you through ``pydfc``.
@@ -127,8 +152,10 @@ Recommended First Step
 If you are new to **pydfc**, we recommend starting with:
 
 1. ``examples/dFC_methods_demo.py``
-2. The Copilot prompt ``/02_state_free_quickstart`` (if available)
-3. Or the copy-paste method using ``docs/SKILL.md``
+2. The Copilot prompt ``/00_prompts_index`` to pick your path quickly
+3. The Copilot prompt ``/02_choose_method`` followed by
+   ``/03_state_free_quickstart`` (if available)
+4. Or the copy-paste method using ``docs/SKILL.md``
 
 This optional AI-assisted workflow is designed to complement — not replace —
 the documentation and example scripts.
