@@ -50,6 +50,12 @@ In addition to the example scripts and documentation, **pydfc** provides optiona
 AI-assisted learning workflows that can help you explore the toolbox, understand
 dynamic functional connectivity methods, and generate minimal working examples.
 
+If you are unsure which dFC method fits your analysis, or you are not sure how to
+start your journey with dFC assessment, we highly encourage trying the AI-assisted
+tutorial experience. It is designed to combine guidance from both the codebase and
+our paper, so you can move from first steps to informed method choices with more
+confidence.
+
 These options are entirely optional and do not affect the core functionality of the toolbox.
 
 Using GitHub Copilot Prompts
@@ -95,8 +101,8 @@ and pros/cons with answers grounded in:
 These prompts provide a structured, step-by-step tutorial experience and generate
 copy-paste code tailored to common workflows.
 
-We encourage users with Copilot access to try this interactive experience to
-quickly become familiar with the toolbox.
+If you have Copilot access, we strongly recommend this interactive path for a
+friendly and practical onboarding experience.
 
 Using Codex, Claude, or Other AI Coding Assistants
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
