@@ -8,6 +8,7 @@ from pydfc.ml_utils import find_available_subjects, load_dFC
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from helper_functions import (  # pyright: ignore[reportMissingImports]
+    build_experiment_display_info,
     figure_dfc_matrices_window_png,
 )
 
@@ -53,6 +54,12 @@ if __name__ == "__main__":
 
     if not os.path.exists(output_root):
         os.makedirs(output_root)
+
+    _, task_to_experiment, _, _ = build_experiment_display_info(
+        tasks_iterable=TASKS_to_include,
+        task_reference_order=TASKS_to_include,
+        simul_or_real=simul_or_real,
+    )
 
     for dataset in DATASETS:
         dataset_info_file = f"{main_root}/{dataset}/codes/dataset_info.json"
@@ -135,7 +142,11 @@ if __name__ == "__main__":
                 common_TRs,
                 window_len=10,
                 cmap="plasma",
-                outfile=f"{output_root}/dFC_{dataset}_{task}_mid_10.png",
+                outfile=(
+                    f"{output_root}/dFC_{dataset}_"
+                    f"{task_to_experiment.get(task, task).replace(' ', '_').replace('/', '-')}_"
+                    f"{task}_mid_10.png"
+                ),
                 dpi=600,
             )
 

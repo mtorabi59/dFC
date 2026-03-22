@@ -24,6 +24,7 @@ from helper_functions import (  # pyright: ignore[reportMissingImports]
     annotate_medians_by_geometry,
     annotate_medians_single_boxplot,
     as_long_df,
+    build_experiment_display_info,
     order_by_median_dict,
     setup_pub_style,
 )
@@ -215,6 +216,19 @@ if __name__ == "__main__":
 
     np.save(f"{output_root}/task_timing_stats_{simul_or_real}.npy", DATA)
 
+    all_tasks_present = sorted(
+        set(task_ratio_all)
+        | set(transition_freq_all)
+        | set(rest_durations_all)
+        | set(task_durations_all)
+        | set(OI_all)
+    )
+    _, task_to_experiment, _, _ = build_experiment_display_info(
+        tasks_iterable=all_tasks_present,
+        task_reference_order=TASKS_to_include,
+        simul_or_real=simul_or_real,
+    )
+
     # =========================
     # Paper-quality seaborn plots (patched)
     # =========================
@@ -242,8 +256,10 @@ if __name__ == "__main__":
     order_ratio, stats_ratio = order_by_median_dict(task_ratio_all, reverse=True)
     df_ratio = as_long_df(task_ratio_all, "task_ratio")
     df_ratio = df_ratio[df_ratio["task"].isin(order_ratio)]
-    df_ratio["task"] = pd.Categorical(
-        df_ratio["task"], categories=order_ratio, ordered=True
+    order_ratio_exp = [task_to_experiment[task] for task in order_ratio]
+    df_ratio["experiment"] = df_ratio["task"].map(task_to_experiment)
+    df_ratio["experiment"] = pd.Categorical(
+        df_ratio["experiment"], categories=order_ratio_exp, ordered=True
     )
 
     fig_w = max(15, 15 / 30 * len(order_ratio))
@@ -251,15 +267,15 @@ if __name__ == "__main__":
 
     ax = sns.boxplot(
         data=df_ratio,
-        x="task",
+        x="experiment",
         y="task_ratio",
-        order=order_ratio,
+        order=order_ratio_exp,
         width=0.6,
         linewidth=1,
         showfliers=False,
     )
 
-    ax.set_xlabel("Task paradigm")
+    ax.set_xlabel("Experiment")
     ax.set_ylabel("Task ratio")
     ax.set_ylim(0, 1)  # keep ratios bounded
 
@@ -267,9 +283,9 @@ if __name__ == "__main__":
     annotate_medians_single_boxplot(
         ax,
         df_ratio,
-        x_col="task",
+        x_col="experiment",
         y_col="task_ratio",
-        order=order_ratio,
+        order=order_ratio_exp,
         fmt="{:.2f}",
         box_alpha=0.6,
     )
@@ -295,31 +311,35 @@ if __name__ == "__main__":
     order_tf, stats_tf = order_by_median_dict(transition_freq_all, reverse=True)
     df_tf = as_long_df(transition_freq_all, "transition_freq")
     df_tf = df_tf[df_tf["task"].isin(order_tf)]
-    df_tf["task"] = pd.Categorical(df_tf["task"], categories=order_tf, ordered=True)
+    order_tf_exp = [task_to_experiment[task] for task in order_tf]
+    df_tf["experiment"] = df_tf["task"].map(task_to_experiment)
+    df_tf["experiment"] = pd.Categorical(
+        df_tf["experiment"], categories=order_tf_exp, ordered=True
+    )
 
     fig_w = max(15, 15 / 30 * len(order_tf))
     plt.figure(figsize=(fig_w, 6))
 
     ax = sns.boxplot(
         data=df_tf,
-        x="task",
+        x="experiment",
         y="transition_freq",
-        order=order_tf,
+        order=order_tf_exp,
         width=0.6,
         linewidth=1,
         showfliers=False,
     )
 
-    ax.set_xlabel("Task paradigm")
+    ax.set_xlabel("Experiment")
     ax.set_ylabel("Relative transition frequency")
 
     # annotate medians
     annotate_medians_single_boxplot(
         ax,
         df_tf,
-        x_col="task",
+        x_col="experiment",
         y_col="transition_freq",
-        order=order_tf,
+        order=order_tf_exp,
         fmt="{:.2f}",
         box_alpha=0.6,
     )
@@ -353,7 +373,11 @@ if __name__ == "__main__":
     # Order tasks by mean Task duration (change to Rest if you prefer)
     order_dur, _ = order_by_median_dict(task_durations_all, reverse=True)
     df_dur = df_dur[df_dur["task"].isin(order_dur)]
-    df_dur["task"] = pd.Categorical(df_dur["task"], categories=order_dur, ordered=True)
+    order_dur_exp = [task_to_experiment[task] for task in order_dur]
+    df_dur["experiment"] = df_dur["task"].map(task_to_experiment)
+    df_dur["experiment"] = pd.Categorical(
+        df_dur["experiment"], categories=order_dur_exp, ordered=True
+    )
 
     # ---- LOG display handling (avoid -inf for zeros) ----
     # pick an adaptive epsilon based on the smallest positive value
@@ -370,10 +394,10 @@ if __name__ == "__main__":
     # Boxplot on log scale (no fliers; jitters will show samples, incl. singletons)
     ax = sns.boxplot(
         data=df_dur,
-        x="task",
+        x="experiment",
         y="duration_plot",
         hue="state",
-        order=order_dur,
+        order=order_dur_exp,
         hue_order=["Rest", "Task"],
         linewidth=1,
         dodge=True,
@@ -388,10 +412,10 @@ if __name__ == "__main__":
     annotate_medians_by_geometry(
         ax=ax,
         df_long=df_dur,  # the DF you plotted
-        x_col="task",
+        x_col="experiment",
         hue_col="state",
         y_col="duration_plot",  # the epsilon-clipped column you used for plotting
-        x_order=order_dur,
+        x_order=order_dur_exp,
         hue_order=["Rest", "Task"],
         fmt="{:.0f}",
         y_nudge_factor=1.08,  # bump if labels sit on the line in log-space
@@ -414,7 +438,7 @@ if __name__ == "__main__":
     )
     ax.legend(handles_clean, labels_clean, title="", frameon=True, loc="upper right")
 
-    ax.set_xlabel("Task paradigm")
+    ax.set_xlabel("Experiment")
     ax.set_ylabel("Duration (sec, log scale)")
 
     for label in ax.get_xticklabels():
@@ -439,31 +463,35 @@ if __name__ == "__main__":
     order_oi, stats_oi = order_by_median_dict(OI_all, reverse=True)
     df_oi = as_long_df(OI_all, "OI_avg")
     df_oi = df_oi[df_oi["task"].isin(order_oi)]
-    df_oi["task"] = pd.Categorical(df_oi["task"], categories=order_oi, ordered=True)
+    order_oi_exp = [task_to_experiment[task] for task in order_oi]
+    df_oi["experiment"] = df_oi["task"].map(task_to_experiment)
+    df_oi["experiment"] = pd.Categorical(
+        df_oi["experiment"], categories=order_oi_exp, ordered=True
+    )
 
     fig_w = max(15, 15 / 30 * len(order_oi))
     plt.figure(figsize=(fig_w, 6))
 
     ax = sns.boxplot(
         data=df_oi,
-        x="task",
+        x="experiment",
         y="OI_avg",
-        order=order_oi,
+        order=order_oi_exp,
         width=0.6,
         linewidth=1,
         showfliers=False,
     )
 
-    ax.set_xlabel("Task paradigm")
+    ax.set_xlabel("Experiment")
     ax.set_ylabel("Optimality Index")
 
     # annotate medians
     annotate_medians_single_boxplot(
         ax,
         df_oi,
-        x_col="task",
+        x_col="experiment",
         y_col="OI_avg",
-        order=order_oi,
+        order=order_oi_exp,
         fmt="{:.2f}",
         box_alpha=0.6,
     )

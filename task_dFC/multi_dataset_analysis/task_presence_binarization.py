@@ -1,12 +1,18 @@
 import argparse
 import json
 import os
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from pydfc.ml_utils import find_available_subjects, load_task_data
 from pydfc.task_utils import extract_task_presence
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from helper_functions import (  # pyright: ignore[reportMissingImports]
+    build_experiment_display_info,
+)
 
 #######################################################################################
 
@@ -48,6 +54,12 @@ if __name__ == "__main__":
 
     if not os.path.exists(output_root):
         os.makedirs(output_root)
+
+    _, task_to_experiment, _, _ = build_experiment_display_info(
+        tasks_iterable=TASKS_to_include,
+        task_reference_order=TASKS_to_include,
+        simul_or_real=simul_or_real,
+    )
 
     for dataset in DATASETS:
         print(f"Processing dataset: {dataset}")
@@ -200,8 +212,11 @@ if __name__ == "__main__":
                 plt.gca().set_xticklabels(time_labels, fontsize=50)
                 plt.xlabel("Time (sec)", fontsize=60)
 
+                experiment_label = task_to_experiment.get(task, task)
+                experiment_key = str(experiment_label).replace(" ", "_").replace("/", "-")
+
                 plt.savefig(
-                    f"{output_root}/task_timing_{task}.png",
+                    f"{output_root}/task_timing_{experiment_key}_{task}.png",
                     dpi=120,
                     bbox_inches="tight",
                     pad_inches=0.1,
@@ -209,7 +224,7 @@ if __name__ == "__main__":
                 )
                 if task == "task-Localizer":
                     plt.savefig(
-                        f"{output_root}/task_timing_{task}.svg",
+                        f"{output_root}/task_timing_{experiment_key}_{task}.svg",
                         dpi=120,
                         bbox_inches="tight",
                         pad_inches=0.1,

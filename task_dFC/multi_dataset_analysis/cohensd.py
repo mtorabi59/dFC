@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -12,6 +13,11 @@ from nilearn import datasets, plotting
 from pydfc import data_loader
 from pydfc.ml_utils import find_available_subjects, load_task_data
 from pydfc.task_utils import cohen_d_bold, extract_task_presence
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from helper_functions import (  # pyright: ignore[reportMissingImports]
+    build_experiment_display_info,
+)
 
 #######################################################################################
 
@@ -315,6 +321,13 @@ if __name__ == "__main__":
     # Build dataframe if not already done
     DF = pd.DataFrame.from_dict(CohensD_across_task)
 
+    task_order_reference, task_to_experiment, _, _ = build_experiment_display_info(
+        tasks_iterable=DF["task"].unique().tolist(),
+        task_reference_order=TASKS_to_include,
+        simul_or_real=simul_or_real,
+    )
+    DF["experiment"] = DF["task"].map(task_to_experiment)
+
     # Use absolute Cohen's d
     DF["abs_d"] = DF["d_values"].abs()
 
@@ -326,6 +339,8 @@ if __name__ == "__main__":
         .reset_index(name="abs_max")
     )
     task_order = max_abs_per_task["task"].tolist()
+    experiment_order = [task_to_experiment[task] for task in task_order]
+    max_abs_per_task["experiment"] = max_abs_per_task["task"].map(task_to_experiment)
 
     # Dynamic width so labels don't collide (0.6 inch per task, min 14 inches)
     fig_width = max(14, 0.6 * len(task_order))
@@ -335,15 +350,20 @@ if __name__ == "__main__":
 
     # Boxplot (hide outliers to avoid double-plotting with the samples)
     ax = sns.boxplot(
-        data=DF, x="task", y="abs_d", order=task_order, showfliers=False, width=0.6
+        data=DF,
+        x="experiment",
+        y="abs_d",
+        order=experiment_order,
+        showfliers=False,
+        width=0.6,
     )
 
     # Overlay individual samples (one point per ROI sample)
     sns.stripplot(
         data=DF,
-        x="task",
+        x="experiment",
         y="abs_d",
-        order=task_order,
+        order=experiment_order,
         dodge=False,
         jitter=0.25,
         size=2,
@@ -351,7 +371,7 @@ if __name__ == "__main__":
         ax=ax,
     )
 
-    ax.set_xlabel("Task")
+    ax.set_xlabel("Experiment")
     ax.set_ylabel("|Cohen's d|")
     ax.set_ylim(bottom=0)
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
@@ -369,7 +389,12 @@ if __name__ == "__main__":
     # -------- Figure 2: Max |Cohen's d| across ROIs per task --------
     plt.figure(figsize=(fig_width, 6))
 
-    ax = sns.barplot(data=max_abs_per_task, x="task", y="abs_max", order=task_order)
+    ax = sns.barplot(
+        data=max_abs_per_task,
+        x="experiment",
+        y="abs_max",
+        order=experiment_order,
+    )
 
     # Optional: annotate bars with values (trim to 2 decimals)
     for p in ax.patches:
@@ -384,7 +409,7 @@ if __name__ == "__main__":
             fontsize=8,
         )
 
-    ax.set_xlabel("Task")
+    ax.set_xlabel("Experiment")
     ax.set_ylabel("Max |Cohen's d|")
     ax.set_ylim(bottom=0)
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
