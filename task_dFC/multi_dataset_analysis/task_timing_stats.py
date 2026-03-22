@@ -479,14 +479,7 @@ if __name__ == "__main__":
         order=order_oi_exp,
         width=0.6,
         linewidth=1,
-        showfliers=True,
-        flierprops={
-            "marker": "o",
-            "markersize": 3.5,
-            "alpha": 0.65,
-            "markerfacecolor": "#444444",
-            "markeredgecolor": "#444444",
-        },
+        showfliers=False,
     )
 
     ax.set_xlabel("Experiment")

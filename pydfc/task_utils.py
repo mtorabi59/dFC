@@ -792,7 +792,7 @@ def compute_optimality_index(
         OI_norm = 0.0
     else:
         OI_norm = OI / OI_ideal
-        OI_norm = max(0.0, min(1.0, float(OI_norm)))  # clamp to [0,1]
+        # OI_norm = max(0.0, min(1.0, float(OI_norm)))  # clamp to [0,1]
 
     return {
         "OI": float(OI),
