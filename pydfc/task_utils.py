@@ -696,10 +696,11 @@ def compute_optimality_index(
     """
 
     # -------------------------
-    # 1. Preprocess Task Timing
+    # 1. Preprocess Task Timing (remove DC)
     # -------------------------
     task_tc = np.multiply(event_labels != 0, 1).astype(float).flatten()
     T = len(task_tc)
+    task_tc_centered = task_tc - np.mean(task_tc)
 
     # -------------------------
     # 2. HRF Model
@@ -729,7 +730,7 @@ def compute_optimality_index(
     # -------------------------
     # 4. FFT-based spectra
     # -------------------------
-    design_spectrum = np.abs(np.fft.rfft(task_tc)) ** 2
+    design_spectrum = np.abs(np.fft.rfft(task_tc_centered)) ** 2
     hrf_spectrum = np.abs(np.fft.rfft(hrf_tc)) ** 2
 
     # -------------------------
@@ -738,7 +739,11 @@ def compute_optimality_index(
     if fmax is None:
         fmax = 0.5 / TR_task
 
-    mask = (freqs >= fmin) & (freqs <= fmax)
+    # Exclude DC explicitly by requiring a strictly positive lower bound.
+    min_positive_freq = 1.0 / (T * TR_task)
+    effective_fmin = max(float(fmin), min_positive_freq)
+
+    mask = (freqs >= effective_fmin) & (freqs <= fmax)
     freqs_m = freqs[mask]
     design_spectrum_m = design_spectrum[mask]
     hrf_spectrum_m = hrf_spectrum[mask]
@@ -756,9 +761,7 @@ def compute_optimality_index(
     # 7. IDEAL OI (sinusoid at peak frequency)
     # -------------------------
 
-    # Remove DC by ignoring freq = 0
-    nonzero_mask = freqs_m > 0
-    if not np.any(nonzero_mask):
+    if freqs_m.size == 0:
         # no nonzero frequencies in the band
         return {
             "OI": float(OI),
@@ -767,19 +770,25 @@ def compute_optimality_index(
             "peak_freq": 0.0,
         }
 
-    freqs_nz = freqs_m[nonzero_mask]
-    design_spectrum_nz = design_spectrum_m[nonzero_mask]
-
-    # Find dominant non-DC frequency
-    peak_idx = np.argmax(design_spectrum_nz)
-    peak_freq = freqs_nz[peak_idx]
+    # Find dominant frequency in the positive-frequency analysis band.
+    peak_idx = np.argmax(design_spectrum_m)
+    peak_freq = freqs_m[peak_idx]
 
     # Build ideal sinusoid
     t = np.arange(T) * TR_task
     ideal_tc = np.sin(2 * np.pi * peak_freq * t)
+    ideal_tc_centered = ideal_tc - np.mean(ideal_tc)
+
+    # Match total time-domain power between ideal and task before FFT.
+    task_power = float(np.sum(task_tc_centered**2))
+    ideal_power = float(np.sum(ideal_tc_centered**2))
+    if ideal_power > eps and task_power > 0.0:
+        ideal_tc_centered = ideal_tc_centered * np.sqrt(task_power / ideal_power)
+    else:
+        ideal_tc_centered = np.zeros_like(ideal_tc_centered)
 
     # FFT of ideal design
-    ideal_spectrum = np.abs(np.fft.rfft(ideal_tc)) ** 2
+    ideal_spectrum = np.abs(np.fft.rfft(ideal_tc_centered)) ** 2
     ideal_spectrum_m = ideal_spectrum[mask]
 
     # Ideal OI
