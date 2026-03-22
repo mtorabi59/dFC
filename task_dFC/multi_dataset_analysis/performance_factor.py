@@ -28,6 +28,7 @@ CLASSIFIER_METRIC_MAP = {
 TIMING_FEATURES = [
     "task_ratio_avg",
     "transition_freq_avg",
+    "OI_avg",
     "rest_durations_median",
     "task_durations_median",
     "rest_durations_iqr",

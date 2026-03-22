@@ -15,6 +15,7 @@ from pydfc.task_utils import (
     calc_rest_duration,
     calc_task_duration,
     calc_transition_freq,
+    compute_optimality_index,
     extract_task_presence,
 )
 
@@ -76,6 +77,7 @@ if __name__ == "__main__":
     transition_freq_all = {}
     rest_durations_all = {}
     task_durations_all = {}
+    OI_all = {}
     DATA = {
         "task": [],
         "run": [],
@@ -86,6 +88,7 @@ if __name__ == "__main__":
         "task_durations_median": [],
         "rest_durations_iqr": [],
         "task_durations_iqr": [],
+        "OI_avg": [],
     }
     for dataset in DATASETS:
 
@@ -124,6 +127,7 @@ if __name__ == "__main__":
                     transition_freq_run = []
                     rest_durations_run = []
                     task_durations_run = []
+                    OI_run = []
 
                     SUBJECTS = find_subj_list(roi_root)
                     # print(f"Number of subjects: {len(SUBJECTS)}")
@@ -162,11 +166,19 @@ if __name__ == "__main__":
                         task_durations = calc_task_duration(
                             event_labels, TR_mri=1 / task_data["Fs_task"]
                         )
+                        # calculate Optimality Index
+                        out = compute_optimality_index(
+                            event_labels=event_labels,
+                            TR_task=1 / task_data["Fs_task"],
+                            TR_mri=task_data["TR_mri"],
+                        )
+                        OI = out["OI_norm"]
 
                         task_ratio_run.append(relative_task_on)
                         transition_freq_run.append(relative_transition_freq)
                         rest_durations_run.extend(rest_durations)
                         task_durations_run.extend(task_durations)
+                        OI_run.append(OI)
 
                     # Aggregate stats across runs for this task and store in the all-run dictionaries for later plotting
                     if not task in task_ratio_all:
@@ -177,10 +189,13 @@ if __name__ == "__main__":
                         rest_durations_all[task] = []
                     if not task in task_durations_all:
                         task_durations_all[task] = []
+                    if not task in OI_all:
+                        OI_all[task] = []
                     task_ratio_all[task].extend(task_ratio_run)
                     transition_freq_all[task].extend(transition_freq_run)
                     rest_durations_all[task].extend(rest_durations_run)
                     task_durations_all[task].extend(task_durations_run)
+                    OI_all[task].extend(OI_run)
 
                     # Aggregate run-level stats for this task and store in DATA for potential further analysis
                     DATA["task"].append(task)
@@ -196,6 +211,7 @@ if __name__ == "__main__":
                     iqr_task = q75_task - q25_task
                     DATA["rest_durations_iqr"].append(iqr_rest)
                     DATA["task_durations_iqr"].append(iqr_task)
+                    DATA["OI_avg"].append(np.nanmean(OI_run))
 
     np.save(f"{output_root}/task_timing_stats_{simul_or_real}.npy", DATA)
 
@@ -416,4 +432,57 @@ if __name__ == "__main__":
         pad_inches=fig_pad,
     )
     plt.close()
+
+    # ======================================
+    # 4) Optimality Index (sorted by median) — BOX PLOT + median labels
+    # ======================================
+    order_oi, stats_oi = order_by_median_dict(OI_all, reverse=True)
+    df_oi = as_long_df(OI_all, "OI_avg")
+    df_oi = df_oi[df_oi["task"].isin(order_oi)]
+    df_oi["task"] = pd.Categorical(df_oi["task"], categories=order_oi, ordered=True)
+
+    fig_w = max(15, 15 / 30 * len(order_oi))
+    plt.figure(figsize=(fig_w, 6))
+
+    ax = sns.boxplot(
+        data=df_oi,
+        x="task",
+        y="OI_avg",
+        order=order_oi,
+        width=0.6,
+        linewidth=1,
+        showfliers=False,
+    )
+
+    ax.set_xlabel("Task paradigm")
+    ax.set_ylabel("Optimality Index")
+
+    # annotate medians
+    annotate_medians_single_boxplot(
+        ax,
+        df_oi,
+        x_col="task",
+        y_col="OI_avg",
+        order=order_oi,
+        fmt="{:.2f}",
+        box_alpha=0.6,
+    )
+
+    for label in ax.get_xticklabels():
+        label.set_rotation(65)
+        label.set_horizontalalignment("right")
+        label.set_fontweight("bold")
+    if show_title:
+        ax.set_title(
+            "Optimality Index per task (box + samples, ordered by median)", pad=12
+        )
+
+    plt.tight_layout()
+    plt.savefig(
+        f"{output_root}/optimality_index_{simul_or_real}.{save_fig_format}",
+        bbox_inches=fig_bbox_inches,
+        pad_inches=fig_pad,
+    )
+    plt.close()
+
     # =========================================================
