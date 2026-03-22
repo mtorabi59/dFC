@@ -89,7 +89,7 @@ if __name__ == "__main__":
         "task_durations_median": [],
         "rest_durations_iqr": [],
         "task_durations_iqr": [],
-        "OI_avg": [],
+        "OI_median": [],
     }
     for dataset in DATASETS:
 
@@ -212,7 +212,7 @@ if __name__ == "__main__":
                     iqr_task = q75_task - q25_task
                     DATA["rest_durations_iqr"].append(iqr_rest)
                     DATA["task_durations_iqr"].append(iqr_task)
-                    DATA["OI_avg"].append(np.nanmean(OI_run))
+                    DATA["OI_median"].append(np.nanmedian(OI_run))
 
     np.save(f"{output_root}/task_timing_stats_{simul_or_real}.npy", DATA)
 
@@ -479,11 +479,23 @@ if __name__ == "__main__":
         order=order_oi_exp,
         width=0.6,
         linewidth=1,
-        showfliers=False,
+        showfliers=True,
+        flierprops={
+            "marker": "o",
+            "markersize": 3.5,
+            "alpha": 0.65,
+            "markerfacecolor": "#444444",
+            "markeredgecolor": "#444444",
+        },
     )
 
     ax.set_xlabel("Experiment")
     ax.set_ylabel("Optimality Index")
+    oi_max = float(np.nanmax(df_oi["OI_avg"]))
+    oi_min = float(np.nanmin(df_oi["OI_avg"]))
+    if np.isfinite(oi_max) and np.isfinite(oi_min):
+        y_pad = max(0.03 * (oi_max - oi_min), 0.02)
+        ax.set_ylim(oi_min - y_pad, oi_max + y_pad)
 
     # annotate medians
     annotate_medians_single_boxplot(
