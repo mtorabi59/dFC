@@ -682,8 +682,10 @@ def compute_optimality_index(
     event_labels, TR_task, TR_mri, fmin=0.0, fmax=None, alpha=1.0
 ):
     """
-    Compute a Worsley-style optimality index (OI) and normalized OI
-    relative to an ideal sinusoidal design at the dominant frequency.
+    Compute a Worsley-style optimality index (OI) and normalized OI.
+
+    OI_norm is normalized by a theoretical in-band upper bound,
+    ensuring OI_norm <= 1 without hard clipping.
 
     Returns:
     --------
@@ -758,7 +760,7 @@ def compute_optimality_index(
     OI = np.sum(design_spectrum_m * snr_weight)
 
     # -------------------------
-    # 7. IDEAL OI (sinusoid at peak frequency)
+    # 7. IDEAL OI UPPER BOUND
     # -------------------------
 
     if freqs_m.size == 0:
@@ -770,29 +772,15 @@ def compute_optimality_index(
             "peak_freq": 0.0,
         }
 
-    # Find dominant frequency in the positive-frequency analysis band.
+    # Report dominant task frequency for interpretability.
     peak_idx = np.argmax(design_spectrum_m)
     peak_freq = freqs_m[peak_idx]
 
-    # Build ideal sinusoid
-    t = np.arange(T) * TR_task
-    ideal_tc = np.sin(2 * np.pi * peak_freq * t)
-    ideal_tc_centered = ideal_tc - np.mean(ideal_tc)
-
-    # Match total time-domain power between ideal and task before FFT.
-    task_power = float(np.sum(task_tc_centered**2))
-    ideal_power = float(np.sum(ideal_tc_centered**2))
-    if ideal_power > eps and task_power > 0.0:
-        ideal_tc_centered = ideal_tc_centered * np.sqrt(task_power / ideal_power)
-    else:
-        ideal_tc_centered = np.zeros_like(ideal_tc_centered)
-
-    # FFT of ideal design
-    ideal_spectrum = np.abs(np.fft.rfft(ideal_tc_centered)) ** 2
-    ideal_spectrum_m = ideal_spectrum[mask]
-
-    # Ideal OI
-    OI_ideal = np.sum(ideal_spectrum_m * snr_weight)
+    # Theoretical in-band upper bound for weighted spectral sum:
+    #   sum(d_i * w_i) <= max(w_i) * sum(d_i), with d_i >= 0.
+    design_band_power = float(np.sum(design_spectrum_m))
+    max_weight = float(np.max(snr_weight)) if snr_weight.size > 0 else 0.0
+    OI_ideal = design_band_power * max_weight
 
     # -------------------------
     # 8. Normalized OI
