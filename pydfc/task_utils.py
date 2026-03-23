@@ -684,8 +684,9 @@ def compute_optimality_index(
     """
     Compute a Worsley-style optimality index (OI) and normalized OI.
 
-    OI_norm is normalized by a theoretical in-band upper bound,
-    ensuring OI_norm <= 1 without hard clipping.
+    Uses HRF spectrum as the weighting term (no explicit noise model).
+    OI_norm compares the observed design to an ideal sinusoid with
+    matched in-band power placed at the optimal frequency.
 
     Returns:
     --------
@@ -698,16 +699,16 @@ def compute_optimality_index(
     """
 
     # -------------------------
-    # 1. Preprocess Task Timing (remove DC)
+    # 1. Preprocess task timing
     # -------------------------
     task_tc = np.multiply(event_labels != 0, 1).astype(float).flatten()
     T = len(task_tc)
-    task_tc_centered = task_tc - np.mean(task_tc)
 
     # -------------------------
     # 2. HRF Model
     # -------------------------
-    time_length_HRF = 32.0
+    # same length as our task
+    time_length_HRF = T * TR_task
     oversampling = TR_mri / TR_task
 
     hrf_tc = glm.first_level.spm_hrf(
@@ -726,13 +727,10 @@ def compute_optimality_index(
     # -------------------------
     freqs = np.fft.rfftfreq(T, d=TR_task)
 
-    # simple 1/f^alpha noise
-    noise_psd = (freqs + 1e-6) ** (-alpha)
-
     # -------------------------
     # 4. FFT-based spectra
     # -------------------------
-    design_spectrum = np.abs(np.fft.rfft(task_tc_centered)) ** 2
+    design_spectrum = np.abs(np.fft.rfft(task_tc)) ** 2
     hrf_spectrum = np.abs(np.fft.rfft(hrf_tc)) ** 2
 
     # -------------------------
@@ -741,18 +739,13 @@ def compute_optimality_index(
     if fmax is None:
         fmax = 0.5 / TR_task
 
-    # Exclude DC explicitly by requiring a strictly positive lower bound.
-    min_positive_freq = 1.0 / (T * TR_task)
-    effective_fmin = max(float(fmin), min_positive_freq)
-
-    mask = (freqs >= effective_fmin) & (freqs <= fmax)
+    mask = (freqs >= float(fmin)) & (freqs <= fmax)
     freqs_m = freqs[mask]
     design_spectrum_m = design_spectrum[mask]
     hrf_spectrum_m = hrf_spectrum[mask]
-    noise_psd_m = noise_psd[mask]
 
     eps = 1e-12
-    snr_weight = hrf_spectrum_m / (noise_psd_m + eps)
+    snr_weight = hrf_spectrum_m
 
     # -------------------------
     # 6. ORIGINAL (TASK) OI
@@ -789,7 +782,6 @@ def compute_optimality_index(
         OI_norm = 0.0
     else:
         OI_norm = OI / OI_ideal
-        # OI_norm = max(0.0, min(1.0, float(OI_norm)))  # clamp to [0,1]
 
     return {
         "OI": float(OI),
