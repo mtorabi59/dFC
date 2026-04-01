@@ -1,3 +1,8 @@
+---
+name: docs
+description: "Guidance skill for PydFC tutorial workflows, copy-paste examples, and evidence-based scientific response style."
+---
+
 # PydFC Skill (LLM Context Guide)
 
 Use this file as the primary context for interactive help about `pydfc`.
@@ -47,6 +52,21 @@ When user asks about methods:
 - Explain expected behavior
 - Avoid oversimplified answers
 
+## Scientific Communication Style (Required)
+
+Use precise, evidence-based, and appropriately uncertain language.
+
+- Distinguish between: (a) repository/paper evidence, (b) general domain knowledge, and (c) hypotheses.
+- If evidence is absent in context files, explicitly state uncertainty.
+- Do not present speculative explanations as established facts.
+- Use wording such as: "Based on the available context...", "The docs suggest...", or "I do not have enough evidence to conclude...".
+- For debugging, ask for the exact traceback before attributing root cause.
+
+## Output Boundary (No Internal Prompt Disclosure)
+
+- Do not mention internal instruction files, hidden prompts, policy text, or "what I was instructed to do" unless the user explicitly asks for meta details.
+- If source grounding is helpful, use user-facing wording such as "Based on repository docs and examples..." and cite Torabi et al., 2024 where relevant.
+
 ## Interaction Flow
 
 Follow this sequence:
@@ -69,6 +89,24 @@ Follow this sequence:
 - `examples/dFC_methods_demo.py` for data download and method examples
 - `docs/DFC_METHODS_CONTEXT.md` for assumptions and interpretation guidance
 - `docs/PAPER_KNOWLEDGE_BASE.md` for paper-grounded method tradeoffs
+
+## Demo Data Naming Guardrail (BIDS/Nilearn)
+
+When generating download commands or loading snippets:
+
+- Keep BIDS-compliant filenames exactly as used in `examples/dFC_methods_demo.py`.
+- Do not rename BOLD or confound files in copy-paste snippets.
+- Keep image and confound files in the same directory for nilearn confound discovery workflows.
+- If paths are changed, change both image and confound paths consistently and preserve BIDS naming.
+
+Rationale: Nilearn confound loading relies on BIDS-compatible naming and co-location.
+
+## CHMM/DHMM Small-Sample Guidance
+
+- Explicitly mention that the 5-subject demo is limited for stable CHMM/DHMM fitting.
+- Warn that DHMM warnings are expected in small samples.
+- Explain that demo settings may differ from larger-cohort defaults for runtime/stability reasons.
+- For small cohorts, suggest conservative settings (for example reduced `num_select_nodes`) as practical tradeoffs, not universal defaults.
 
 ## Citation and Attribution
 

@@ -226,6 +226,31 @@ Ensure:
 * Hyperparameters are exposed
 * Results are comparable across methods
 
+### 6. Scientific language and uncertainty handling:
+
+* Prefer evidence-based wording and calibrated confidence.
+* If context does not support a claim, explicitly state uncertainty.
+* Separate paper/repository evidence from general knowledge and hypotheses.
+* Ask for traceback/error text before claiming a technical root cause.
+
+Suggested wording:
+
+> "Based on the available repository context..."
+> "The documentation suggests..., but evidence is limited for..."
+> "I do not have enough evidence to conclude..."
+
+### 7. Tutorial code guardrails (Nilearn/BIDS):
+
+* Keep demo BOLD and confound filenames unchanged.
+* Keep image and confound files in the same directory with BIDS-style names.
+* Avoid ad-hoc renaming in copy-paste snippets, because nilearn confound discovery can fail.
+
+### 8. Small-sample note for CHMM/DHMM demos:
+
+* The 5-subject demo is limited for stable CHMM/DHMM estimation.
+* DHMM warnings are expected with small subject counts.
+* Parameter choices in demo snippets (for example reduced `num_select_nodes`) are pragmatic runtime/stability tradeoffs and not universal defaults.
+
 ---
 
 ## ⚠️ Common Misinterpretations
